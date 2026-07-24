@@ -65,22 +65,29 @@ export async function POST(req: NextRequest) {
       return bScore - aScore;
     });
 
-    // PROMPT tailored to user's exact difficulty and count choices
+    // PROMPT tailored to deep notes with examples and advanced hard-mode scenarios
     const prompt = `Review the material from "${fileName || "Uploaded Files"}".
 Extracted Content:
 """${text.slice(0, 12000)}"""
 
 Instructions:
-Generate exactly ${requestedCount} multiple-choice questions specifically at the "${difficulty}" difficulty level.
-Return a SINGLE valid JSON object. Do not wrap in markdown or backticks.
+1. Generate detailed, comprehensive notes that are extremely easy for students to understand. Include clear explanations and practical examples derived STRICTLY from the file content.
+2. Generate exactly ${requestedCount} multiple-choice questions at the "${difficulty}" difficulty level.
+
+IMPORTANT RULES FOR QUESTIONS:
+- If difficulty is "hard", DO NOT ask simple recall or definition questions. Make the questions significantly harder by turning them into complex scenario-based, analytical, or multi-step logic problems that require critical thinking to solve.
+- Return a SINGLE valid JSON object. Do not wrap in markdown or backticks.
 
 {
   "summary": "Concise 2 sentence overview.",
-  "notes": ["Key point 1", "Key point 2"],
+  "notes": [
+    "Detailed note 1 with a clear explanation and example.",
+    "Detailed note 2 with a clear explanation and example."
+  ],
   "questions": [
     {
       "id": "q1",
-      "question": "Question string?",
+      "question": "Scenario or logic-based question string?",
       "options": {
         "A": "Option 1",
         "B": "Option 2",
@@ -88,8 +95,8 @@ Return a SINGLE valid JSON object. Do not wrap in markdown or backticks.
         "D": "Option 4"
       },
       "correctAnswer": "A",
-      "explanation": "Detailed explanation.",
-      "sourceCitation": "Short quote",
+      "explanation": "Detailed breakdown explaining why this choice is correct through logical reasoning.",
+      "sourceCitation": "Short quote from text",
       "pageNumber": "1"
     }
   ]

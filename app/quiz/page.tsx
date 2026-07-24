@@ -5,7 +5,7 @@ import { useRouter } from "next/navigation";
 import QuizCard from "@/components/QuizCard";
 import PremiumModal from "@/components/PremiumModal";
 import { useAppStore } from "@/lib/store";
-import { CheckCircle, RotateCcw, ArrowLeft } from "lucide-react";
+import { CheckCircle, RotateCcw, ArrowLeft, BookOpen } from "lucide-react";
 
 export default function QuizPage() {
   const [content, setContent] = useState<any>(null);
@@ -27,7 +27,6 @@ export default function QuizPage() {
 
   if (!content) return null;
 
-  // Support both old structure (content.questions[difficulty]) and new flat array (content.questions)
   const questions = Array.isArray(content.questions) 
     ? content.questions 
     : (content.questions[content.difficulty || "easy"] || []);
@@ -86,25 +85,44 @@ export default function QuizPage() {
             </button>
           </div>
         ) : isFinished ? (
-          <div className="bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-800 rounded-3xl p-10 text-center space-y-6 shadow-sm">
-            <div className="w-16 h-16 bg-emerald-100 dark:bg-emerald-950/50 text-emerald-600 dark:text-emerald-400 rounded-full flex items-center justify-center mx-auto">
-              <CheckCircle className="w-8 h-8" />
+          <div className="space-y-8">
+            <div className="bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-800 rounded-3xl p-10 text-center space-y-6 shadow-sm">
+              <div className="w-16 h-16 bg-emerald-100 dark:bg-emerald-950/50 text-emerald-600 dark:text-emerald-400 rounded-full flex items-center justify-center mx-auto">
+                <CheckCircle className="w-8 h-8" />
+              </div>
+              <h2 className="text-2xl font-black text-slate-900 dark:text-white">Quiz Completed!</h2>
+              <p className="text-slate-600 dark:text-slate-400">
+                You scored <span className="font-bold text-indigo-600 dark:text-indigo-400">{score}</span> out of <span className="font-bold">{questions.length}</span> correct.
+              </p>
+              <button
+                onClick={() => { setIndex(0); setScore(0); setIsFinished(false); }}
+                className="inline-flex items-center gap-2 px-6 py-3 bg-indigo-600 text-white rounded-xl font-bold hover:bg-indigo-700 transition-all shadow-md"
+              >
+                <RotateCcw className="w-4 h-4" /> Try Again
+              </button>
             </div>
-            <h2 className="text-2xl font-black text-slate-900 dark:text-white">Quiz Completed!</h2>
-            <p className="text-slate-600 dark:text-slate-400">
-              You scored <span className="font-bold text-indigo-600 dark:text-indigo-400">{score}</span> out of <span className="font-bold">{questions.length}</span> correct.
-            </p>
-            <button
-              onClick={() => { setIndex(0); setScore(0); setIsFinished(false); }}
-              className="inline-flex items-center gap-2 px-6 py-3 bg-indigo-600 text-white rounded-xl font-bold hover:bg-indigo-700 transition-all"
-            >
-              <RotateCcw className="w-4 h-4" /> Try Again
-            </button>
+
+            {/* Notes are revealed ONLY after finishing the quiz to prevent cheating */}
+            <div className="bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-800 rounded-3xl p-8 shadow-sm">
+              <div className="flex items-center gap-2 mb-4 text-indigo-600 dark:text-indigo-400">
+                <BookOpen className="w-5 h-5" />
+                <h2 className="text-xl font-black text-slate-900 dark:text-white">Detailed Study Notes</h2>
+              </div>
+              <ul className="space-y-4 text-sm md:text-base text-slate-700 dark:text-slate-300">
+                {content.notes?.map((n: string, i: number) => (
+                  <li key={i} className="flex gap-3 bg-slate-50 dark:bg-slate-800/50 p-4 rounded-xl border border-slate-100 dark:border-slate-800">
+                    <span className="text-indigo-500 dark:text-indigo-400 font-bold">•</span>
+                    <span className="leading-relaxed">{n}</span>
+                  </li>
+                ))}
+              </ul>
+            </div>
           </div>
         ) : current ? (
           <div>
             <div className="flex justify-between items-center mb-3 text-xs font-bold text-slate-400 uppercase tracking-wider">
               <span>Question {index + 1} of {questions.length}</span>
+              <span className="text-rose-500 dark:text-rose-400 font-semibold">🔒 Notes hidden during quiz</span>
             </div>
             <QuizCard item={current} difficulty={content.difficulty || "easy"} onResult={handleResult} />
           </div>
@@ -113,19 +131,6 @@ export default function QuizPage() {
             No questions available.
           </p>
         )}
-      </div>
-
-      {/* Notes Section */}
-      <div className="mt-12 pt-8 border-t border-slate-200 dark:border-slate-800">
-        <p className="mb-4 text-xl font-black text-slate-900 dark:text-white">Extracted Notes</p>
-        <ul className="space-y-3 text-sm md:text-base text-slate-700 dark:text-slate-300">
-          {content.notes?.map((n: string, i: number) => (
-            <li key={i} className="flex gap-3">
-              <span className="text-indigo-500 dark:text-indigo-400 font-bold">•</span>
-              <span className="leading-relaxed">{n}</span>
-            </li>
-          ))}
-        </ul>
       </div>
 
       <PremiumModal open={premiumOpen} onClose={() => setPremiumOpen(false)} />
