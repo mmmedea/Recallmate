@@ -55,8 +55,8 @@ Rules:
 - Provide options labeled A, B, C, and D.
 - Include the exact quote/source text and estimated page/section from the uploaded file for "sourceCitation" and "pageNumber".`;
 
-    // Using stable Gemini model endpoint
-    const model = genAI.getGenerativeModel({ model: "gemini-1.5-flash" });
+    // Updated model to gemini-2.5-flash
+    const model = genAI.getGenerativeModel({ model: "gemini-2.5-flash" });
     const result = await model.generateContent(prompt);
     const response = await result.response;
     const raw = response.text();
