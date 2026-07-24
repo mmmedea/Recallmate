@@ -43,7 +43,7 @@ export const useAppStore = create<AppState>()(
       },
 
       unlockPremium: (password: string) => {
-        if (password === PREMIUM_PASSWORD) {
+        if (password.trim() === PREMIUM_PASSWORD) {
           set({ isPremium: true, hearts: MAX_HEARTS });
           return true;
         }
