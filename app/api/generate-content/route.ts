@@ -25,10 +25,13 @@ export async function POST(req: NextRequest) {
       return NextResponse.json({ error: "Invalid API Key or blocked access by Google." }, { status: 500 });
     }
 
-    // STRICT FILTER: We ONLY want Gemini 1.5 because older versions (1.0) corrupt JSON formatting.
+    // STRICT FILTER: Only grab stable 1.5 flash models. Explicitly block robotics and previews.
     const validModels = (listData.models || []).filter((m: any) => 
       m.supportedGenerationMethods?.includes("generateContent") && 
-      m.name.includes("1.5")
+      m.name.includes("1.5") &&
+      m.name.includes("flash") &&
+      !m.name.includes("preview") &&
+      !m.name.includes("robotics")
     );
 
     // Default fallback just in case the list is empty
