@@ -5,12 +5,13 @@ import { useRouter } from "next/navigation";
 import QuizCard from "@/components/QuizCard";
 import PremiumModal from "@/components/PremiumModal";
 import { useAppStore } from "@/lib/store";
-import type { GeneratedContent, Difficulty } from "@/lib/types";
+import { CheckCircle, RotateCcw, ArrowLeft } from "lucide-react";
 
 export default function QuizPage() {
-  const [content, setContent] = useState<GeneratedContent | null>(null);
-  const [difficulty, setDifficulty] = useState<Difficulty>("easy");
+  const [content, setContent] = useState<any>(null);
   const [index, setIndex] = useState(0);
+  const [score, setScore] = useState(0);
+  const [isFinished, setIsFinished] = useState(false);
   const [premiumOpen, setPremiumOpen] = useState(false);
   const { hearts, isPremium, loseHeart } = useAppStore();
   const router = useRouter();
@@ -26,12 +27,18 @@ export default function QuizPage() {
 
   if (!content) return null;
 
-  const questions = content.questions[difficulty] || [];
+  // Support both old structure (content.questions[difficulty]) and new flat array (content.questions)
+  const questions = Array.isArray(content.questions) 
+    ? content.questions 
+    : (content.questions[content.difficulty || "easy"] || []);
+    
   const current = questions[index];
   const outOfHearts = !isPremium && hearts <= 0;
 
   const handleResult = (correct: boolean) => {
-    if (!correct) {
+    if (correct) {
+      setScore(prev => prev + 1);
+    } else {
       const ok = loseHeart();
       if (!ok) {
         setPremiumOpen(true);
@@ -39,40 +46,30 @@ export default function QuizPage() {
       }
     }
     
-    // Move to next question or loop back
     if (index < questions.length - 1) {
       setIndex(index + 1);
     } else {
-      setIndex(0); // Alternatively, you could route to a "Results" page here
+      setIsFinished(true);
     }
   };
 
   return (
     <div className="mx-auto max-w-3xl py-8 px-4 transition-colors duration-200">
       
-      {/* FIXED VISIBILITY: Replaced text-gray-900 with slate-900/white */}
+      <div className="flex justify-between items-center mb-6">
+        <button 
+          onClick={() => router.push("/upload")}
+          className="flex items-center gap-2 text-sm font-bold text-slate-500 hover:text-slate-800 dark:text-slate-400 dark:hover:text-white"
+        >
+          <ArrowLeft className="w-4 h-4" /> Upload New File
+        </button>
+        <span className="px-3 py-1 bg-indigo-50 dark:bg-indigo-950/50 text-indigo-600 dark:text-indigo-400 text-xs font-bold uppercase rounded-full">
+          Difficulty: {content.difficulty || "Mixed"}
+        </span>
+      </div>
+
       <h1 className="text-3xl font-black text-slate-900 dark:text-white">{content.fileName}</h1>
       <p className="mt-2 text-base font-medium text-slate-600 dark:text-slate-400">{content.summary}</p>
-
-      {/* Difficulty Tabs */}
-      <div className="mt-6 flex gap-2">
-        {(["easy", "medium", "hard"] as Difficulty[]).map((d) => (
-          <button
-            key={d}
-            onClick={() => {
-              setDifficulty(d);
-              setIndex(0);
-            }}
-            className={`rounded-full px-5 py-2 text-sm font-bold capitalize transition-all ${
-              difficulty === d 
-                ? "bg-indigo-600 text-white dark:bg-indigo-500" 
-                : "bg-slate-100 text-slate-500 hover:bg-slate-200 dark:bg-slate-800 dark:text-slate-400 dark:hover:bg-slate-700"
-            }`}
-          >
-            {d}
-          </button>
-        ))}
-      </div>
 
       <div className="mt-8">
         {outOfHearts ? (
@@ -88,20 +85,41 @@ export default function QuizPage() {
               Go Premium
             </button>
           </div>
+        ) : isFinished ? (
+          <div className="bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-800 rounded-3xl p-10 text-center space-y-6 shadow-sm">
+            <div className="w-16 h-16 bg-emerald-100 dark:bg-emerald-950/50 text-emerald-600 dark:text-emerald-400 rounded-full flex items-center justify-center mx-auto">
+              <CheckCircle className="w-8 h-8" />
+            </div>
+            <h2 className="text-2xl font-black text-slate-900 dark:text-white">Quiz Completed!</h2>
+            <p className="text-slate-600 dark:text-slate-400">
+              You scored <span className="font-bold text-indigo-600 dark:text-indigo-400">{score}</span> out of <span className="font-bold">{questions.length}</span> correct.
+            </p>
+            <button
+              onClick={() => { setIndex(0); setScore(0); setIsFinished(false); }}
+              className="inline-flex items-center gap-2 px-6 py-3 bg-indigo-600 text-white rounded-xl font-bold hover:bg-indigo-700 transition-all"
+            >
+              <RotateCcw className="w-4 h-4" /> Try Again
+            </button>
+          </div>
         ) : current ? (
-          <QuizCard item={current} difficulty={difficulty} onResult={handleResult} />
+          <div>
+            <div className="flex justify-between items-center mb-3 text-xs font-bold text-slate-400 uppercase tracking-wider">
+              <span>Question {index + 1} of {questions.length}</span>
+            </div>
+            <QuizCard item={current} difficulty={content.difficulty || "easy"} onResult={handleResult} />
+          </div>
         ) : (
           <p className="text-slate-500 dark:text-slate-400 p-8 text-center bg-slate-50 dark:bg-slate-900 rounded-3xl border border-dashed border-slate-200 dark:border-slate-800">
-            No questions available for this difficulty.
+            No questions available.
           </p>
         )}
       </div>
 
-      {/* FIXED VISIBILITY: Notes Section */}
-      <div className="mt-10 pt-8 border-t border-slate-200 dark:border-slate-800">
+      {/* Notes Section */}
+      <div className="mt-12 pt-8 border-t border-slate-200 dark:border-slate-800">
         <p className="mb-4 text-xl font-black text-slate-900 dark:text-white">Extracted Notes</p>
         <ul className="space-y-3 text-sm md:text-base text-slate-700 dark:text-slate-300">
-          {content.notes.map((n, i) => (
+          {content.notes?.map((n: string, i: number) => (
             <li key={i} className="flex gap-3">
               <span className="text-indigo-500 dark:text-indigo-400 font-bold">•</span>
               <span className="leading-relaxed">{n}</span>
