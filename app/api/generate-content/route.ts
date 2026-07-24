@@ -16,30 +16,47 @@ export async function POST(req: NextRequest) {
       );
     }
 
-    const prompt = `You are an expert study assistant helping a student review material from a file named "${fileName}".
-Content extracted from the file:
-"""${text.slice(0, 15000)}"""
+    const prompt = `You are an expert study assistant reviewing material from "${fileName}".
+Extracted File Content:
+"""${text.slice(0, 20000)}"""
 
-Return ONLY valid JSON, with no markdown fences and no extra commentary, matching exactly this shape:
+Instructions:
+1. Focus STRICTLY on the facts and information presented in the uploaded file text above. Do NOT include outside knowledge or unreferenced facts.
+2. Return ONLY a single raw JSON object (NO markdown backticks, NO \`\`\`json fences).
+
+JSON Structure required:
 {
-  "summary": "a concise 3-5 sentence summary of the material",
-  "notes": ["short bullet note", "short bullet note", "..."],
+  "summary": "Concise 3-5 sentence overview of the file.",
+  "notes": ["bullet point 1", "bullet point 2"],
   "questions": {
-    "easy": [{"question": "...", "answer": "..."}],
-    "medium": [{"question": "...", "answer": "..."}],
-    "hard": [{"question": "...", "answer": "..."}]
+    "easy": [
+      {
+        "id": "e1",
+        "question": "Question string?",
+        "options": {
+          "A": "Option text 1",
+          "B": "Option text 2",
+          "C": "Option text 3",
+          "D": "Option text 4"
+        },
+        "correctAnswer": "A",
+        "explanation": "Detailed explanation of why this answer is correct based on the file.",
+        "sourceCitation": "Exact sentence or paragraph quoted from the file",
+        "pageNumber": "Page 1 or Section 1.2"
+      }
+    ],
+    "medium": [],
+    "hard": []
   }
 }
 
 Rules:
-- Provide 5 questions per difficulty level.
-- Questions must be short-answer active recall (not multiple choice).
-- easy = recall of definitions and facts directly stated in the material.
-- medium = explain relationships or apply a concept from the material.
-- hard = analyze, compare, or apply the concept to a new scenario not explicitly in the text.
-- Keep answers concise (1-3 sentences).`;
+- Provide 4 multiple-choice questions for each difficulty level (easy, medium, hard).
+- Provide options labeled A, B, C, and D.
+- Include the exact quote/source text and estimated page/section from the uploaded file for "sourceCitation" and "pageNumber".`;
 
-    const model = genAI.getGenerativeModel({ model: "gemini-3.5-flash" });
+    // Using stable Gemini model endpoint
+    const model = genAI.getGenerativeModel({ model: "gemini-1.5-flash" });
     const result = await model.generateContent(prompt);
     const response = await result.response;
     const raw = response.text();
@@ -49,7 +66,10 @@ Rules:
 
     return NextResponse.json({ fileName, ...data });
   } catch (err) {
-    console.error(err);
-    return NextResponse.json({ error: "Failed to generate study content." }, { status: 500 });
+    console.error("Gemini API Error:", err);
+    return NextResponse.json(
+      { error: "Failed to generate study content. Please try again." },
+      { status: 500 }
+    );
   }
 }
