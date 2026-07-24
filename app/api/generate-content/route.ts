@@ -5,6 +5,15 @@ export const runtime = "nodejs";
 
 const genAI = new GoogleGenerativeAI(process.env.GEMINI_API_KEY || "");
 
+// Array of model fallback candidate strings
+const CANDIDATE_MODELS = [
+  "gemini-2.5-flash",
+  "gemini-2.0-flash",
+  "gemini-1.5-flash-latest",
+  "gemini-2.5-pro",
+  "gemini-pro"
+];
+
 export async function POST(req: NextRequest) {
   try {
     const { text, fileName } = await req.json();
@@ -55,18 +64,33 @@ Rules:
 - Provide options labeled A, B, C, and D.
 - Include the exact quote/source text and estimated page/section from the uploaded file for "sourceCitation" and "pageNumber".`;
 
-    // Updated model to gemini-2.5-flash
-    const model = genAI.getGenerativeModel({ model: "gemini-2.5-flash" });
-    const result = await model.generateContent(prompt);
-    const response = await result.response;
-    const raw = response.text();
+    let rawText = "";
+    let lastError: any = null;
 
-    const cleaned = raw.replace(/^```json\s*/i, "").replace(/```$/i, "").trim();
+    // Loop through model candidates until one succeeds
+    for (const modelName of CANDIDATE_MODELS) {
+      try {
+        const model = genAI.getGenerativeModel({ model: modelName });
+        const result = await model.generateContent(prompt);
+        const response = await result.response;
+        rawText = response.text();
+        if (rawText) break; // Successfully fetched response!
+      } catch (err: any) {
+        console.warn(`Model ${modelName} failed or returned 404, trying next...`, err?.message);
+        lastError = err;
+      }
+    }
+
+    if (!rawText) {
+      throw lastError || new Error("All model candidates failed.");
+    }
+
+    const cleaned = rawText.replace(/^```json\s*/i, "").replace(/```$/i, "").trim();
     const data = JSON.parse(cleaned);
 
     return NextResponse.json({ fileName, ...data });
-  } catch (err) {
-    console.error("Gemini API Error:", err);
+  } catch (err: any) {
+    console.error("Gemini Generation Error:", err);
     return NextResponse.json(
       { error: "Failed to generate study content. Please try again." },
       { status: 500 }
