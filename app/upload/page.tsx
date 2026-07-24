@@ -1,55 +1,139 @@
-"use client";
+import { NextRequest, NextResponse } from "next/server";
 
-// Make sure your imports (useState, icons, etc.) stay at the top
-import { CloudUpload, FileText, Video } from "lucide-react";
+export const runtime = "nodejs";
 
-export default function FileUploader() {
-  // Your existing state logic goes here...
+export async function POST(req: NextRequest) {
+  try {
+    const apiKey = process.env.GEMINI_API_KEY;
+    
+    if (!apiKey) {
+      console.error("SERVER ERROR: GEMINI_API_KEY is missing.");
+      return NextResponse.json({ error: "Server Configuration Error: GEMINI_API_KEY is not set." }, { status: 500 });
+    }
 
-  return (
-    <div className="max-w-3xl mx-auto space-y-6 pt-8">
+    const { text, fileName } = await req.json();
+
+    if (!text || text.trim().length < 20) {
+      return NextResponse.json({ error: "Not enough content extracted from this file." }, { status: 400 });
+    }
+
+    // 1. AUTO-DISCOVERY: Fetch allowed models
+    const listUrl = `https://generativelanguage.googleapis.com/v1beta/models?key=${apiKey}`;
+    const listRes = await fetch(listUrl);
+    const listData = await listRes.json();
+
+    if (!listRes.ok) {
+      return NextResponse.json({ error: "Invalid API Key or blocked access by Google." }, { status: 500 });
+    }
+
+    const validModels = (listData.models || []).filter((m: any) => 
+      m.supportedGenerationMethods?.includes("generateContent") && 
+      !m.name.includes("2.5")
+    );
+
+    const prompt = `You are an expert study assistant reviewing material from "${fileName || "Uploaded File"}".
+Extracted File Content:
+"""${text.slice(0, 12000)}"""
+
+Instructions:
+Return ONLY a single raw JSON object matching the exact structure below. 
+Escape all quotation marks properly inside strings.
+
+{
+  "summary": "Concise 3-5 sentence overview of the file.",
+  "notes": ["bullet point 1", "bullet point 2"],
+  "questions": {
+    "easy": [
+      {
+        "id": "e1",
+        "question": "Question string?",
+        "options": {
+          "A": "Option text 1",
+          "B": "Option text 2",
+          "C": "Option text 3",
+          "D": "Option text 4"
+        },
+        "correctAnswer": "A",
+        "explanation": "Detailed explanation.",
+        "sourceCitation": "Exact quote",
+        "pageNumber": "Page 1"
+      }
+    ],
+    "medium": [],
+    "hard": []
+  }
+}
+
+Rules:
+- Provide exactly 3 multiple-choice questions for each difficulty level to ensure the response fits.
+- Include exact quote/source text and page/section number.`;
+
+    let rawText = "";
+    let lastErrorMsg = "No valid models found for this API key.";
+
+    // 2. LOOP: Test permitted models
+    for (const model of validModels) {
+      console.log(`Trying permitted model: ${model.name}`);
       
-      {/* 1. Page Headers - FIXED VISIBILITY */}
-      <div>
-        <h1 className="text-3xl font-black text-slate-900 dark:text-white">
-          Upload your material
-        </h1>
-        <p className="text-slate-600 dark:text-slate-400 mt-2">
-          We'll extract the content and generate notes plus active recall questions.
-        </p>
-      </div>
+      const generateUrl = `https://generativelanguage.googleapis.com/v1beta/${model.name}:generateContent?key=${apiKey}`;
+      
+      const response = await fetch(generateUrl, {
+        method: "POST",
+        headers: {
+          "Content-Type": "application/json",
+        },
+        body: JSON.stringify({
+          contents: [{ parts: [{ text: prompt }] }],
+          generationConfig: {
+            responseMimeType: "application/json",
+            maxOutputTokens: 8192, // CRITICAL: Gives the AI maximum space to finish the JSON
+            temperature: 0.2       // CRITICAL: Forces strict formatting logic
+          }
+        }),
+      });
 
-      {/* 2. Upload Box - FIXED VISIBILITY & BACKGROUND */}
-      <div className="bg-white dark:bg-slate-900 border-2 border-dashed border-slate-200 dark:border-slate-700 rounded-3xl p-10 text-center transition-colors hover:border-indigo-500 dark:hover:border-indigo-400 cursor-pointer">
-        
-        {/* Icon */}
-        <div className="mx-auto w-16 h-16 bg-indigo-50 dark:bg-indigo-950/60 text-indigo-600 dark:text-indigo-400 rounded-2xl flex items-center justify-center mb-6">
-          <CloudUpload className="w-8 h-8" />
-        </div>
+      const aiData = await response.json();
 
-        {/* Box Heading */}
-        <h3 className="text-xl font-bold text-slate-900 dark:text-white mb-2">
-          Drop a file or click to upload
-        </h3>
-        
-        {/* Box Subtext */}
-        <p className="text-sm text-slate-500 dark:text-slate-400 mb-6">
-          PDF, DOCX, TXT, or video/audio for automatic transcription
-        </p>
+      if (response.ok) {
+        rawText = aiData.candidates?.[0]?.content?.parts?.[0]?.text || "";
+        if (rawText) {
+          console.log(`Success! Extracted data using model: ${model.name}`);
+          break;
+        }
+      } else {
+        lastErrorMsg = aiData.error?.message || `Failed on ${model.name}`;
+      }
+    }
 
-        {/* Small Badges */}
-        <div className="flex justify-center gap-4 text-xs font-semibold text-slate-500 dark:text-slate-400">
-          <span className="flex items-center gap-1.5"><FileText className="w-4 h-4"/> Documents</span>
-          <span className="flex items-center gap-1.5"><Video className="w-4 h-4"/> Video / Audio</span>
-        </div>
-      </div>
+    if (!rawText) {
+      return NextResponse.json({ error: lastErrorMsg }, { status: 500 });
+    }
 
-      {/* 3. Error Message - FIXED VISIBILITY */}
-      {/* Assuming you have an 'error' state variable mapping to this */}
-      <div className="text-rose-600 dark:text-rose-400 font-medium text-sm px-2">
-        Failed to parse structured study content. {/* Replace with your dynamic {error} variable */}
-      </div>
+    // 3. ULTRA-STRICT JSON PARSING
+    let parsedData;
+    try {
+      // Strip markdown backticks completely
+      let cleanedText = rawText.replace(/```json\n?/gi, "").replace(/```\n?/g, "").trim();
+      
+      // Physically slice everything outside the main JSON brackets
+      const firstBrace = cleanedText.indexOf("{");
+      const lastBrace = cleanedText.lastIndexOf("}");
+      
+      if (firstBrace !== -1 && lastBrace !== -1) {
+        cleanedText = cleanedText.slice(firstBrace, lastBrace + 1);
+      }
 
-    </div>
-  );
+      parsedData = JSON.parse(cleanedText);
+    } catch (parseErr) {
+      console.error("JSON Parsing Failed. Raw text was:", rawText);
+      return NextResponse.json({ 
+        error: "The AI generated a malformed response or cut off early. Please try again." 
+      }, { status: 500 });
+    }
+
+    return NextResponse.json({ fileName, ...parsedData });
+  } catch (err: any) {
+    console.error("Unhandled Error:", err);
+    return NextResponse.json({ error: "Failed to generate study content." }, { status: 500 });
+  }
 }
