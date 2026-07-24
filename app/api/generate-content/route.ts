@@ -16,7 +16,7 @@ export async function POST(req: NextRequest) {
       return NextResponse.json({ error: "Not enough content extracted from this file." }, { status: 400 });
     }
 
-    // 1. AUTO-DISCOVERY: Safely find a modern Gemini 1.5 model
+    // 1. AUTO-DISCOVERY: Safely find available models
     const listUrl = `https://generativelanguage.googleapis.com/v1beta/models?key=${apiKey}`;
     const listRes = await fetch(listUrl);
     const listData = await listRes.json();
@@ -25,21 +25,32 @@ export async function POST(req: NextRequest) {
       return NextResponse.json({ error: "Invalid API Key or blocked access by Google." }, { status: 500 });
     }
 
-    // STRICT FILTER: Only grab stable 1.5 flash models. Explicitly block robotics and previews.
-    const validModels = (listData.models || []).filter((m: any) => 
+    // 2. SMART FILTER: Keep only models that can generate text, and block known problematic ones
+    let validModels = (listData.models || []).filter((m: any) => 
       m.supportedGenerationMethods?.includes("generateContent") && 
-      m.name.includes("1.5") &&
-      m.name.includes("flash") &&
       !m.name.includes("preview") &&
-      !m.name.includes("robotics")
+      !m.name.includes("robotics") &&
+      !m.name.includes("vision") &&
+      !m.name.includes("2.5") // Block 2.5 to avoid the "new user" error
     );
 
-    // Default fallback just in case the list is empty
-    const selectedModel = validModels.length > 0 ? validModels[0].name : "models/gemini-1.5-flash";
-    console.log(`Using model: ${selectedModel}`);
+    if (validModels.length === 0) {
+      return NextResponse.json({ error: "Your API key does not have access to any compatible text generation models." }, { status: 500 });
+    }
 
-    // 2. ULTRA-LEAN PROMPT
-    const prompt = `Review the material from "${fileName || "Uploaded File"}".
+    // Sort to prioritize "flash" models, then "1.5" versions
+    validModels.sort((a: any, b: any) => {
+      const aScore = (a.name.includes("flash") ? 2 : 0) + (a.name.includes("1.5") ? 1 : 0);
+      const bScore = (b.name.includes("flash") ? 2 : 0) + (b.name.includes("1.5") ? 1 : 0);
+      return bScore - aScore;
+    });
+
+    // We take the top model exactly as Google named it. ZERO hardcoded guessing.
+    const selectedModel = validModels[0].name;
+    console.log(`Successfully auto-selected model: ${selectedModel}`);
+
+    // 3. ULTRA-LEAN PROMPT
+    const prompt = `Review the material from "${fileName || "Uploaded Files"}".
 Extracted Content:
 """${text.slice(0, 10000)}"""
 
@@ -94,7 +105,7 @@ Rules:
 - Provide EXACTLY 1 question per difficulty level. Do not provide more.
 - Escape all double quotes inside strings properly.`;
 
-    // 3. GENERATION
+    // 4. GENERATION
     const generateUrl = `https://generativelanguage.googleapis.com/v1beta/${selectedModel}:generateContent?key=${apiKey}`;
     
     const response = await fetch(generateUrl, {
@@ -121,7 +132,7 @@ Rules:
       return NextResponse.json({ error: "AI returned an empty response." }, { status: 500 });
     }
 
-    // 4. BULLETPROOF PARSING
+    // 5. BULLETPROOF PARSING
     try {
       const firstBrace = rawText.indexOf("{");
       const lastBrace = rawText.lastIndexOf("}");
