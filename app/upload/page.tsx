@@ -2,7 +2,7 @@
 
 import { useState, useRef, ChangeEvent, DragEvent } from "react";
 import { useRouter } from "next/navigation";
-import { Loader2, CloudUpload, FileText, Settings, Sparkles } from "lucide-react";
+import { Loader2, CloudUpload, FileText, Sparkles, BrainCircuit, BookOpen } from "lucide-react";
 import { useAppStore } from "@/lib/store";
 
 export default function UploadPage() {
@@ -12,6 +12,7 @@ export default function UploadPage() {
   const [fileName, setFileName] = useState("");
   
   // Configuration options
+  const [studyMode, setStudyMode] = useState<"quiz" | "notes">("quiz");
   const [questionCount, setQuestionCount] = useState(10);
   const [selectedDifficulty, setSelectedDifficulty] = useState<"easy" | "medium" | "hard">("easy");
   
@@ -53,14 +54,14 @@ export default function UploadPage() {
       setExtractedText(combinedText);
       setFileName(fileNames.join(", "));
       setStatus("idle");
-      setStep("configure"); // Move to configuration step!
+      setStep("configure");
     } catch (err) {
       setError(err instanceof Error ? err.message : "Something went wrong.");
       setStatus("idle");
     }
   };
 
-  const handleGenerateQuiz = async () => {
+  const handleGenerate = async () => {
     setStatus("generating");
     setError("");
 
@@ -84,7 +85,13 @@ export default function UploadPage() {
       }
 
       sessionStorage.setItem("recallmate-content", JSON.stringify(genData));
-      router.push("/quiz");
+      
+      // Route based on user's mode choice
+      if (studyMode === "quiz") {
+        router.push("/quiz");
+      } else {
+        router.push("/notes");
+      }
     } catch (err) {
       setError(err instanceof Error ? err.message : "Something went wrong.");
       setStatus("idle");
@@ -96,12 +103,12 @@ export default function UploadPage() {
       
       <div className="mb-8 text-center sm:text-left px-2">
         <h1 className="text-3xl font-black text-slate-900 dark:text-white">
-          {step === "upload" ? "Upload your materials" : "Customize Your Quiz"}
+          {step === "upload" ? "Upload your materials" : "Choose Your Study Mode"}
         </h1>
         <p className="mt-2 text-base font-medium text-slate-600 dark:text-slate-400">
           {step === "upload" 
             ? "Select files to begin your AI study session." 
-            : "Choose your preferred difficulty and number of questions before generating."}
+            : "Select whether you want to test your knowledge with a quiz or review detailed notes."}
         </p>
       </div>
 
@@ -139,67 +146,99 @@ export default function UploadPage() {
           )}
         </>
       ) : (
-        /* CONFIGURATION STEP */
+        /* CONFIGURATION STEP WITH MODE SELECTOR */
         <div className="bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-800 rounded-3xl p-8 space-y-8 shadow-sm">
           
-          {/* Difficulty Selection */}
+          {/* Mode Selection */}
           <div>
             <label className="block text-sm font-bold text-slate-900 dark:text-white mb-3">
-              Select Quiz Difficulty
+              Select Mode
             </label>
-            <div className="grid grid-cols-3 gap-3">
-              {(["easy", "medium", "hard"] as const).map((level) => (
-                <button
-                  key={level}
-                  onClick={() => setSelectedDifficulty(level)}
-                  className={`py-3 px-4 rounded-xl font-bold capitalize border-2 transition-all ${
-                    selectedDifficulty === level
-                      ? "bg-indigo-600 border-indigo-600 text-white dark:bg-indigo-500 dark:border-indigo-500"
-                      : "bg-slate-50 border-slate-200 text-slate-700 dark:bg-slate-950 dark:border-slate-800 dark:text-slate-300"
-                  }`}
-                >
-                  {level}
-                </button>
-              ))}
+            <div className="grid grid-cols-2 gap-4">
+              <button
+                onClick={() => setStudyMode("quiz")}
+                className={`py-4 px-5 rounded-2xl font-bold border-2 flex items-center justify-center gap-3 transition-all ${
+                  studyMode === "quiz"
+                    ? "bg-indigo-600 border-indigo-600 text-white dark:bg-indigo-500 dark:border-indigo-500 shadow-md"
+                    : "bg-slate-50 border-slate-200 text-slate-700 dark:bg-slate-950 dark:border-slate-800 dark:text-slate-300"
+                }`}
+              >
+                <BrainCircuit className="w-5 h-5" /> Quiz Mode
+              </button>
+              <button
+                onClick={() => setStudyMode("notes")}
+                className={`py-4 px-5 rounded-2xl font-bold border-2 flex items-center justify-center gap-3 transition-all ${
+                  studyMode === "notes"
+                    ? "bg-indigo-600 border-indigo-600 text-white dark:bg-indigo-500 dark:border-indigo-500 shadow-md"
+                    : "bg-slate-50 border-slate-200 text-slate-700 dark:bg-slate-950 dark:border-slate-800 dark:text-slate-300"
+                }`}
+              >
+                <BookOpen className="w-5 h-5" /> Notes Mode
+              </button>
             </div>
           </div>
 
-          {/* Question Count Slider */}
-          <div>
-            <div className="flex justify-between items-center mb-3">
-              <label className="text-sm font-bold text-slate-900 dark:text-white">
-                Number of Questions ({questionCount})
-              </label>
-              <span className="text-xs font-semibold text-slate-500 dark:text-slate-400">
-                Max limit: {maxLimit} questions {!isPremium && "(Upgrade to Premium for up to 50)"}
-              </span>
+          {/* Conditional Quiz Options */}
+          {studyMode === "quiz" && (
+            <div className="space-y-6 pt-4 border-t border-slate-100 dark:border-slate-800 animate-in fade-in duration-200">
+              <div>
+                <label className="block text-sm font-bold text-slate-900 dark:text-white mb-3">
+                  Quiz Difficulty
+                </label>
+                <div className="grid grid-cols-3 gap-3">
+                  {(["easy", "medium", "hard"] as const).map((level) => (
+                    <button
+                      key={level}
+                      onClick={() => setSelectedDifficulty(level)}
+                      className={`py-3 px-4 rounded-xl font-bold capitalize border-2 transition-all ${
+                        selectedDifficulty === level
+                          ? "bg-indigo-600 border-indigo-600 text-white dark:bg-indigo-500 dark:border-indigo-500"
+                          : "bg-slate-50 border-slate-200 text-slate-700 dark:bg-slate-950 dark:border-slate-800 dark:text-slate-300"
+                      }`}
+                    >
+                      {level} {level === 'hard' && '🔥'}
+                    </button>
+                  ))}
+                </div>
+              </div>
+
+              <div>
+                <div className="flex justify-between items-center mb-3">
+                  <label className="text-sm font-bold text-slate-900 dark:text-white">
+                    Number of Questions ({questionCount})
+                  </label>
+                  <span className="text-xs font-semibold text-slate-500 dark:text-slate-400">
+                    Max limit: {maxLimit} questions
+                  </span>
+                </div>
+                <input 
+                  type="range" 
+                  min="5" 
+                  max={maxLimit} 
+                  step="5"
+                  value={questionCount}
+                  onChange={(e) => setQuestionCount(Number(e.target.value))}
+                  className="w-full accent-indigo-600 cursor-pointer"
+                />
+              </div>
             </div>
-            <input 
-              type="range" 
-              min="5" 
-              max={maxLimit} 
-              step="5"
-              value={questionCount}
-              onChange={(e) => setQuestionCount(Number(e.target.value))}
-              className="w-full accent-indigo-600 cursor-pointer"
-            />
-          </div>
+          )}
 
           {/* Generate Button */}
           <button
-            onClick={handleGenerateQuiz}
+            onClick={handleGenerate}
             disabled={status === "generating"}
             className="w-full py-4 bg-indigo-600 hover:bg-indigo-700 dark:bg-indigo-500 dark:hover:bg-indigo-600 text-white rounded-2xl font-black text-lg flex items-center justify-center gap-3 shadow-lg transition-all"
           >
             {status === "generating" ? (
               <>
                 <Loader2 className="w-5 h-5 animate-spin" />
-                Generating your custom quiz...
+                Preparing your session...
               </>
             ) : (
               <>
                 <Sparkles className="w-5 h-5" />
-                Generate Quiz Session
+                {studyMode === "quiz" ? "Start Quiz Session" : "View Detailed Notes"}
               </>
             )}
           </button>
