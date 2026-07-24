@@ -38,7 +38,7 @@ Extracted File Content:
 """${text.slice(0, 15000)}"""
 
 Instructions:
-Return ONLY a single raw JSON object matching the exact structure below. Do NOT wrap it in markdown blockquotes.
+Return ONLY a single raw JSON object matching the exact structure below. Do NOT wrap it in markdown blockquotes. Do not include the word "json".
 
 {
   "summary": "Concise 3-5 sentence overview of the file.",
@@ -76,7 +76,6 @@ Rules:
     for (const model of validModels) {
       console.log(`Trying permitted model: ${model.name}`);
       
-      // model.name comes directly from Google (e.g., "models/gemini-1.5-flash")
       const generateUrl = `https://generativelanguage.googleapis.com/v1beta/${model.name}:generateContent?key=${apiKey}`;
       
       const response = await fetch(generateUrl, {
@@ -110,12 +109,21 @@ Rules:
       return NextResponse.json({ error: lastErrorMsg }, { status: 500 });
     }
 
-    // 4. Safely parse the JSON output
+    // 4. ROBUST JSON PARSING (Strips Markdown Fences)
     let parsedData;
     try {
-      parsedData = JSON.parse(rawText.trim());
+      // Step A: Strip leading/trailing markdown blocks if they exist
+      let cleanedText = rawText.replace(/^```(json)?\s*/i, "").replace(/```$/i, "").trim();
+      
+      // Step B: Regex extraction to ensure we ONLY grab the JSON object
+      const jsonMatch = cleanedText.match(/\{[\s\S]*\}/);
+      if (jsonMatch) {
+        cleanedText = jsonMatch[0];
+      }
+
+      parsedData = JSON.parse(cleanedText);
     } catch (parseErr) {
-      console.error("JSON Parsing Failed:", rawText);
+      console.error("JSON Parsing Failed. Raw text was:", rawText);
       return NextResponse.json({ error: "Failed to parse structured study content." }, { status: 500 });
     }
 
