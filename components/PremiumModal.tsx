@@ -1,68 +1,68 @@
 "use client";
 
-import { useState, FormEvent } from "react";
-import { X, Lock, Sparkles } from "lucide-react";
+import { useState } from "react";
 import { useAppStore } from "@/lib/store";
+import { Lock, X } from "lucide-react";
 
-export default function PremiumModal({
-  open,
-  onClose
-}: {
-  open: boolean;
-  onClose: () => void;
-}) {
-  const [password, setPassword] = useState("");
+export default function PremiumModal({ open, onClose }: { open: boolean; onClose: () => void }) {
+  const [code, setCode] = useState("");
   const [error, setError] = useState("");
-  const unlockPremium = useAppStore((s) => s.unlockPremium);
+  const { setPremium } = useAppStore();
 
   if (!open) return null;
 
-  const handleSubmit = (e: FormEvent) => {
+  const handleUnlock = (e: React.FormEvent) => {
     e.preventDefault();
-    if (unlockPremium(password)) {
+    if (code.trim() === "PREMIUM2026" || code.trim() === "RECALLMATE") {
+      setPremium(true);
       setError("");
-      setPassword("");
       onClose();
     } else {
-      setError("Incorrect code. Try again.");
+      setError("Invalid premium code.");
     }
   };
 
   return (
-    <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/40 px-4 backdrop-blur-sm">
-      <div className="relative w-full max-w-sm rounded-3xl bg-white p-6 shadow-xl">
+    <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/60 backdrop-blur-sm p-4">
+      <div className="relative w-full max-w-md rounded-3xl bg-white dark:bg-slate-900 p-6 shadow-2xl border border-slate-200 dark:border-slate-800">
         <button
           onClick={onClose}
-          className="absolute right-4 top-4 text-gray-400 hover:text-gray-600"
-          aria-label="Close"
+          className="absolute top-4 right-4 text-slate-400 hover:text-slate-600 dark:hover:text-slate-200"
         >
-          <X className="h-5 w-5" />
+          <X className="w-5 h-5" />
         </button>
 
-        <div className="mb-4 flex h-12 w-12 items-center justify-center rounded-2xl bg-gradient-to-br from-indigo-500 to-violet-600">
-          <Sparkles className="h-6 w-6 text-white" />
+        <div className="text-center space-y-2 mb-6">
+          <div className="mx-auto w-12 h-12 bg-indigo-50 dark:bg-indigo-950/60 text-indigo-600 dark:text-indigo-400 rounded-2xl flex items-center justify-center mb-4">
+            <Lock className="w-6 h-6" />
+          </div>
+          <h3 className="text-xl font-black text-slate-900 dark:text-white">Unlock Premium</h3>
+          <p className="text-sm text-slate-600 dark:text-slate-400">
+            Enter the premium code to get unlimited hearts and remove all limits.
+          </p>
         </div>
 
-        <h2 className="text-lg font-bold text-gray-900">Unlock Premium</h2>
-        <p className="mt-1 text-sm text-gray-500">
-          Enter the premium code to get unlimited hearts and remove all limits.
-        </p>
-
-        <form onSubmit={handleSubmit} className="mt-4">
-          <div className="flex items-center gap-2 rounded-xl border border-gray-200 px-3 py-2.5 focus-within:border-indigo-400">
-            <Lock className="h-4 w-4 text-gray-400" />
+        <form onSubmit={handleUnlock} className="space-y-4">
+          <div className="relative flex items-center">
+            <Lock className="absolute left-3.5 w-5 h-5 text-slate-400" />
             <input
-              type="password"
-              value={password}
-              onChange={(e) => setPassword(e.target.value)}
+              type="text"
+              value={code}
+              onChange={(e) => setCode(e.target.value)}
               placeholder="Enter code"
-              className="w-full text-sm outline-none"
+              className="w-full pl-11 pr-4 py-3 rounded-xl bg-slate-50 dark:bg-slate-800 border border-slate-200 dark:border-slate-700 text-slate-900 dark:text-white placeholder-slate-400 focus:outline-none focus:ring-2 focus:ring-indigo-500 font-medium text-sm transition-colors"
             />
           </div>
-          {error && <p className="mt-2 text-xs text-rose-500">{error}</p>}
+
+          {error && (
+            <p className="text-xs font-semibold text-rose-600 dark:text-rose-400 text-center">
+              {error}
+            </p>
+          )}
+
           <button
             type="submit"
-            className="mt-4 w-full rounded-xl bg-gradient-to-r from-indigo-500 to-violet-600 py-2.5 text-sm font-semibold text-white shadow-sm transition hover:opacity-90"
+            className="w-full py-3.5 bg-indigo-600 hover:bg-indigo-700 dark:bg-indigo-500 dark:hover:bg-indigo-600 text-white rounded-xl font-bold shadow-md transition-colors"
           >
             Unlock
           </button>
