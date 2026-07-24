@@ -7,7 +7,6 @@ export async function POST(req: NextRequest) {
     const apiKey = process.env.GEMINI_API_KEY;
     
     if (!apiKey) {
-      console.error("SERVER ERROR: GEMINI_API_KEY is missing.");
       return NextResponse.json({ error: "Server Configuration Error: GEMINI_API_KEY is not set." }, { status: 500 });
     }
 
@@ -17,7 +16,7 @@ export async function POST(req: NextRequest) {
       return NextResponse.json({ error: "Not enough content extracted from this file." }, { status: 400 });
     }
 
-    // 1. AUTO-DISCOVERY: Fetch allowed models
+    // 1. AUTO-DISCOVERY
     const listUrl = `https://generativelanguage.googleapis.com/v1beta/models?key=${apiKey}`;
     const listRes = await fetch(listUrl);
     const listData = await listRes.json();
@@ -31,32 +30,34 @@ export async function POST(req: NextRequest) {
       !m.name.includes("2.5")
     );
 
+    // 2. SPEED & STABILITY OPTIMIZATION
+    // By requesting 2 questions per tier and shorter text, generation is 2x faster 
+    // and easily fits inside the output limits of every model version.
     const prompt = `You are an expert study assistant reviewing material from "${fileName || "Uploaded File"}".
-Extracted File Content:
+Extracted Content:
 """${text.slice(0, 12000)}"""
 
 Instructions:
-Return ONLY a single raw JSON object matching the exact structure below. 
-Escape all quotation marks properly inside strings.
+Return ONLY a raw JSON object. Do not wrap in markdown. Escape all quotation marks.
 
 {
-  "summary": "Concise 3-5 sentence overview of the file.",
-  "notes": ["bullet point 1", "bullet point 2"],
+  "summary": "Concise 2 sentence overview.",
+  "notes": ["Key point 1", "Key point 2", "Key point 3"],
   "questions": {
     "easy": [
       {
         "id": "e1",
         "question": "Question string?",
         "options": {
-          "A": "Option text 1",
-          "B": "Option text 2",
-          "C": "Option text 3",
-          "D": "Option text 4"
+          "A": "Option 1",
+          "B": "Option 2",
+          "C": "Option 3",
+          "D": "Option 4"
         },
         "correctAnswer": "A",
-        "explanation": "Detailed explanation.",
-        "sourceCitation": "Exact quote",
-        "pageNumber": "Page 1"
+        "explanation": "Brief explanation.",
+        "sourceCitation": "Short quote",
+        "pageNumber": "1"
       }
     ],
     "medium": [],
@@ -65,29 +66,24 @@ Escape all quotation marks properly inside strings.
 }
 
 Rules:
-- Provide exactly 3 multiple-choice questions for each difficulty level to ensure the response fits.
-- Include exact quote/source text and page/section number.`;
+- Provide EXACTLY 2 questions per difficulty level (easy, medium, hard).
+- Keep explanations and citations concise to ensure the response is fast.`;
 
     let rawText = "";
     let lastErrorMsg = "No valid models found for this API key.";
 
-    // 2. LOOP: Test permitted models
+    // 3. LOOP
     for (const model of validModels) {
-      console.log(`Trying permitted model: ${model.name}`);
-      
       const generateUrl = `https://generativelanguage.googleapis.com/v1beta/${model.name}:generateContent?key=${apiKey}`;
       
       const response = await fetch(generateUrl, {
         method: "POST",
-        headers: {
-          "Content-Type": "application/json",
-        },
+        headers: { "Content-Type": "application/json" },
         body: JSON.stringify({
           contents: [{ parts: [{ text: prompt }] }],
           generationConfig: {
             responseMimeType: "application/json",
-            maxOutputTokens: 8192, // CRITICAL: Gives the AI maximum space to finish the JSON
-            temperature: 0.2       // CRITICAL: Forces strict formatting logic
+            temperature: 0.1 // Extremely low temp ensures strict formatting and no hallucinated breaking characters
           }
         }),
       });
@@ -96,10 +92,7 @@ Rules:
 
       if (response.ok) {
         rawText = aiData.candidates?.[0]?.content?.parts?.[0]?.text || "";
-        if (rawText) {
-          console.log(`Success! Extracted data using model: ${model.name}`);
-          break;
-        }
+        if (rawText) break; 
       } else {
         lastErrorMsg = aiData.error?.message || `Failed on ${model.name}`;
       }
@@ -109,16 +102,13 @@ Rules:
       return NextResponse.json({ error: lastErrorMsg }, { status: 500 });
     }
 
-    // 3. ULTRA-STRICT JSON PARSING
+    // 4. CLEAN & PARSE
     let parsedData;
     try {
-      // Strip markdown backticks completely
       let cleanedText = rawText.replace(/```json\n?/gi, "").replace(/```\n?/g, "").trim();
       
-      // Physically slice everything outside the main JSON brackets
       const firstBrace = cleanedText.indexOf("{");
       const lastBrace = cleanedText.lastIndexOf("}");
-      
       if (firstBrace !== -1 && lastBrace !== -1) {
         cleanedText = cleanedText.slice(firstBrace, lastBrace + 1);
       }
@@ -126,9 +116,7 @@ Rules:
       parsedData = JSON.parse(cleanedText);
     } catch (parseErr) {
       console.error("JSON Parsing Failed. Raw text was:", rawText);
-      return NextResponse.json({ 
-        error: "The AI generated a malformed response or cut off early. Please try again." 
-      }, { status: 500 });
+      return NextResponse.json({ error: "The AI generated a malformed response or cut off early. Please try again." }, { status: 500 });
     }
 
     return NextResponse.json({ fileName, ...parsedData });

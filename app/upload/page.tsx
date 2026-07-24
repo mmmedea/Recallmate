@@ -49,24 +49,38 @@ export default function UploadPage() {
   };
 
   return (
-    <div className="mx-auto max-w-xl py-10">
-      <h1 className="text-2xl font-bold text-gray-900">Upload your material</h1>
-      <p className="mt-1 text-sm text-gray-500">
-        We'll extract the content and generate notes plus active recall questions.
-      </p>
+    <div className="mx-auto max-w-2xl py-12 px-4 transition-colors duration-200">
+      
+      {/* 1. FIXED VISIBILITY: Added dark mode text colors */}
+      <div className="mb-8 text-center sm:text-left">
+        <h1 className="text-3xl font-black text-slate-900 dark:text-white">
+          Upload your material
+        </h1>
+        <p className="mt-2 text-base font-medium text-slate-600 dark:text-slate-400">
+          We'll extract the content and generate notes plus active recall questions.
+        </p>
+      </div>
 
-      <div className="mt-6">
+      <div className="relative">
         <FileUploader onFileSelected={handleFile} disabled={status !== "idle"} />
       </div>
 
+      {/* 2. MODERN LOADING STATE: Added glassmorphic blur and theme support */}
       {status !== "idle" && (
-        <div className="mt-6 flex items-center gap-2 text-sm text-gray-500">
-          <Loader2 className="h-4 w-4 animate-spin" />
-          {status === "extracting" ? "Reading your file..." : "Generating notes and questions..."}
+        <div className="mt-6 flex items-center justify-center gap-3 rounded-2xl bg-white/60 dark:bg-slate-900/60 backdrop-blur-md px-6 py-4 text-sm font-bold text-indigo-600 dark:text-indigo-400 border border-slate-200/60 dark:border-slate-700/60 shadow-sm animate-pulse">
+          <Loader2 className="h-5 w-5 animate-spin" />
+          {status === "extracting" 
+            ? "Reading your file..." 
+            : "Generating notes and questions... Almost done!"}
         </div>
       )}
 
-      {error && <p className="mt-4 text-sm text-rose-500">{error}</p>}
+      {/* 3. MODERN ERROR STATE: Added visibility and theme support */}
+      {error && (
+        <div className="mt-6 rounded-2xl bg-rose-50/80 dark:bg-rose-950/50 backdrop-blur-md px-6 py-4 text-sm font-semibold text-rose-600 dark:text-rose-400 border border-rose-200/50 dark:border-rose-900/50 text-center shadow-sm">
+          {error}
+        </div>
+      )}
     </div>
   );
 }
