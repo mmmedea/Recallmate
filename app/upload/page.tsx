@@ -1,9 +1,10 @@
 "use client";
 
-import { useState, useRef, useEffect, ChangeEvent, DragEvent } from "react";
+import { useState, useEffect } from "react";
 import { useRouter } from "next/navigation";
-import { Loader2, CloudUpload, FileText, Sparkles, BrainCircuit, BookOpen, ArrowLeft } from "lucide-react";
+import { Loader2, Sparkles, BrainCircuit, BookOpen, ArrowLeft } from "lucide-react";
 import { useAppStore } from "@/lib/store";
+import FileUploader from "@/components/FileUploader";
 
 export default function UploadPage() {
   const [step, setStep] = useState<"upload" | "configure">("upload");
@@ -18,7 +19,6 @@ export default function UploadPage() {
   
   const [error, setError] = useState("");
   const router = useRouter();
-  const fileInputRef = useRef<HTMLInputElement>(null);
   const { isPremium } = useAppStore();
 
   const maxLimit = isPremium ? 50 : 30;
@@ -86,7 +86,6 @@ export default function UploadPage() {
     setError("");
 
     try {
-      // If we are re-configuring from notes mode without re-uploading, use cached text if available
       let textToSend = extractedText;
       if (!textToSend) {
         textToSend = "User generated session content based on previous upload.";
@@ -149,29 +148,10 @@ export default function UploadPage() {
 
       {step === "upload" ? (
         <>
-          <div 
-            onDragOver={(e) => e.preventDefault()}
-            onDrop={(e) => { e.preventDefault(); processFiles(Array.from(e.dataTransfer.files)); }}
-            onClick={() => status === "idle" && fileInputRef.current?.click()}
-            className="bg-white dark:bg-slate-900 border-2 border-dashed border-slate-300 dark:border-slate-700 hover:border-indigo-500 rounded-3xl p-10 text-center cursor-pointer transition-colors"
-          >
-            <div className="mx-auto w-16 h-16 bg-indigo-50 dark:bg-indigo-950/60 text-indigo-600 dark:text-indigo-400 rounded-2xl flex items-center justify-center mb-6">
-              <CloudUpload className="w-8 h-8" />
-            </div>
-            <h3 className="text-xl font-bold text-slate-900 dark:text-white mb-2">
-              Drop files or click to upload
-            </h3>
-            <p className="text-sm text-slate-500 dark:text-slate-400 mb-6">
-              Supports PDFs, Documents, and Media files
-            </p>
-            <input 
-              type="file" 
-              multiple 
-              ref={fileInputRef} 
-              onChange={(e) => e.target.files && processFiles(Array.from(e.target.files))} 
-              className="hidden" 
-            />
-          </div>
+          <FileUploader 
+            onFileSelected={(file) => processFiles([file])} 
+            disabled={status !== "idle"} 
+          />
 
           {status === "extracting" && (
             <div className="mt-6 flex items-center justify-center gap-3 rounded-2xl bg-white/60 dark:bg-slate-900/60 backdrop-blur-md px-6 py-4 text-sm font-bold text-indigo-600 dark:text-indigo-400 border border-slate-200/60 dark:border-slate-700/60 shadow-sm animate-pulse">
@@ -229,7 +209,7 @@ export default function UploadPage() {
                           : "bg-slate-50 border-slate-200 text-slate-700 dark:bg-slate-950 dark:border-slate-800 dark:text-slate-300"
                       }`}
                     >
-                      {level} {level === 'hard' && '🔥'}
+                      {level} {level === "hard" && "🔥"}
                     </button>
                   ))}
                 </div>
