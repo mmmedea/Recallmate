@@ -3,12 +3,13 @@ import { Inter } from "next/font/google";
 import "@/app/globals.css";
 import Navbar from "@/components/Navbar";
 import { ThemeProvider } from "@/components/ThemeProvider";
+import InactivityPreventer from "@/components/InactivityPreventer";
 
 const inter = Inter({ subsets: ["latin"] });
 
 export const metadata: Metadata = {
   title: "RecallMate – Study Smarter with AI",
-  description: "Upload notes, slides, or videos and let AI turn them into active recall questions.",
+  description: "Upload study documents or images and let AI turn them into predictive exam questions and active recall quizzes.",
 };
 
 export default function RootLayout({ children }: { children: React.ReactNode }) {
@@ -16,6 +17,7 @@ export default function RootLayout({ children }: { children: React.ReactNode }) 
     <html lang="en" suppressHydrationWarning>
       <body className={`${inter.className} bg-slate-50 dark:bg-slate-950 text-slate-900 dark:text-slate-100 min-h-screen transition-colors duration-200 antialiased`}>
         <ThemeProvider attribute="class" defaultTheme="system" enableSystem>
+          <InactivityPreventer />
           <Navbar />
           <main className="mx-auto max-w-6xl px-4 pb-20 pt-6">{children}</main>
         </ThemeProvider>
