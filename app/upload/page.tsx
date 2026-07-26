@@ -56,36 +56,76 @@ export default function UploadPage() {
       const fileNames = [];
 
       for (const file of files) {
-        // 1. Vercel Serverless Limit Protection (Blocks files > 4.5MB)
-        if (file.size > 4.5 * 1024 * 1024) {
-          throw new Error(`"${file.name}" is too large. Please upload files smaller than 4.5MB (Vercel limit).`);
-        }
-
         fileNames.push(file.name);
-        const form = new FormData();
-        form.append("file", file);
+        const fileName = file.name.toLowerCase();
+        let extractedTextForFile = "";
 
-        const endpoint = isMediaFile(file) ? "/api/transcribe" : "/api/extract-text";
-        const extractRes = await fetch(endpoint, { method: "POST", body: form });
-        
-        // 2. Safe JSON Parsing (Prevents crashes if the server returns HTML instead of JSON)
-        let extractData;
-        const contentType = extractRes.headers.get("content-type");
-        if (contentType && contentType.includes("application/json")) {
-          extractData = await extractRes.json();
-        } else {
-          throw new Error(
-            extractRes.status === 413 
-              ? "File is too large for the server to process." 
-              : "The server returned an unexpected error format."
-          );
+        // ==========================================
+        // 1. CLIENT-SIDE EXTRACTION (Bypasses Vercel Limits)
+        // ==========================================
+        if (fileName.endsWith(".txt") || fileName.endsWith(".md") || fileName.endsWith(".csv")) {
+          // Read plain text instantly
+          extractedTextForFile = await file.text();
+        } 
+        else if (fileName.endsWith(".docx") || fileName.endsWith(".doc")) {
+          // Read Word Documents in the browser
+          const mammoth = (await import("mammoth")).default;
+          const arrayBuffer = await file.arrayBuffer();
+          const result = await mammoth.extractRawText({ arrayBuffer });
+          extractedTextForFile = result.value;
+        } 
+        else if (fileName.endsWith(".pdf")) {
+          // Read PDFs in the browser
+          const pdfjsLib = await import("pdfjs-dist");
+          
+          // Connect to the correct worker version dynamically via CDN to prevent Next.js build errors
+          pdfjsLib.GlobalWorkerOptions.workerSrc = `//unpkg.com/pdfjs-dist@${pdfjsLib.version}/build/pdf.worker.min.mjs`;
+          
+          const arrayBuffer = await file.arrayBuffer();
+          const pdf = await pdfjsLib.getDocument({ data: arrayBuffer }).promise;
+          
+          for (let i = 1; i <= pdf.numPages; i++) {
+            const page = await pdf.getPage(i);
+            const textContent = await page.getTextContent();
+            const pageText = textContent.items.map((item: any) => item.str).join(" ");
+            extractedTextForFile += pageText + "\n";
+          }
+        } 
+        // ==========================================
+        // 2. SERVER-SIDE FALLBACK (Images, PPTX, Media)
+        // ==========================================
+        else {
+          // Vercel limit check ONLY applies to files we actually send to the server now
+          if (file.size > 4.5 * 1024 * 1024) {
+            throw new Error(`"${file.name}" is too large. Images and Presentations must be under 4.5MB.`);
+          }
+
+          const form = new FormData();
+          form.append("file", file);
+          const endpoint = isMediaFile(file) ? "/api/transcribe" : "/api/extract-text";
+          
+          const extractRes = await fetch(endpoint, { method: "POST", body: form });
+          
+          const contentType = extractRes.headers.get("content-type");
+          let extractData;
+          if (contentType && contentType.includes("application/json")) {
+            extractData = await extractRes.json();
+          } else {
+            throw new Error(
+              extractRes.status === 413 
+                ? "File is too large for the server to process." 
+                : "The server returned an unexpected error format."
+            );
+          }
+
+          if (!extractRes.ok) {
+            throw new Error(extractData.error || `Failed to read ${file.name}`);
+          }
+          
+          extractedTextForFile = extractData.text;
         }
 
-        if (!extractRes.ok) {
-          throw new Error(extractData.error || `Failed to read ${file.name}`);
-        }
-        
-        combinedText += `\n\n--- Content from ${file.name} ---\n\n${extractData.text}`;
+        combinedText += `\n\n--- Content from ${file.name} ---\n\n${extractedTextForFile}`;
       }
 
       setExtractedText(combinedText);
