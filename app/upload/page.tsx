@@ -56,13 +56,30 @@ export default function UploadPage() {
       const fileNames = [];
 
       for (const file of files) {
+        // 1. Vercel Serverless Limit Protection (Blocks files > 4.5MB)
+        if (file.size > 4.5 * 1024 * 1024) {
+          throw new Error(`"${file.name}" is too large. Please upload files smaller than 4.5MB (Vercel limit).`);
+        }
+
         fileNames.push(file.name);
         const form = new FormData();
         form.append("file", file);
 
         const endpoint = isMediaFile(file) ? "/api/transcribe" : "/api/extract-text";
         const extractRes = await fetch(endpoint, { method: "POST", body: form });
-        const extractData = await extractRes.json();
+        
+        // 2. Safe JSON Parsing (Prevents crashes if the server returns HTML instead of JSON)
+        let extractData;
+        const contentType = extractRes.headers.get("content-type");
+        if (contentType && contentType.includes("application/json")) {
+          extractData = await extractRes.json();
+        } else {
+          throw new Error(
+            extractRes.status === 413 
+              ? "File is too large for the server to process." 
+              : "The server returned an unexpected error format."
+          );
+        }
 
         if (!extractRes.ok) {
           throw new Error(extractData.error || `Failed to read ${file.name}`);
