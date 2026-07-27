@@ -54,6 +54,10 @@ export default function UploadPage() {
     try {
       let combinedText = "";
       const fileNames = [];
+      
+      // OPTIMIZATION 1: Load heavy libraries ONCE outside the loop, not repeatedly
+      let pdfjsLib: any = null;
+      let mammothLib: any = null;
 
       for (const file of files) {
         fileNames.push(file.name);
@@ -62,46 +66,59 @@ export default function UploadPage() {
         let clientSideFailed = false;
 
         // ==========================================
-        // 1. CLIENT-SIDE EXTRACTION (With iOS Crash Protection)
+        // 1. CLIENT-SIDE EXTRACTION (Optimized for Speed)
         // ==========================================
         try {
           if (fileName.endsWith(".txt") || fileName.endsWith(".md") || fileName.endsWith(".csv")) {
             extractedTextForFile = await file.text();
           } 
           else if (fileName.endsWith(".docx") || fileName.endsWith(".doc")) {
-            const mammoth = (await import("mammoth")).default;
+            if (!mammothLib) mammothLib = (await import("mammoth")).default;
             const arrayBuffer = await file.arrayBuffer();
-            const result = await mammoth.extractRawText({ arrayBuffer });
+            const result = await mammothLib.extractRawText({ arrayBuffer });
             extractedTextForFile = result.value;
           } 
           else if (fileName.endsWith(".pdf")) {
-            const pdfjsLib = await import("pdfjs-dist");
-            
-            // Safer CDN specifically for iOS Safari (uses .js instead of .mjs)
-            pdfjsLib.GlobalWorkerOptions.workerSrc = `https://cdnjs.cloudflare.com/ajax/libs/pdf.js/${pdfjsLib.version}/pdf.worker.min.js`;
+            if (!pdfjsLib) {
+              pdfjsLib = await import("pdfjs-dist");
+              pdfjsLib.GlobalWorkerOptions.workerSrc = `https://cdnjs.cloudflare.com/ajax/libs/pdf.js/${pdfjsLib.version}/pdf.worker.min.js`;
+            }
             
             const arrayBuffer = await file.arrayBuffer();
-            // CRITICAL FIX: Convert ArrayBuffer to Uint8Array so Safari doesn't crash
             const uint8Array = new Uint8Array(arrayBuffer); 
-            
             const pdf = await pdfjsLib.getDocument({ data: uint8Array }).promise;
             
-            for (let i = 1; i <= pdf.numPages; i++) {
-              const page = await pdf.getPage(i);
-              const textContent = await page.getTextContent();
-              const pageText = textContent.items.map((item: any) => item.str).join(" ");
-              extractedTextForFile += pageText + "\n";
+            // OPTIMIZATION 2: Cap at 50 pages to protect memory and AI API token limits
+            const maxPages = Math.min(pdf.numPages, 50);
+            const batchSize = 10; 
+            
+            // OPTIMIZATION 3: Process 10 pages concurrently (Promise.all) instead of 1 by 1
+            for (let i = 1; i <= maxPages; i += batchSize) {
+              const batchPromises = [];
+              for (let j = i; j < i + batchSize && j <= maxPages; j++) {
+                batchPromises.push(
+                  pdf.getPage(j).then(async (page) => {
+                    const textContent = await page.getTextContent();
+                    return textContent.items.map((item: any) => item.str).join(" ");
+                  })
+                );
+              }
+              const batchResults = await Promise.all(batchPromises);
+              extractedTextForFile += batchResults.join("\n") + "\n";
+            }
+
+            if (pdf.numPages > 50) {
+              extractedTextForFile += "\n[System Note: The PDF was truncated to the first 50 pages to optimize AI memory and processing speed.]\n";
             }
           }
         } catch (clientErr) {
           console.warn("Client browser failed to read file, routing to server backend...", clientErr);
-          clientSideFailed = true; // Trigger fallback
+          clientSideFailed = true; 
         }
 
         // ==========================================
         // 2. SERVER-SIDE FALLBACK 
         // ==========================================
-        // Runs for Images, PPTX, or if the client-side extraction failed above
         if (
           clientSideFailed || 
           (!fileName.endsWith(".txt") && !fileName.endsWith(".md") && !fileName.endsWith(".csv") && 
