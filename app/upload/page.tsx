@@ -65,7 +65,7 @@ export default function UploadPage() {
         let clientSideFailed = false;
 
         // ==========================================
-        // 1. CLIENT-SIDE EXTRACTION (Optimized for iOS)
+        // 1. CLIENT-SIDE EXTRACTION (Bypasses Vercel Limits)
         // ==========================================
         try {
           if (fileName.endsWith(".txt") || fileName.endsWith(".md") || fileName.endsWith(".csv")) {
@@ -76,7 +76,29 @@ export default function UploadPage() {
             const arrayBuffer = await file.arrayBuffer();
             const result = await mammothLib.extractRawText({ arrayBuffer });
             extractedTextForFile = result.value;
-          } 
+          }
+          // NEW: High-Speed Client-Side PPTX Extraction!
+          else if (fileName.endsWith(".pptx")) {
+            const JSZip = (await import("jszip")).default;
+            const zip = new JSZip();
+            const loadedZip = await zip.loadAsync(file);
+            
+            // Loop through the zipped XML files to find the slide content
+            for (const [relativePath, zipEntry] of Object.entries(loadedZip.files)) {
+              if (relativePath.startsWith("ppt/slides/slide") && relativePath.endsWith(".xml")) {
+                const xmlContent = await zipEntry.async("string");
+                // Extract text from the <a:t> XML tags where PowerPoint stores text
+                const textMatches = xmlContent.match(/<a:t>([\s\S]*?)<\/a:t>/g);
+                if (textMatches) {
+                  const slideText = textMatches.map(match => match.replace(/<\/?a:t>/g, '')).join(" ");
+                  extractedTextForFile += slideText + "\n";
+                }
+              }
+            }
+            if (!extractedTextForFile.trim()) {
+              extractedTextForFile = "[Presentation contained no readable text]";
+            }
+          }
           else if (fileName.endsWith(".pdf")) {
             if (!pdfjsLib) {
               pdfjsLib = await import("pdfjs-dist");
@@ -88,8 +110,6 @@ export default function UploadPage() {
             const pdf = await pdfjsLib.getDocument({ data: uint8Array }).promise;
             
             const maxPages = Math.min(pdf.numPages, 50);
-            
-            // CRITICAL iOS FIX 1: Lower batch size prevents iOS WebKit from running out of memory
             const batchSize = 3; 
             
             for (let i = 1; i <= maxPages; i += batchSize) {
@@ -100,8 +120,6 @@ export default function UploadPage() {
                     try {
                       const textContent = await page.getTextContent();
                       const text = textContent.items.map((item: any) => item.str).join(" ");
-                      
-                      // CRITICAL iOS FIX 2: Explicitly clear the page from RAM after reading
                       page.cleanup(); 
                       return text;
                     } catch (err) {
@@ -114,11 +132,9 @@ export default function UploadPage() {
               const batchResults = await Promise.all(batchPromises);
               extractedTextForFile += batchResults.join("\n") + "\n";
               
-              // CRITICAL iOS FIX 3: Yield to the main thread. This stops Safari from freezing the UI.
               await new Promise(resolve => setTimeout(resolve, 15));
             }
             
-            // CRITICAL iOS FIX 4: Destroy the document to prevent memory leaks
             pdf.destroy();
 
             if (pdf.numPages > 50) {
@@ -133,10 +149,12 @@ export default function UploadPage() {
         // ==========================================
         // 2. SERVER-SIDE FALLBACK 
         // ==========================================
+        // Notice we added .pptx to the ignored list here so it doesn't trigger the 4.5MB error
         if (
           clientSideFailed || 
           (!fileName.endsWith(".txt") && !fileName.endsWith(".md") && !fileName.endsWith(".csv") && 
-           !fileName.endsWith(".docx") && !fileName.endsWith(".doc") && !fileName.endsWith(".pdf"))
+           !fileName.endsWith(".docx") && !fileName.endsWith(".doc") && 
+           !fileName.endsWith(".pdf") && !fileName.endsWith(".pptx"))
         ) {
           
           if (file.size > 4.5 * 1024 * 1024) {
