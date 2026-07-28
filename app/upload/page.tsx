@@ -55,7 +55,6 @@ export default function UploadPage() {
       let combinedText = "";
       const fileNames = [];
       
-      // OPTIMIZATION 1: Load heavy libraries ONCE outside the loop, not repeatedly
       let pdfjsLib: any = null;
       let mammothLib: any = null;
 
@@ -66,7 +65,7 @@ export default function UploadPage() {
         let clientSideFailed = false;
 
         // ==========================================
-        // 1. CLIENT-SIDE EXTRACTION (Optimized for Speed)
+        // 1. CLIENT-SIDE EXTRACTION (Optimized for iOS)
         // ==========================================
         try {
           if (fileName.endsWith(".txt") || fileName.endsWith(".md") || fileName.endsWith(".csv")) {
@@ -88,24 +87,39 @@ export default function UploadPage() {
             const uint8Array = new Uint8Array(arrayBuffer); 
             const pdf = await pdfjsLib.getDocument({ data: uint8Array }).promise;
             
-            // OPTIMIZATION 2: Cap at 50 pages to protect memory and AI API token limits
             const maxPages = Math.min(pdf.numPages, 50);
-            const batchSize = 10; 
             
-            // OPTIMIZATION 3: Process 10 pages concurrently (Promise.all) instead of 1 by 1
+            // CRITICAL iOS FIX 1: Lower batch size prevents iOS WebKit from running out of memory
+            const batchSize = 3; 
+            
             for (let i = 1; i <= maxPages; i += batchSize) {
               const batchPromises = [];
               for (let j = i; j < i + batchSize && j <= maxPages; j++) {
                 batchPromises.push(
                   pdf.getPage(j).then(async (page) => {
-                    const textContent = await page.getTextContent();
-                    return textContent.items.map((item: any) => item.str).join(" ");
+                    try {
+                      const textContent = await page.getTextContent();
+                      const text = textContent.items.map((item: any) => item.str).join(" ");
+                      
+                      // CRITICAL iOS FIX 2: Explicitly clear the page from RAM after reading
+                      page.cleanup(); 
+                      return text;
+                    } catch (err) {
+                      console.warn(`Failed to read page ${j}`, err);
+                      return "";
+                    }
                   })
                 );
               }
               const batchResults = await Promise.all(batchPromises);
               extractedTextForFile += batchResults.join("\n") + "\n";
+              
+              // CRITICAL iOS FIX 3: Yield to the main thread. This stops Safari from freezing the UI.
+              await new Promise(resolve => setTimeout(resolve, 15));
             }
+            
+            // CRITICAL iOS FIX 4: Destroy the document to prevent memory leaks
+            pdf.destroy();
 
             if (pdf.numPages > 50) {
               extractedTextForFile += "\n[System Note: The PDF was truncated to the first 50 pages to optimize AI memory and processing speed.]\n";
@@ -295,7 +309,7 @@ export default function UploadPage() {
                           : "bg-slate-50 border-slate-200 text-slate-700 dark:bg-slate-950 dark:border-slate-800 dark:text-slate-300"
                       }`}
                     >
-                      {level} {level === "hard" && " "}
+                      {level} {level === "hard" && "🔥"}
                     </button>
                   ))}
                 </div>
