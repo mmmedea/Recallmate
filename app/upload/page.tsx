@@ -6,7 +6,7 @@ import { Loader2, Sparkles, BrainCircuit, BookOpen, ArrowLeft } from "lucide-rea
 import { useAppStore } from "@/lib/store";
 import FileUploader from "@/components/FileUploader";
 
-// ULTIMATE iOS FIX: A rock-solid legacy file reader that bypasses the WebKit arrayBuffer() crash
+// ULTIMATE iOS FIX: Legacy file reader bypasses WebKit memory crashes
 const readFileSafely = (file: File): Promise<ArrayBuffer> => {
   return new Promise((resolve, reject) => {
     const reader = new FileReader();
@@ -52,9 +52,6 @@ export default function UploadPage() {
     }
   }, []);
 
-  const isMediaFile = (file: File) =>
-    file.type.startsWith("video/") || file.type.startsWith("audio/");
-
   const processFiles = async (files: File[]) => {
     if (files.length === 0) return;
     setError("");
@@ -67,35 +64,46 @@ export default function UploadPage() {
       let pdfjsLib: any = null;
       let mammothLib: any = null;
 
-      for (const file of files) {
-        fileNames.push(file.name);
-        const fileName = file.name.toLowerCase();
+      for (const rawFile of files) {
+        // Save original name for UI, but NEVER trust it for backend processes
+        const originalName = rawFile.name || "upload";
+        fileNames.push(originalName);
+        const fileName = originalName.toLowerCase();
+        
+        // Extract a safe extension
+        const extMatch = fileName.match(/\.[0-9a-z]+$/i);
+        const ext = extMatch ? extMatch[0] : ".bin";
+        const safeFileName = `file_${Date.now()}${ext}`;
+
         let extractedTextForFile = "";
         let clientSideFailed = false;
 
+        // CRITICAL FIX 1: Instantly convert to ArrayBuffer. We completely decouple from the Apple File object.
+        const arrayBuffer = await readFileSafely(rawFile);
+
         // ==========================================
-        // 1. CLIENT-SIDE EXTRACTION 
+        // 1. CLIENT-SIDE EXTRACTION
         // ==========================================
         try {
-          if (fileName.endsWith(".txt") || fileName.endsWith(".md") || fileName.endsWith(".csv")) {
-            extractedTextForFile = await file.text();
+          if (ext === ".txt" || ext === ".md" || ext === ".csv") {
+            const textDecoder = new TextDecoder("utf-8");
+            extractedTextForFile = textDecoder.decode(arrayBuffer);
           } 
-          else if (fileName.endsWith(".docx") || fileName.endsWith(".doc")) {
+          else if (ext === ".docx" || ext === ".doc") {
             if (!mammothLib) {
               const mammothModule = await import("mammoth");
               mammothLib = mammothModule.default || mammothModule;
             }
-            const arrayBuffer = await readFileSafely(file);
             const result = await mammothLib.extractRawText({ arrayBuffer });
             extractedTextForFile = result.value;
           }
-          else if (fileName.endsWith(".pptx")) {
+          else if (ext === ".pptx") {
             const zipModule = await import("jszip");
             const JSZip = zipModule.default || zipModule;
             const zip = new (JSZip as any)();
             
-            const arrayBuffer = await readFileSafely(file);
-            const loadedZip = await zip.loadAsync(arrayBuffer);
+            const uintArray = new Uint8Array(arrayBuffer);
+            const loadedZip = await zip.loadAsync(uintArray);
             
             for (const [relativePath, zipEntry] of Object.entries(loadedZip.files)) {
               if (relativePath.startsWith("ppt/slides/slide") && relativePath.endsWith(".xml")) {
@@ -111,14 +119,13 @@ export default function UploadPage() {
               extractedTextForFile = "[Presentation contained no readable text]";
             }
           }
-          else if (fileName.endsWith(".pdf")) {
+          else if (ext === ".pdf") {
             if (!pdfjsLib) {
               const pdfjsModule = await import("pdfjs-dist");
               pdfjsLib = pdfjsModule.default || pdfjsModule;
               pdfjsLib.GlobalWorkerOptions.workerSrc = `https://cdnjs.cloudflare.com/ajax/libs/pdf.js/${pdfjsLib.version}/pdf.worker.min.js`;
             }
             
-            const arrayBuffer = await readFileSafely(file);
             const uint8Array = new Uint8Array(arrayBuffer);
             const pdf = await pdfjsLib.getDocument({ data: uint8Array }).promise;
             
@@ -160,30 +167,32 @@ export default function UploadPage() {
         }
 
         // ==========================================
-        // 2. SERVER-SIDE FALLBACK
+        // 2. SERVER-SIDE FALLBACK (NUCLEAR SAFARI FIX)
         // ==========================================
         if (
           clientSideFailed || 
-          (!fileName.endsWith(".txt") && !fileName.endsWith(".md") && !fileName.endsWith(".csv") && 
-           !fileName.endsWith(".docx") && !fileName.endsWith(".doc") && 
-           !fileName.endsWith(".pdf") && !fileName.endsWith(".pptx"))
+          (![".txt", ".md", ".csv", ".doc", ".docx", ".pdf", ".pptx"].includes(ext))
         ) {
           
-          if (file.size > 4.5 * 1024 * 1024) {
-            throw new Error(`"${file.name}" is too large. Server extraction limit is 4.5MB.`);
+          if (rawFile.size > 4.5 * 1024 * 1024) {
+            throw new Error(`"${originalName}" is too large. Server extraction limit is 4.5MB.`);
           }
 
+          // CRITICAL FIX 2: We construct a pristine Blob with a hardcoded valid MIME type.
+          // This strips all corrupted Apple metadata and prevents FormData from crashing.
+          let safeMime = "application/octet-stream";
+          if (ext === ".jpg" || ext === ".jpeg") safeMime = "image/jpeg";
+          else if (ext === ".png") safeMime = "image/png";
+          else if (ext === ".webp") safeMime = "image/webp";
+          else if (ext === ".mp4") safeMime = "video/mp4";
+          else if (ext === ".mp3") safeMime = "audio/mpeg";
+
+          const pristineBlob = new Blob([arrayBuffer], { type: safeMime });
           const form = new FormData();
+          form.append("file", pristineBlob, safeFileName);
           
-          // CRITICAL SAFARI FIX 2: Override the original filename in FormData.
-          // This strips all hidden emojis, accents, and invalid characters that crash iOS network requests.
-          const extMatch = fileName.match(/\.[0-9a-z]+$/i);
-          const safeExt = extMatch ? extMatch[0] : ".bin";
-          const safeName = `upload_file${safeExt}`;
-          
-          form.append("file", file, safeName);
-          
-          const endpoint = isMediaFile(file) ? "/api/transcribe" : "/api/extract-text";
+          const isMedia = safeMime.startsWith("video/") || safeMime.startsWith("audio/");
+          const endpoint = isMedia ? "/api/transcribe" : "/api/extract-text";
           
           const extractRes = await fetch(endpoint, { method: "POST", body: form });
           
@@ -200,13 +209,13 @@ export default function UploadPage() {
           }
 
           if (!extractRes.ok) {
-            throw new Error(extractData.error || `Failed to read ${file.name}`);
+            throw new Error(extractData.error || `Failed to read ${originalName}`);
           }
           
           extractedTextForFile = extractData.text;
         }
 
-        combinedText += `\n\n--- Content from ${file.name} ---\n\n${extractedTextForFile}`;
+        combinedText += `\n\n--- Content from ${originalName} ---\n\n${extractedTextForFile}`;
       }
 
       setExtractedText(combinedText);
