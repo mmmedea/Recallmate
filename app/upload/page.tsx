@@ -65,7 +65,7 @@ export default function UploadPage() {
         let clientSideFailed = false;
 
         // ==========================================
-        // 1. CLIENT-SIDE EXTRACTION (In-App Browser Safe)
+        // 1. CLIENT-SIDE EXTRACTION (Bulletproofed for Safari)
         // ==========================================
         try {
           if (fileName.endsWith(".txt") || fileName.endsWith(".md") || fileName.endsWith(".csv")) {
@@ -74,20 +74,20 @@ export default function UploadPage() {
           else if (fileName.endsWith(".docx") || fileName.endsWith(".doc")) {
             if (!mammothLib) {
               const mammothModule = await import("mammoth");
-              // Fix for Next.js dynamic import inconsistencies
               mammothLib = mammothModule.default || mammothModule;
             }
             const arrayBuffer = await file.arrayBuffer();
             const result = await mammothLib.extractRawText({ arrayBuffer });
             extractedTextForFile = result.value;
           }
-          // PPTX Extraction specifically fixed for Messenger/iOS
           else if (fileName.endsWith(".pptx")) {
             const zipModule = await import("jszip");
-            // Bulletproof import fallback to prevent "not a constructor" crashes
             const JSZip = zipModule.default || zipModule;
             const zip = new (JSZip as any)();
-            const loadedZip = await zip.loadAsync(file);
+            
+            // SAFARI FIX 1: Pass ArrayBuffer explicitly instead of the raw File object
+            const arrayBuffer = await file.arrayBuffer();
+            const loadedZip = await zip.loadAsync(arrayBuffer);
             
             for (const [relativePath, zipEntry] of Object.entries(loadedZip.files)) {
               if (relativePath.startsWith("ppt/slides/slide") && relativePath.endsWith(".xml")) {
@@ -110,9 +110,9 @@ export default function UploadPage() {
               pdfjsLib.GlobalWorkerOptions.workerSrc = `https://cdnjs.cloudflare.com/ajax/libs/pdf.js/${pdfjsLib.version}/pdf.worker.min.js`;
             }
             
-            const arrayBuffer = await file.arrayBuffer();
-            const uint8Array = new Uint8Array(arrayBuffer); 
-            const pdf = await pdfjsLib.getDocument({ data: uint8Array }).promise;
+            // SAFARI FIX 2: Create a local URL for the PDF to completely bypass binary array crashes
+            const objectUrl = URL.createObjectURL(file);
+            const pdf = await pdfjsLib.getDocument(objectUrl).promise;
             
             const maxPages = Math.min(pdf.numPages, 50);
             const batchSize = 3; 
@@ -141,6 +141,7 @@ export default function UploadPage() {
             }
             
             pdf.destroy();
+            URL.revokeObjectURL(objectUrl); // Clean up memory
 
             if (pdf.numPages > 50) {
               extractedTextForFile += "\n[System Note: The PDF was truncated to the first 50 pages to optimize AI memory and processing speed.]\n";
@@ -166,7 +167,12 @@ export default function UploadPage() {
           }
 
           const form = new FormData();
-          form.append("file", file);
+          
+          // SAFARI FIX 3: Strip emojis, accents, and invalid characters from filename
+          // Safari's FormData.append strictly crashes if it sees unexpected characters in the filename.
+          const safeFileName = file.name.replace(/[^a-zA-Z0-9.\-_]/g, "_") || "upload.file";
+          form.append("file", file, safeFileName);
+          
           const endpoint = isMediaFile(file) ? "/api/transcribe" : "/api/extract-text";
           
           const extractRes = await fetch(endpoint, { method: "POST", body: form });
