@@ -6,8 +6,12 @@ import { Loader2, Sparkles, BrainCircuit, BookOpen, ArrowLeft } from "lucide-rea
 import { useAppStore } from "@/lib/store";
 import FileUploader from "@/components/FileUploader";
 
-// Safe legacy file reader (Only used for small text files now)
-const readFileSafely = (file: File): Promise<ArrayBuffer> => {
+const readFileSafely = async (file: File): Promise<ArrayBuffer> => {
+  // Use modern native arrayBuffer if available (highly optimized for memory)
+  if (typeof file.arrayBuffer === "function") {
+    return await file.arrayBuffer();
+  }
+  // Fallback for older browsers
   return new Promise((resolve, reject) => {
     const reader = new FileReader();
     reader.onload = () => resolve(reader.result as ArrayBuffer);
@@ -16,7 +20,7 @@ const readFileSafely = (file: File): Promise<ArrayBuffer> => {
   });
 };
 
-// Auto-compress large images to bypass the 4.5MB server limit
+// Compress standard images
 const compressImage = (file: File | Blob): Promise<Blob> => {
   return new Promise((resolve, reject) => {
     const img = new Image();
@@ -25,7 +29,7 @@ const compressImage = (file: File | Blob): Promise<Blob> => {
       URL.revokeObjectURL(url);
       const canvas = document.createElement("canvas");
       let { width, height } = img;
-      const maxDim = 1500; // Cap resolution to save massive amounts of data
+      const maxDim = 1500; 
       if (width > height && width > maxDim) {
         height = Math.round((height * maxDim) / width);
         width = maxDim;
@@ -40,10 +44,63 @@ const compressImage = (file: File | Blob): Promise<Blob> => {
       canvas.toBlob((blob) => {
         if (blob) resolve(blob);
         else reject(new Error("Compression failed"));
-      }, "image/jpeg", 0.7); // 70% quality JPEG is perfect for AI OCR
+      }, "image/jpeg", 0.7); 
     };
     img.onerror = () => reject(new Error("Image load failed"));
     img.src = url;
+  });
+};
+
+// NEW: Visual PDF Compressor. Converts massive scanned PDFs into a single lightweight JPEG
+const compressPdfToImage = async (buffer: ArrayBuffer, pdfjsLib: any): Promise<Blob> => {
+  if (!pdfjsLib) {
+    const pdfjsModule = await import("pdfjs-dist");
+    pdfjsLib = pdfjsModule.default || pdfjsModule;
+    pdfjsLib.GlobalWorkerOptions.workerSrc = `https://cdnjs.cloudflare.com/ajax/libs/pdf.js/${pdfjsLib.version}/pdf.worker.min.js`;
+  }
+
+  const loadingTask = pdfjsLib.getDocument({ data: new Uint8Array(buffer), isEvalSupported: false });
+  const pdf = await loadingTask.promise;
+  
+  // Compress the first 4 pages (more than enough text to generate a great quiz)
+  const maxPages = Math.min(pdf.numPages, 4); 
+  const canvases = [];
+  let totalHeight = 0;
+  let maxWidth = 0;
+
+  for (let i = 1; i <= maxPages; i++) {
+    const page = await pdf.getPage(i);
+    const viewport = page.getViewport({ scale: 1.5 });
+    const canvas = document.createElement("canvas");
+    const ctx = canvas.getContext("2d");
+    if (ctx) {
+      canvas.width = viewport.width;
+      canvas.height = viewport.height;
+      await page.render({ canvasContext: ctx, viewport }).promise;
+      canvases.push(canvas);
+      totalHeight += canvas.height;
+      if (canvas.width > maxWidth) maxWidth = canvas.width;
+    }
+    page.cleanup();
+  }
+
+  const masterCanvas = document.createElement("canvas");
+  masterCanvas.width = maxWidth;
+  masterCanvas.height = totalHeight;
+  const masterCtx = masterCanvas.getContext("2d");
+
+  let currentY = 0;
+  for (const c of canvases) {
+    masterCtx?.drawImage(c, 0, currentY);
+    currentY += c.height;
+  }
+  pdf.destroy();
+
+  return new Promise((resolve, reject) => {
+    masterCanvas.toBlob((blob) => {
+      if (blob) resolve(blob);
+      else reject(new Error("PDF to Image compression failed"));
+    }, "image/jpeg", 0.6); // 60% quality highly compresses it while keeping text readable
   });
 };
 
@@ -53,7 +110,6 @@ export default function UploadPage() {
   const [extractedText, setExtractedText] = useState("");
   const [fileName, setFileName] = useState("");
   
-  // Configuration options
   const [studyMode, setStudyMode] = useState<"quiz" | "notes">("quiz");
   const [questionCount, setQuestionCount] = useState(10);
   const [selectedDifficulty, setSelectedDifficulty] = useState<"easy" | "medium" | "hard">("easy");
@@ -63,7 +119,7 @@ export default function UploadPage() {
   const { isPremium } = useAppStore();
 
   const maxLimit = isPremium ? 50 : 30;
-  const MAX_AI_CHARS = 15000; // Cap text to ensure AI stays well under 10s timeout
+  const MAX_AI_CHARS = 15000; 
 
   useEffect(() => {
     const rawContent = sessionStorage.getItem("recallmate-content");
@@ -118,109 +174,117 @@ export default function UploadPage() {
         }
 
         fileNames.push(originalName);
-        const safeFileName = `file_${Date.now()}${ext}`;
+        let safeFileName = `file_${Date.now()}${ext}`;
         let extractedTextForFile = "";
         let clientSideFailed = false;
 
-        // ==========================================
-        // 1. CLIENT-SIDE EXTRACTION (ZERO-MEMORY SPIKE FIX)
-        // ==========================================
-        const runClientExtraction = async (): Promise<string> => {
-          let resultText = "";
-
-          // DOCX and TXT are inherently small, safe to use ArrayBuffer
-          if (ext === ".txt" || ext === ".md" || ext === ".csv" || ext === ".docx" || ext === ".doc") {
-            const arrayBuffer = await readFileSafely(rawFile);
-            
-            if (ext === ".txt" || ext === ".md" || ext === ".csv") {
-              const textDecoder = new TextDecoder("utf-8");
-              resultText = textDecoder.decode(arrayBuffer);
-            } else {
-              if (!mammothLib) {
-                const mammothModule = await import("mammoth");
-                mammothLib = mammothModule.default || mammothModule;
-              }
-              const result = await mammothLib.extractRawText({ arrayBuffer });
-              resultText = result.value;
-            }
-          }
-          else if (ext === ".pptx") {
-            const zipModule = await import("jszip");
-            const JSZip = zipModule.default || zipModule;
-            const zip = new (JSZip as any)();
-            
-            // PPTX FIX: JSZip natively reads raw File objects without loading into RAM
-            const loadedZip = await zip.loadAsync(rawFile);
-            
-            for (const [relativePath, zipEntry] of Object.entries(loadedZip.files)) {
-              if (relativePath.startsWith("ppt/slides/slide") && relativePath.endsWith(".xml")) {
-                const xmlContent = await (zipEntry as any).async("string");
-                const textMatches = xmlContent.match(/<a:t>([\s\S]*?)<\/a:t>/g);
-                if (textMatches) {
-                  const slideText = textMatches.map((match: string) => match.replace(/<\/?a:t>/g, '')).join(" ");
-                  resultText += slideText + "\n";
-                }
-              }
-              if (resultText.length > MAX_AI_CHARS) break; 
-            }
-          }
-          else if (ext === ".pdf") {
-            if (!pdfjsLib) {
-              const pdfjsModule = await import("pdfjs-dist");
-              pdfjsLib = pdfjsModule.default || pdfjsModule;
-              try {
-                const workerUrl = `https://cdnjs.cloudflare.com/ajax/libs/pdf.js/${pdfjsLib.version}/pdf.worker.min.js`;
-                const workerRes = await fetch(workerUrl);
-                const workerBlob = await workerRes.blob();
-                pdfjsLib.GlobalWorkerOptions.workerSrc = URL.createObjectURL(workerBlob);
-              } catch (workerErr) {
-                pdfjsLib.GlobalWorkerOptions.workerSrc = `https://cdnjs.cloudflare.com/ajax/libs/pdf.js/${pdfjsLib.version}/pdf.worker.min.js`;
-              }
-            }
-            
-            // 10MB+ PDF FIX: Create a local URL stream instead of loading raw bytes into RAM
-            const objectUrl = URL.createObjectURL(rawFile);
-            
-            const loadingTask = pdfjsLib.getDocument({
-              url: objectUrl,
-              isEvalSupported: false,
-            });
-
-            const pdf = await loadingTask.promise;
-            const maxPages = Math.min(pdf.numPages, 100);
-            
-            for (let i = 1; i <= maxPages; i++) {
-              try {
-                const page = await pdf.getPage(i);
-                const textContent = await page.getTextContent();
-                const pageText = textContent.items.map((item: any) => item.str).join(" ");
-                resultText += pageText + "\n";
-                page.cleanup();
-                
-                if (resultText.length > MAX_AI_CHARS) break;
-              } catch (e) {}
-            }
-            pdf.destroy();
-            URL.revokeObjectURL(objectUrl); // Clean up stream memory
-          }
-
-          return resultText;
-        };
-
+        let arrayBuffer: ArrayBuffer | null = null;
         try {
-          extractedTextForFile = await Promise.race([
-            runClientExtraction(),
-            new Promise<string>((_, reject) => 
-              setTimeout(() => reject(new Error("Extraction timed out")), 60000)
-            )
-          ]);
-        } catch (clientErr) {
-          console.warn("Client extraction timed out or failed, falling back to server...", clientErr);
+          arrayBuffer = await readFileSafely(rawFile);
+        } catch (e) {
           clientSideFailed = true;
         }
 
         // ==========================================
-        // 2. SERVER-SIDE FALLBACK / IMAGE COMPRESSION
+        // 1. CLIENT-SIDE EXTRACTION
+        // ==========================================
+        if (arrayBuffer && !clientSideFailed) {
+          const runClientExtraction = async (): Promise<string> => {
+            let resultText = "";
+
+            if (ext === ".txt" || ext === ".md" || ext === ".csv") {
+              const textDecoder = new TextDecoder("utf-8");
+              resultText = textDecoder.decode(arrayBuffer!);
+            } 
+            else if (ext === ".docx" || ext === ".doc") {
+              if (!mammothLib) {
+                const mammothModule = await import("mammoth");
+                mammothLib = mammothModule.default || mammothModule;
+              }
+              const result = await mammothLib.extractRawText({ arrayBuffer: arrayBuffer! });
+              resultText = result.value;
+            }
+            else if (ext === ".pptx") {
+              const zipModule = await import("jszip");
+              const JSZip = zipModule.default || zipModule;
+              const zip = new (JSZip as any)();
+              
+              const uintArray = new Uint8Array(arrayBuffer!);
+              const loadedZip = await zip.loadAsync(uintArray);
+              
+              for (const [relativePath, zipEntry] of Object.entries(loadedZip.files)) {
+                if (relativePath.startsWith("ppt/slides/slide") && relativePath.endsWith(".xml")) {
+                  const xmlContent = await (zipEntry as any).async("string");
+                  const textMatches = xmlContent.match(/<a:t>([\s\S]*?)<\/a:t>/g);
+                  if (textMatches) {
+                    const slideText = textMatches.map((match: string) => match.replace(/<\/?a:t>/g, '')).join(" ");
+                    resultText += slideText + "\n";
+                  }
+                }
+                if (resultText.length > MAX_AI_CHARS) break; 
+              }
+            }
+            else if (ext === ".pdf") {
+              if (!pdfjsLib) {
+                const pdfjsModule = await import("pdfjs-dist");
+                pdfjsLib = pdfjsModule.default || pdfjsModule;
+                
+                try {
+                  const workerUrl = `https://cdnjs.cloudflare.com/ajax/libs/pdf.js/${pdfjsLib.version}/pdf.worker.min.js`;
+                  const workerRes = await fetch(workerUrl);
+                  const workerBlob = await workerRes.blob();
+                  pdfjsLib.GlobalWorkerOptions.workerSrc = URL.createObjectURL(workerBlob);
+                } catch (workerErr) {
+                  pdfjsLib.GlobalWorkerOptions.workerSrc = `https://cdnjs.cloudflare.com/ajax/libs/pdf.js/${pdfjsLib.version}/pdf.worker.min.js`;
+                }
+              }
+              
+              const uint8Array = new Uint8Array(arrayBuffer!);
+              
+              const loadingTask = pdfjsLib.getDocument({
+                data: uint8Array,
+                isEvalSupported: false,
+              });
+
+              const pdf = await loadingTask.promise;
+              const maxPages = Math.min(pdf.numPages, 100);
+              
+              for (let i = 1; i <= maxPages; i++) {
+                try {
+                  const page = await pdf.getPage(i);
+                  const textContent = await page.getTextContent();
+                  const pageText = textContent.items.map((item: any) => item.str).join(" ");
+                  resultText += pageText + "\n";
+                  page.cleanup();
+                  
+                  if (resultText.length > MAX_AI_CHARS) {
+                    break;
+                  }
+                } catch (e) {}
+              }
+              pdf.destroy();
+            }
+
+            return resultText;
+          };
+
+          try {
+            extractedTextForFile = await Promise.race([
+              runClientExtraction(),
+              new Promise<string>((_, reject) => 
+                setTimeout(() => reject(new Error("Extraction timed out")), 45000)
+              )
+            ]);
+          } catch (clientErr) {
+            console.warn("Client extraction timed out or failed, falling back to server...", clientErr);
+            clientSideFailed = true;
+          }
+        } else {
+          clientSideFailed = true;
+        }
+
+        // ==========================================
+        // 2. AUTO-COMPRESSORS & SERVER FALLBACK
         // ==========================================
         
         const isTextEmpty = !extractedTextForFile.trim();
@@ -232,37 +296,46 @@ export default function UploadPage() {
         ) {
           
           let fileToSend: File | Blob = rawFile;
+          let finalExt = ext;
 
-          // HUGE FIX: If they upload an oversized Image, compress it down instantly!
-          if (rawFile.size > 4.5 * 1024 * 1024 && [".jpg", ".jpeg", ".png", ".webp"].includes(ext)) {
-            try {
-              fileToSend = await compressImage(rawFile);
-            } catch (err) {
-              console.warn("Failed to compress image locally");
+          // MEGA-FIX: If the file is huge, apply the correct Auto-Compressor before it hits Vercel
+          if (rawFile.size > 4.5 * 1024 * 1024) {
+            if ([".jpg", ".jpeg", ".png", ".webp"].includes(ext)) {
+               try { fileToSend = await compressImage(rawFile); } catch (e) {}
+            } 
+            else if (ext === ".pdf" && isTextEmpty && arrayBuffer) {
+               // The file is a massive scanned PDF > 4.5MB. Auto-compress it into a JPEG!
+               try {
+                 fileToSend = await compressPdfToImage(arrayBuffer, pdfjsLib);
+                 finalExt = ".jpg"; // Disguise it as an image so the backend processes it via OCR
+                 safeFileName = `compressed_scan_${Date.now()}.jpg`;
+               } catch (e) {
+                 console.error("PDF Visual Compression Failed", e);
+               }
             }
           }
 
+          // Check if compression failed or if it's an uncompressible >4.5MB file (like heavy PPTX)
           if (fileToSend.size > 4.5 * 1024 * 1024) {
             if (ext === ".pdf" && isTextEmpty && !clientSideFailed) {
-               throw new Error(`"${originalName}" appears to be a scanned document containing only images. It is over the 4.5MB server limit for image scanning. Please compress the file or upload a text-based PDF.`);
+               throw new Error(`"${originalName}" is a scanned document and too large to compress automatically. Please use an online PDF compressor first.`);
             }
             if (clientSideFailed) {
-              throw new Error(`"${originalName}" timed out while processing on your device. It is too large to send to the backup server (${(rawFile.size / 1024 / 1024).toFixed(1)}MB). Please open this site in normal Safari/Chrome!`);
+              throw new Error(`"${originalName}" timed out while processing on your device. Please open this site in normal Safari/Chrome!`);
             }
             throw new Error(`"${originalName}" is too large. Server extraction limit is 4.5MB.`);
           }
 
           let safeMime = "application/octet-stream";
-          if (ext === ".jpg" || ext === ".jpeg") safeMime = "image/jpeg";
-          else if (ext === ".png") safeMime = "image/png";
-          else if (ext === ".webp") safeMime = "image/webp";
-          else if (ext === ".mp4") safeMime = "video/mp4";
-          else if (ext === ".mp3") safeMime = "audio/mpeg";
-          else if (ext === ".pdf") safeMime = "application/pdf";
-          else if (ext === ".pptx") safeMime = "application/vnd.openxmlformats-officedocument.presentationml.presentation";
-          else if (ext === ".docx") safeMime = "application/vnd.openxmlformats-officedocument.wordprocessingml.document";
+          if (finalExt === ".jpg" || finalExt === ".jpeg") safeMime = "image/jpeg";
+          else if (finalExt === ".png") safeMime = "image/png";
+          else if (finalExt === ".webp") safeMime = "image/webp";
+          else if (finalExt === ".mp4") safeMime = "video/mp4";
+          else if (finalExt === ".mp3") safeMime = "audio/mpeg";
+          else if (finalExt === ".pdf") safeMime = "application/pdf";
+          else if (finalExt === ".pptx") safeMime = "application/vnd.openxmlformats-officedocument.presentationml.presentation";
+          else if (finalExt === ".docx") safeMime = "application/vnd.openxmlformats-officedocument.wordprocessingml.document";
 
-          // Construct pristine Blob to prevent OS/Browser metadata conflicts
           const pristineBlob = new Blob([fileToSend], { type: safeMime });
           const form = new FormData();
           form.append("file", pristineBlob, safeFileName);
