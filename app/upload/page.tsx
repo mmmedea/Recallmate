@@ -6,7 +6,7 @@ import { Loader2, Sparkles, BrainCircuit, BookOpen, ArrowLeft } from "lucide-rea
 import { useAppStore } from "@/lib/store";
 import FileUploader from "@/components/FileUploader";
 
-// Safe legacy file reader
+// Safe legacy file reader to bypass WebKit memory crashes
 const readFileSafely = (file: File): Promise<ArrayBuffer> => {
   return new Promise((resolve, reject) => {
     const reader = new FileReader();
@@ -71,7 +71,7 @@ export default function UploadPage() {
         let extMatch = tempFileName.match(/\.[0-9a-z]+$/i);
         let ext = extMatch ? extMatch[0] : "";
 
-        // Restore missing extensions from MIME type (Android / Drive fix)
+        // Restore missing extensions from MIME type
         const mime = (rawFile.type || "").toLowerCase();
         if (!ext || !['.txt','.md','.csv','.doc','.docx','.pdf','.pptx','.jpg','.jpeg','.png','.webp','.mp4','.mp3'].includes(ext)) {
           if (mime.includes("pdf")) ext = ".pdf";
@@ -91,7 +91,6 @@ export default function UploadPage() {
         let extractedTextForFile = "";
         let clientSideFailed = false;
 
-        // Convert File to ArrayBuffer safely
         let arrayBuffer: ArrayBuffer | null = null;
         try {
           arrayBuffer = await readFileSafely(rawFile);
@@ -100,7 +99,7 @@ export default function UploadPage() {
         }
 
         // ==========================================
-        // 1. CLIENT-SIDE EXTRACTION (WITH EXTENDED 25-SECOND TIMEOUT)
+        // 1. CLIENT-SIDE EXTRACTION (WITH CORS BYPASS)
         // ==========================================
         if (arrayBuffer && !clientSideFailed) {
           const runClientExtraction = async (): Promise<string> => {
@@ -141,13 +140,24 @@ export default function UploadPage() {
               if (!pdfjsLib) {
                 const pdfjsModule = await import("pdfjs-dist");
                 pdfjsLib = pdfjsModule.default || pdfjsModule;
+                
+                // ULTIMATE SAFARI WORKER BYPASS: 
+                // Fetch the worker as a blob and run it locally to bypass iOS in-app CORS restrictions.
+                try {
+                  const workerUrl = `https://cdnjs.cloudflare.com/ajax/libs/pdf.js/${pdfjsLib.version}/pdf.worker.min.js`;
+                  const workerRes = await fetch(workerUrl);
+                  const workerBlob = await workerRes.blob();
+                  pdfjsLib.GlobalWorkerOptions.workerSrc = URL.createObjectURL(workerBlob);
+                } catch (workerErr) {
+                  // If blob fetch fails, fallback to direct URL
+                  pdfjsLib.GlobalWorkerOptions.workerSrc = `https://cdnjs.cloudflare.com/ajax/libs/pdf.js/${pdfjsLib.version}/pdf.worker.min.js`;
+                }
               }
               
               const uint8Array = new Uint8Array(arrayBuffer!);
               
               const loadingTask = pdfjsLib.getDocument({
                 data: uint8Array,
-                disableWorker: true, // Forces main thread execution to bypass Safari security blocks
                 isEvalSupported: false,
               });
 
@@ -170,11 +180,10 @@ export default function UploadPage() {
           };
 
           try {
-            // INCREASED TO 25 SECONDS: Gives mobile devices more time to process heavy PDFs like the Urinalysis one
             extractedTextForFile = await Promise.race([
               runClientExtraction(),
               new Promise<string>((_, reject) => 
-                setTimeout(() => reject(new Error("Extraction timed out")), 25000)
+                setTimeout(() => reject(new Error("Extraction timed out")), 30000)
               )
             ]);
           } catch (clientErr) {
@@ -186,18 +195,24 @@ export default function UploadPage() {
         }
 
         // ==========================================
-        // 2. SERVER-SIDE FALLBACK
+        // 2. SERVER-SIDE FALLBACK / ERROR HANDLING
         // ==========================================
+        
+        const isTextEmpty = !extractedTextForFile.trim();
+
         if (
           clientSideFailed || 
-          !extractedTextForFile.trim() ||
+          isTextEmpty ||
           (![".txt", ".md", ".csv", ".doc", ".docx", ".pdf", ".pptx"].includes(ext))
         ) {
           
           if (rawFile.size > 4.5 * 1024 * 1024) {
-            // CUSTOM ERROR: Tells the user exactly why it failed if it got pushed to the backend
+            // SPECIFIC ERROR: Tell the user exactly why their >4.5MB PDF failed if it has no text
+            if (ext === ".pdf" && isTextEmpty && !clientSideFailed) {
+               throw new Error(`"${originalName}" appears to be a scanned document containing only images. It is over the 4.5MB Vercel server limit for image scanning. Please compress the file or upload a text-based PDF.`);
+            }
             if (clientSideFailed) {
-              throw new Error(`"${originalName}" timed out while extracting inside this app. It is too large for our backup servers (${(rawFile.size / 1024 / 1024).toFixed(1)}MB). Please open this site in normal Safari/Chrome!`);
+              throw new Error(`"${originalName}" timed out while processing on your device. It is too large to send to the backup server (${(rawFile.size / 1024 / 1024).toFixed(1)}MB). Please open this site in normal Safari/Chrome!`);
             }
             throw new Error(`"${originalName}" is too large. Server extraction limit is 4.5MB.`);
           }
