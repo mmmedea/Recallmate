@@ -100,7 +100,7 @@ export default function UploadPage() {
         }
 
         // ==========================================
-        // 1. CLIENT-SIDE EXTRACTION (WITH 6-SECOND TIMEOUT)
+        // 1. CLIENT-SIDE EXTRACTION (WITH EXTENDED 25-SECOND TIMEOUT)
         // ==========================================
         if (arrayBuffer && !clientSideFailed) {
           const runClientExtraction = async (): Promise<string> => {
@@ -145,10 +145,9 @@ export default function UploadPage() {
               
               const uint8Array = new Uint8Array(arrayBuffer!);
               
-              // CRITICAL SAFARI FIX: disableWorker prevents hanging on blocked CDN workers
               const loadingTask = pdfjsLib.getDocument({
                 data: uint8Array,
-                disableWorker: true,
+                disableWorker: true, // Forces main thread execution to bypass Safari security blocks
                 isEvalSupported: false,
               });
 
@@ -171,11 +170,11 @@ export default function UploadPage() {
           };
 
           try {
-            // Enforce a hard 6-second max timeout so client extraction CANNOT hang forever
+            // INCREASED TO 25 SECONDS: Gives mobile devices more time to process heavy PDFs like the Urinalysis one
             extractedTextForFile = await Promise.race([
               runClientExtraction(),
               new Promise<string>((_, reject) => 
-                setTimeout(() => reject(new Error("Extraction timed out")), 6000)
+                setTimeout(() => reject(new Error("Extraction timed out")), 25000)
               )
             ]);
           } catch (clientErr) {
@@ -196,6 +195,10 @@ export default function UploadPage() {
         ) {
           
           if (rawFile.size > 4.5 * 1024 * 1024) {
+            // CUSTOM ERROR: Tells the user exactly why it failed if it got pushed to the backend
+            if (clientSideFailed) {
+              throw new Error(`"${originalName}" timed out while extracting inside this app. It is too large for our backup servers (${(rawFile.size / 1024 / 1024).toFixed(1)}MB). Please open this site in normal Safari/Chrome!`);
+            }
             throw new Error(`"${originalName}" is too large. Server extraction limit is 4.5MB.`);
           }
 
@@ -251,7 +254,6 @@ export default function UploadPage() {
       setError(err instanceof Error ? err.message : "Something went wrong.");
       setStatus("idle");
     } finally {
-      // Guaranteed state recovery so the UI can never get permanently stuck
       setStatus((prev) => (prev === "extracting" ? "idle" : prev));
     }
   };
@@ -266,7 +268,6 @@ export default function UploadPage() {
         textToSend = "User generated session content based on previous upload.";
       }
 
-      // Truncate text to guarantee response well under Vercel's 10s serverless limit
       const MAX_CHARS = 12000; 
       if (textToSend.length > MAX_CHARS) {
         textToSend = textToSend.substring(0, MAX_CHARS) + "\n\n[Note: Content truncated for speed.]";
