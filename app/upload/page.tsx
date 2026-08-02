@@ -6,7 +6,7 @@ import { Loader2, Sparkles, BrainCircuit, BookOpen, ArrowLeft } from "lucide-rea
 import { useAppStore } from "@/lib/store";
 import FileUploader from "@/components/FileUploader";
 
-// ULTIMATE iOS/ANDROID FIX: Legacy file reader bypasses WebKit memory crashes
+// Safe legacy file reader
 const readFileSafely = (file: File): Promise<ArrayBuffer> => {
   return new Promise((resolve, reject) => {
     const reader = new FileReader();
@@ -52,9 +52,6 @@ export default function UploadPage() {
     }
   }, []);
 
-  const isMediaFile = (file: File) =>
-    file.type.startsWith("video/") || file.type.startsWith("audio/");
-
   const processFiles = async (files: File[]) => {
     if (files.length === 0) return;
     setError("");
@@ -74,6 +71,7 @@ export default function UploadPage() {
         let extMatch = tempFileName.match(/\.[0-9a-z]+$/i);
         let ext = extMatch ? extMatch[0] : "";
 
+        // Restore missing extensions from MIME type (Android / Drive fix)
         const mime = (rawFile.type || "").toLowerCase();
         if (!ext || !['.txt','.md','.csv','.doc','.docx','.pdf','.pptx','.jpg','.jpeg','.png','.webp','.mp4','.mp3'].includes(ext)) {
           if (mime.includes("pdf")) ext = ".pdf";
@@ -89,94 +87,111 @@ export default function UploadPage() {
         }
 
         fileNames.push(originalName);
-        const fileName = tempFileName;
         const safeFileName = `file_${Date.now()}${ext}`;
-
         let extractedTextForFile = "";
         let clientSideFailed = false;
 
-        const arrayBuffer = await readFileSafely(rawFile);
-
+        // Convert File to ArrayBuffer safely
+        let arrayBuffer: ArrayBuffer | null = null;
         try {
-          if (ext === ".txt" || ext === ".md" || ext === ".csv") {
-            const textDecoder = new TextDecoder("utf-8");
-            extractedTextForFile = textDecoder.decode(arrayBuffer);
-          } 
-          else if (ext === ".docx" || ext === ".doc") {
-            if (!mammothLib) {
-              const mammothModule = await import("mammoth");
-              mammothLib = mammothModule.default || mammothModule;
+          arrayBuffer = await readFileSafely(rawFile);
+        } catch (e) {
+          clientSideFailed = true;
+        }
+
+        // ==========================================
+        // 1. CLIENT-SIDE EXTRACTION (WITH 6-SECOND TIMEOUT)
+        // ==========================================
+        if (arrayBuffer && !clientSideFailed) {
+          const runClientExtraction = async (): Promise<string> => {
+            let resultText = "";
+
+            if (ext === ".txt" || ext === ".md" || ext === ".csv") {
+              const textDecoder = new TextDecoder("utf-8");
+              resultText = textDecoder.decode(arrayBuffer!);
+            } 
+            else if (ext === ".docx" || ext === ".doc") {
+              if (!mammothLib) {
+                const mammothModule = await import("mammoth");
+                mammothLib = mammothModule.default || mammothModule;
+              }
+              const result = await mammothLib.extractRawText({ arrayBuffer: arrayBuffer! });
+              resultText = result.value;
             }
-            const result = await mammothLib.extractRawText({ arrayBuffer });
-            extractedTextForFile = result.value;
-          }
-          else if (ext === ".pptx") {
-            const zipModule = await import("jszip");
-            const JSZip = zipModule.default || zipModule;
-            const zip = new (JSZip as any)();
-            
-            const uintArray = new Uint8Array(arrayBuffer);
-            const loadedZip = await zip.loadAsync(uintArray);
-            
-            for (const [relativePath, zipEntry] of Object.entries(loadedZip.files)) {
-              if (relativePath.startsWith("ppt/slides/slide") && relativePath.endsWith(".xml")) {
-                const xmlContent = await (zipEntry as any).async("string");
-                const textMatches = xmlContent.match(/<a:t>([\s\S]*?)<\/a:t>/g);
-                if (textMatches) {
-                  const slideText = textMatches.map((match: string) => match.replace(/<\/?a:t>/g, '')).join(" ");
-                  extractedTextForFile += slideText + "\n";
+            else if (ext === ".pptx") {
+              const zipModule = await import("jszip");
+              const JSZip = zipModule.default || zipModule;
+              const zip = new (JSZip as any)();
+              
+              const uintArray = new Uint8Array(arrayBuffer!);
+              const loadedZip = await zip.loadAsync(uintArray);
+              
+              for (const [relativePath, zipEntry] of Object.entries(loadedZip.files)) {
+                if (relativePath.startsWith("ppt/slides/slide") && relativePath.endsWith(".xml")) {
+                  const xmlContent = await (zipEntry as any).async("string");
+                  const textMatches = xmlContent.match(/<a:t>([\s\S]*?)<\/a:t>/g);
+                  if (textMatches) {
+                    const slideText = textMatches.map((match: string) => match.replace(/<\/?a:t>/g, '')).join(" ");
+                    resultText += slideText + "\n";
+                  }
                 }
               }
             }
-            if (!extractedTextForFile.trim()) {
-              extractedTextForFile = "[Presentation contained no readable text]";
-            }
-          }
-          else if (ext === ".pdf") {
-            if (!pdfjsLib) {
-              const pdfjsModule = await import("pdfjs-dist");
-              pdfjsLib = pdfjsModule.default || pdfjsModule;
-              pdfjsLib.GlobalWorkerOptions.workerSrc = `https://cdnjs.cloudflare.com/ajax/libs/pdf.js/${pdfjsLib.version}/pdf.worker.min.js`;
-            }
-            
-            const uint8Array = new Uint8Array(arrayBuffer);
-            const pdf = await pdfjsLib.getDocument({ data: uint8Array }).promise;
-            
-            const maxPages = Math.min(pdf.numPages, 50);
-            const batchSize = 3; 
-            
-            for (let i = 1; i <= maxPages; i += batchSize) {
-              const batchPromises = [];
-              for (let j = i; j < i + batchSize && j <= maxPages; j++) {
-                batchPromises.push(
-                  pdf.getPage(j).then(async (page: any) => {
-                    try {
-                      const textContent = await page.getTextContent();
-                      const text = textContent.items.map((item: any) => item.str).join(" ");
-                      page.cleanup(); 
-                      return text;
-                    } catch (err) {
-                      console.warn(`Failed to read page ${j}`, err);
-                      return "";
-                    }
-                  })
-                );
+            else if (ext === ".pdf") {
+              if (!pdfjsLib) {
+                const pdfjsModule = await import("pdfjs-dist");
+                pdfjsLib = pdfjsModule.default || pdfjsModule;
               }
-              const batchResults = await Promise.all(batchPromises);
-              extractedTextForFile += batchResults.join("\n") + "\n";
               
-              await new Promise(resolve => setTimeout(resolve, 15));
+              const uint8Array = new Uint8Array(arrayBuffer!);
+              
+              // CRITICAL SAFARI FIX: disableWorker prevents hanging on blocked CDN workers
+              const loadingTask = pdfjsLib.getDocument({
+                data: uint8Array,
+                disableWorker: true,
+                isEvalSupported: false,
+              });
+
+              const pdf = await loadingTask.promise;
+              const maxPages = Math.min(pdf.numPages, 40);
+              
+              for (let i = 1; i <= maxPages; i++) {
+                try {
+                  const page = await pdf.getPage(i);
+                  const textContent = await page.getTextContent();
+                  const pageText = textContent.items.map((item: any) => item.str).join(" ");
+                  resultText += pageText + "\n";
+                  page.cleanup();
+                } catch (e) {}
+              }
+              pdf.destroy();
             }
-            
-            pdf.destroy();
+
+            return resultText;
+          };
+
+          try {
+            // Enforce a hard 6-second max timeout so client extraction CANNOT hang forever
+            extractedTextForFile = await Promise.race([
+              runClientExtraction(),
+              new Promise<string>((_, reject) => 
+                setTimeout(() => reject(new Error("Extraction timed out")), 6000)
+              )
+            ]);
+          } catch (clientErr) {
+            console.warn("Client extraction timed out or failed, falling back to server...", clientErr);
+            clientSideFailed = true;
           }
-        } catch (clientErr) {
-          console.error("Client browser failed to read file, routing to server backend...", clientErr);
-          clientSideFailed = true; 
+        } else {
+          clientSideFailed = true;
         }
 
+        // ==========================================
+        // 2. SERVER-SIDE FALLBACK
+        // ==========================================
         if (
           clientSideFailed || 
+          !extractedTextForFile.trim() ||
           (![".txt", ".md", ".csv", ".doc", ".docx", ".pdf", ".pptx"].includes(ext))
         ) {
           
@@ -194,7 +209,10 @@ export default function UploadPage() {
           else if (ext === ".pptx") safeMime = "application/vnd.openxmlformats-officedocument.presentationml.presentation";
           else if (ext === ".docx") safeMime = "application/vnd.openxmlformats-officedocument.wordprocessingml.document";
 
-          const pristineBlob = new Blob([arrayBuffer], { type: safeMime });
+          const pristineBlob = arrayBuffer 
+            ? new Blob([arrayBuffer], { type: safeMime })
+            : new Blob([rawFile], { type: safeMime });
+
           const form = new FormData();
           form.append("file", pristineBlob, safeFileName);
           
@@ -232,6 +250,9 @@ export default function UploadPage() {
     } catch (err) {
       setError(err instanceof Error ? err.message : "Something went wrong.");
       setStatus("idle");
+    } finally {
+      // Guaranteed state recovery so the UI can never get permanently stuck
+      setStatus((prev) => (prev === "extracting" ? "idle" : prev));
     }
   };
 
@@ -245,21 +266,14 @@ export default function UploadPage() {
         textToSend = "User generated session content based on previous upload.";
       }
 
-      // =========================================================================
-      // CRITICAL SPEED FIX 1: Truncate massive text to prevent 10s Vercel Timeout
-      // =========================================================================
-      const MAX_CHARS = 15000; // Roughly 2,500 words. Fast enough to beat the 10s clock.
+      // Truncate text to guarantee response well under Vercel's 10s serverless limit
+      const MAX_CHARS = 12000; 
       if (textToSend.length > MAX_CHARS) {
-        console.warn(`Truncating text from ${textToSend.length} to ${MAX_CHARS} characters to prevent server timeout.`);
-        textToSend = textToSend.substring(0, MAX_CHARS) + "\n\n[System Note: Content truncated to ensure fast AI processing and prevent server timeouts.]";
+        textToSend = textToSend.substring(0, MAX_CHARS) + "\n\n[Note: Content truncated for speed.]";
       }
 
-      // =========================================================================
-      // CRITICAL SPEED FIX 2: Prevent Infinite Spinning with a Timeout Controller
-      // =========================================================================
       const controller = new AbortController();
-      // If the server doesn't respond in 25 seconds, we kill it so it doesn't spin forever.
-      const timeoutId = setTimeout(() => controller.abort(), 25000);
+      const timeoutId = setTimeout(() => controller.abort(), 22000);
 
       try {
         const genRes = await fetch("/api/generate-content", {
@@ -275,7 +289,7 @@ export default function UploadPage() {
           signal: controller.signal
         });
 
-        clearTimeout(timeoutId); // Success, clear the timeout
+        clearTimeout(timeoutId);
 
         const genData = await genRes.json();
 
@@ -293,11 +307,10 @@ export default function UploadPage() {
 
       } catch (fetchErr: any) {
         clearTimeout(timeoutId);
-        // If the 25 seconds ran out, this catches the AbortError
         if (fetchErr.name === 'AbortError') {
-          throw new Error("The AI took too long to respond. Try reducing the number of questions or uploading a shorter file.");
+          throw new Error("The AI took too long to respond. Try reducing the question count or uploading a shorter document.");
         }
-        throw fetchErr; // Re-throw other errors to be caught by the outer block
+        throw fetchErr;
       }
 
     } catch (err) {
