@@ -3,8 +3,16 @@ import { NextRequest, NextResponse } from "next/server";
 export const runtime = "nodejs";
 
 /**
- * Stateful Streaming Omni-Assistant Chat Route
- * Provides real-time interactive tutoring, dictionary definitions, and Socratic questioning.
+ * Medea AI Tutor — Structured JSON Output Chat Route
+ *
+ * Uses Gemini's responseMimeType: "application/json" + responseSchema to enforce
+ * a strict 3-key output object:
+ *   - internal_reasoning  → trapped on backend, NEVER sent to client
+ *   - clean_response      → the only text sent to the student
+ *   - recommended_questions → parsed array rendered as interactive pills
+ *
+ * This is a foolproof guard: even if Gemini writes thousands of words of chain-of-thought,
+ * they are physically isolated in internal_reasoning and discarded server-side.
  */
 export async function POST(req: NextRequest) {
   try {
@@ -16,144 +24,216 @@ export async function POST(req: NextRequest) {
       );
     }
 
-    const { messages, documentContext, mode = "tutor", isFeynmanEvaluation = false } = await req.json();
+    const {
+      messages,
+      documentContext,
+      isFeynmanEvaluation = false,
+    } = await req.json();
 
     if (!messages || !Array.isArray(messages) || messages.length === 0) {
       return NextResponse.json({ error: "Invalid messages payload." }, { status: 400 });
     }
 
     const lastUserMessage = messages[messages.length - 1]?.content || "";
+
+    // Detect YouTube link in last message
     const ytRegex = /(?:youtube\.com\/watch\?v=|youtu\.be\/)([a-zA-Z0-9_-]{11})/;
     const ytMatch = lastUserMessage.match(ytRegex);
+    const youtubeVideoId = ytMatch ? ytMatch[1] : null;
 
-    let youtubeContextPrompt = "";
-    if (ytMatch) {
-      const videoId = ytMatch[1];
-      youtubeContextPrompt = `
-NOTE: The user shared a YouTube video link (ID: ${videoId}).
-Act as Medea the AI Tutor and provide a SINGLE, seamless response containing:
-1. A warm, friendly greeting confirming you have ingested and watched the video.
-2. A 2-3 paragraph summary of the video's core scientific or educational concepts.
-3. 3-5 key takeaways formatted as clean, beautifully spaced bullet points.
-4. An immediate breakdown of the video's most complex concept using a vivid, real-world analogy.
-5. 3-4 contextually relevant follow-up questions at the absolute end under:
-### 💡 Recommended Next Questions
-`;
-    }
+    // ─── FEYNMAN EVALUATION (special path, non-JSON) ───────────────────────────
+    if (isFeynmanEvaluation) {
+      const feynmanSystemPrompt = `You are Medea, evaluating a student's explanation using the Feynman Technique.
+Rate clarity and semantic accuracy from 1 to 3 hearts. End with EXACT JSON: {"heartsEarned": 1|2|3}`;
 
-    const systemInstruction = isFeynmanEvaluation
-      ? `You are Medea, evaluating a student's explanation using the Feynman Technique.
-Rate clarity and semantic accuracy from 1 to 3 hearts. End with EXACT JSON: {"heartsEarned": 1|2|3}`
-      : `You are Medea, the brilliant, friendly, and highly encouraging AI Tutor & Smart Dictionary for RecallMate.
-Your mission is to make complicated subjects (physics, math, chemistry, history, geometry, and science) incredibly easy to understand.
+      const feynmanContents = [
+        { role: "user", parts: [{ text: feynmanSystemPrompt }] },
+        ...messages.map((m: { role: string; content: string }) => ({
+          role: m.role === "user" ? "user" : "model",
+          parts: [{ text: m.content }],
+        })),
+      ];
 
-### MANDATORY OUTPUT RULES:
-1. UNIFIED SMART DICTIONARY & TUTOR PERSONA:
-   - If the student asks for a definition, technical term, or word explanation (e.g. "What is velocity?", "Define stoichiometry"), immediately act as a Smart Dictionary: provide clear grammatical definitions, pronunciation, and part of speech if helpful.
-   - In the exact same message, seamlessly bridge that definition back to an active tutoring breakdown using a vivid, everyday analogy and concrete step-by-step example.
-2. NO INTERNAL REASONING OR META-MONOLOGUE: Never output any internal reasoning, planning tags, mental checks, or meta-thoughts (e.g. do NOT output "* User says...", "* Context...", or "Constraint 1..."). Start your response directly with your warm, conversational message.
-3. CLEAN MARKDOWN ONLY: Write in natural, fluid paragraphs, clean numbered lists, or beautifully spaced bullet points. Never use raw markdown symbols or stray hashtags (#) in a way that clutters the screen.
-4. LATEX MATH FORMATTING: Always wrap mathematical equations, calculus steps, physical laws, and chemical reactions in standard LaTeX ($...$ for inline, $$...$$ for block formatting) so the client's KaTeX renderer displays them flawlessly.
-5. ACCURATE SCHOLARLY GROUNDING: Rely strictly on verified academic principles and the provided document/video context.
-6. PERSISTENT RECOMMENDATION QUESTIONS: Always append 3-4 context-relevant follow-up questions at the absolute end under:
-### 💡 Recommended Next Questions
-- [First recommended question]?
-- [Second recommended question]?
-- [Third recommended question]?
-
-${documentContext ? `Document/Lecture Context:\n"""${documentContext.slice(0, 8000)}"""\n` : ""}
-${youtubeContextPrompt}`;
-
-    // Construct Gemini contents array
-    const contents = [
-      { parts: [{ text: systemInstruction }] },
-      ...messages.map((m: { role: string; content: string }) => ({
-        role: m.role === "user" ? "user" : "model",
-        parts: [{ text: m.content }],
-      })),
-    ];
-
-    // AUTO-DISCOVERY of valid Gemini models
-    let validModelNames: string[] = [];
-    try {
-      const listUrl = `https://generativelanguage.googleapis.com/v1beta/models?key=${apiKey}`;
-      const listRes = await fetch(listUrl);
-      if (listRes.ok) {
-        const listData = await listRes.json();
-        const models = (listData.models || []).filter(
-          (m: any) =>
-            m.supportedGenerationMethods?.includes("generateContent") &&
-            !m.name.includes("preview") &&
-            !m.name.includes("robotics")
-        );
-        validModelNames = models.map((m: any) => m.name);
-      }
-    } catch (e) {
-      console.warn("Model listing failed, using fallback candidate list.");
-    }
-
-    if (validModelNames.length === 0) {
-      validModelNames = [
+      const modelCandidates = [
+        "models/gemini-2.0-flash",
         "models/gemini-1.5-flash-latest",
         "models/gemini-1.5-flash",
-        "models/gemini-2.0-flash",
-        "models/gemini-1.5-pro",
-        "models/gemini-pro",
       ];
+
+      for (const modelName of modelCandidates) {
+        const url = `https://generativelanguage.googleapis.com/v1beta/${modelName}:generateContent?key=${apiKey}`;
+        const res = await fetch(url, {
+          method: "POST",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({
+            contents: feynmanContents,
+            generationConfig: { temperature: 0.3, maxOutputTokens: 200 },
+          }),
+        });
+        if (res.ok) {
+          const data = await res.json();
+          const text = data.candidates?.[0]?.content?.parts?.[0]?.text || "";
+          if (text) return NextResponse.json({ role: "assistant", content: text });
+        }
+      }
+      return NextResponse.json({ error: "Feynman evaluation failed." }, { status: 500 });
     }
 
-    let replyText = "";
-    let lastErrorMsg = "Failed to communicate with Gemini AI API.";
+    // ─── MAIN MEDEA TUTOR PATH — STRUCTURED JSON SCHEMA OUTPUT ────────────────
 
-    for (const modelName of validModelNames) {
-      const cleanModelPath = modelName.startsWith("models/") ? modelName : `models/${modelName}`;
-      const generateUrl = `https://generativelanguage.googleapis.com/v1beta/${cleanModelPath}:generateContent?key=${apiKey}`;
+    // Build document / YouTube context block
+    const documentBlock = documentContext
+      ? `\n\n## ACTIVE STUDY MATERIAL (Uploaded by student):\n"""\n${documentContext.slice(0, 8000)}\n"""\n`
+      : "";
 
-      const aiRes = await fetch(generateUrl, {
+    const youtubeBlock = youtubeVideoId
+      ? `\n\n## YOUTUBE VIDEO INGESTED (ID: ${youtubeVideoId}):
+The student has shared a YouTube video. In your clean_response:
+1. Open with a warm greeting confirming you have studied the video.
+2. Write a 2-3 paragraph academic summary of the video's core concepts.
+3. List 3-5 key takeaways as clean bullet points.
+4. Break down the video's most complex concept using a vivid, real-world analogy.
+Your recommended_questions MUST be directly related to the video content.`
+      : "";
+
+    // System persona injected into the user message (Gemini v1beta doesn't support system role in all configs)
+    const systemPersona = `You are Medea, the brilliant, friendly, and highly encouraging AI Tutor & Smart Dictionary for RecallMate.
+Your mission: make complicated academic subjects incredibly easy to understand through clear analogies, worked examples, and warm encouragement.
+
+## YOUR OUTPUT IS STRICTLY STRUCTURED JSON — THREE KEYS ONLY:
+
+### KEY 1 — internal_reasoning (string)
+Use this block to perform ALL your step-by-step thinking:
+- Parse the student's question intent
+- Verify any math, physics constants, or chemistry formulas
+- Plan your analogy and structure your explanation
+- Check formatting (LaTeX, bullet points, headings)
+This key is NEVER shown to the student. Write freely here.
+
+### KEY 2 — clean_response (string)
+This is the ONLY text the student will see. Rules:
+- Start immediately with a warm, conversational, humanized response (no preamble, no "Constraint 1:", no "* User says...", no meta-tags)
+- Use natural paragraphs, clean numbered lists, or beautifully spaced bullet points
+- Wrap ALL equations, formulas, and chemical reactions in LaTeX: $...$ (inline) or $$...$$ (block)
+- For definitions, provide: clear meaning + pronunciation guide if helpful + bridge to a real-world analogy
+- For calculations, show clearly numbered steps with LaTeX math
+- NEVER output internal reasoning, persona checks, system tags, or planning notes here
+
+### KEY 3 — recommended_questions (array of strings)
+Provide exactly 3 to 4 precise, contextually relevant follow-up study questions based on the current topic.
+These will be rendered as clickable study pills for the student.
+${documentBlock}${youtubeBlock}
+
+## CHAT HISTORY:
+${JSON.stringify(messages.slice(0, -1).map((m: { role: string; content: string }) => ({ role: m.role, content: m.content })))}
+
+## STUDENT'S CURRENT MESSAGE:
+${lastUserMessage}`;
+
+    // JSON Response Schema — enforced at the API level
+    const responseSchema = {
+      type: "OBJECT",
+      properties: {
+        internal_reasoning: {
+          type: "STRING",
+          description:
+            "Step-by-step AI thinking, persona checks, math verification, and constraint validation. NEVER shown to the user.",
+        },
+        clean_response: {
+          type: "STRING",
+          description:
+            "The final, beautifully polished, warm tutoring response. Clean markdown and LaTeX only. No internal thought leaks.",
+        },
+        recommended_questions: {
+          type: "ARRAY",
+          items: { type: "STRING" },
+          description:
+            "Exactly 3 to 4 contextually relevant study questions for the student to explore next.",
+        },
+      },
+      required: ["internal_reasoning", "clean_response", "recommended_questions"],
+    };
+
+    // Model preference list
+    const modelCandidates = [
+      "models/gemini-2.0-flash",
+      "models/gemini-1.5-flash-latest",
+      "models/gemini-1.5-flash",
+      "models/gemini-1.5-pro",
+    ];
+
+    let cleanResponse = "";
+    let recommendedQuestions: string[] = [];
+    let lastError = "Failed to communicate with Gemini AI API.";
+
+    for (const modelName of modelCandidates) {
+      const url = `https://generativelanguage.googleapis.com/v1beta/${modelName}:generateContent?key=${apiKey}`;
+
+      const res = await fetch(url, {
         method: "POST",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({
-          contents,
+          contents: [
+            {
+              role: "user",
+              parts: [{ text: systemPersona }],
+            },
+          ],
           generationConfig: {
             temperature: 0.7,
-            maxOutputTokens: 2000,
+            maxOutputTokens: 3000,
+            responseMimeType: "application/json",
+            responseSchema,
           },
         }),
       });
 
-      const aiData = await aiRes.json();
+      const data = await res.json();
 
-      if (aiRes.ok) {
-        replyText = aiData.candidates?.[0]?.content?.parts?.[0]?.text || "";
-        if (replyText) break;
+      if (res.ok) {
+        const rawText = data.candidates?.[0]?.content?.parts?.[0]?.text || "";
+        if (rawText) {
+          try {
+            const parsed = JSON.parse(rawText);
+
+            // ✅ SERVER-SIDE FIREWALL: internal_reasoning is extracted and DISCARDED
+            // Only clean_response and recommended_questions ever leave the server
+            cleanResponse = (parsed.clean_response || "").trim();
+            recommendedQuestions = Array.isArray(parsed.recommended_questions)
+              ? parsed.recommended_questions.filter((q: string) => typeof q === "string" && q.trim())
+              : [];
+
+            if (cleanResponse) break;
+          } catch (parseErr) {
+            // Fallback: if JSON parse fails for any reason, use raw text as clean response
+            // and strip any obvious meta-thought patterns
+            cleanResponse = rawText
+              .replace(/^[\s\S]*?"clean_response"\s*:\s*"/, "")
+              .replace(/"[\s\S]*$/, "")
+              .trim();
+            if (cleanResponse) break;
+          }
+        }
       } else {
-        lastErrorMsg = aiData.error?.message || `Failed on ${cleanModelPath}`;
+        lastError = data.error?.message || `Failed on ${modelName}`;
       }
     }
 
-    if (!replyText) {
-      return NextResponse.json({ error: lastErrorMsg }, { status: 500 });
+    if (!cleanResponse) {
+      return NextResponse.json({ error: lastError }, { status: 500 });
     }
 
-    // Robust Sanitizer: Extract pure conversational response and strip all internal reflection tags
-    let cleanText = replyText;
+    // Build the recommended questions block appended to clean response
+    const questionsBlock =
+      recommendedQuestions.length > 0
+        ? `\n\n### 💡 Recommended Next Questions\n${recommendedQuestions.map((q) => `- ${q}`).join("\n")}`
+        : "";
 
-    // Check if output contains section markers or internal reflection lists
-    const greetingMatch = cleanText.match(/(?:\+\s*Greeting\s*\+\*?|###\s*Greeting)?\s*["']?([I|Hi|Hello|Welcome|Let's|Sure|Imagine|The|Since][\s\S]*)/i);
-    if (greetingMatch && greetingMatch[1] && greetingMatch[1].length > 30) {
-      cleanText = greetingMatch[1];
-    }
-
-    cleanText = cleanText
-      .replace(/^\s*\*\s*(Since|Wait|Actually|Self-Correction|Plan|Analogy|simple terms|Nucleus|Electrons|Energy|Friendly|Clear|Analogies|Concrete|LaTeX|No meta|Recommended|Greeting|Explanation|Example|Next Questions|\+).*$/gim, "")
-      .replace(/\*\s*\+\s*(Greeting|Explanation|Example|Next Questions|Self-Correction|Plan|Analogy)\s*\+\s*\*/gi, "")
-      .replace(/\+\s*(Greeting|Explanation|Example|Next Questions|Self-Correction|Plan|Analogy)\s*\+/gi, "")
-      .replace(/\n{3,}/g, "\n\n")
-      .trim();
+    const finalClientPayload = `${cleanResponse}${questionsBlock}`;
 
     return NextResponse.json({
       role: "assistant",
-      content: cleanText || replyText,
+      content: finalClientPayload,
     });
   } catch (err: any) {
     console.error("Chat API error:", err);

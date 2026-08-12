@@ -249,16 +249,19 @@ export default function OmniChatDrawer() {
 
   const handleYoutubeSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
-    if (!youtubeUrl.trim()) return;
+    const urlToProcess = youtubeUrl.trim();
+    if (!urlToProcess) return;
 
     setUploading(true);
     setYoutubeOpen(false);
+    const capturedUrl = urlToProcess;
+    setYoutubeUrl("");
 
     try {
       const res = await fetch("/api/transcribe", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ url: youtubeUrl }),
+        body: JSON.stringify({ url: capturedUrl }),
       });
 
       const data = await res.json();
@@ -270,20 +273,13 @@ export default function OmniChatDrawer() {
         extracted_text: data.transcript,
       });
 
-      // Show local confirmation message without triggering AI API request until user types a question
-      setMessages((prev) => [
-        ...prev,
-        {
-          id: Date.now().toString(),
-          role: "assistant",
-          content: `🎥 Ingested YouTube lecture video. Ask me any question about this video to start studying!`,
-          timestamp: new Date().toLocaleTimeString([], { hour: "2-digit", minute: "2-digit" }),
-        },
-      ]);
-      setYoutubeUrl("");
+      // ✅ No passive placeholder — immediately trigger Medea to generate
+      // the full summary, takeaways, analogy, and recommended questions
+      // as a single seamless response, just as if the student sent the link.
+      setUploading(false);
+      await handleSend(undefined, capturedUrl);
     } catch (err: any) {
       alert(`YouTube transcription failed: ${err.message}`);
-    } finally {
       setUploading(false);
     }
   };
@@ -539,9 +535,10 @@ export default function OmniChatDrawer() {
                 </button>
                 <button
                   type="submit"
-                  className="px-4 py-2 rounded-xl bg-rose-600 text-white font-bold text-xs hover:bg-rose-700"
+                  className="px-4 py-2 rounded-xl bg-rose-600 text-white font-bold text-xs hover:bg-rose-700 flex items-center gap-1.5"
                 >
-                  Transcribe & Ingest
+                  <Zap className="w-3.5 h-3.5" />
+                  Summarize
                 </button>
               </div>
             </form>
