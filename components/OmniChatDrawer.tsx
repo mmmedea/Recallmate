@@ -128,27 +128,7 @@ export default function OmniChatDrawer() {
       timestamp: new Date().toLocaleTimeString([], { hour: "2-digit", minute: "2-digit" }),
     };
 
-    // Check if the message itself is a YouTube link — if so, bypass the upload guard
-    // because the link IS the material. The backend's extractYouTubeId handles all formats.
-    const ytPattern = /(?:youtu\.be\/|youtube\.com\/(?:watch\?v=|embed\/|shorts\/))[a-zA-Z0-9_-]{11}/;
-    const isYouTubeMessage = ytPattern.test(textToSend);
 
-    // Guard: Require uploaded material before querying AI engine
-    // Bypassed when: material already uploaded, attachment chip present, or message is a YouTube link
-    if (!hasUploadedMaterial && !isYouTubeMessage) {
-      setMessages((prev) => [
-        ...prev,
-        userMsg,
-        {
-          id: (Date.now() + 1).toString(),
-          role: "assistant",
-          content:
-            "⚠️ Please upload a study document or YouTube video first using the 📎 or 🎥 button below so I can analyze it for you!",
-          timestamp: new Date().toLocaleTimeString([], { hour: "2-digit", minute: "2-digit" }),
-        },
-      ]);
-      return;
-    }
 
     setMessages((prev) => [...prev, userMsg]);
     setLoading(true);
