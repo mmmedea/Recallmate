@@ -168,19 +168,7 @@ export const processFileClientSide = async (rawFile: File): Promise<string> => {
         if (!pdfjsLib) {
           const pdfjsModule = await import("pdfjs-dist");
           pdfjsLib = pdfjsModule.default || pdfjsModule;
-          
-          try {
-            const workerUrl = `https://cdnjs.cloudflare.com/ajax/libs/pdf.js/${pdfjsLib.version}/pdf.worker.min.js`;
-            const workerRes = await fetch(workerUrl);
-            if (!workerRes.ok) {
-              throw new Error(`CDN returned ${workerRes.status}`);
-            }
-            const workerBlob = await workerRes.blob();
-            pdfjsLib.GlobalWorkerOptions.workerSrc = URL.createObjectURL(workerBlob);
-          } catch (workerErr) {
-            // Fallback to unpkg if cdnjs fails or is blocked
-            pdfjsLib.GlobalWorkerOptions.workerSrc = `https://unpkg.com/pdfjs-dist@${pdfjsLib.version}/build/pdf.worker.min.js`;
-          }
+          pdfjsLib.GlobalWorkerOptions.workerSrc = "/pdf.worker.min.js";
         }
         
         const uint8Array = new Uint8Array(arrayBuffer!);
@@ -216,7 +204,7 @@ export const processFileClientSide = async (rawFile: File): Promise<string> => {
       extractedTextForFile = await Promise.race([
         runClientExtraction(),
         new Promise<string>((_, reject) => 
-          setTimeout(() => reject(new Error("Extraction timed out")), 45000)
+          setTimeout(() => reject(new Error("Extraction timed out")), 180000)
         )
       ]);
     } catch (clientErr) {
