@@ -30,6 +30,12 @@ interface Message {
   timestamp: string;
 }
 
+// Quiet file attachment: held as chip state, bundled into API only on send
+interface AttachedFile {
+  name: string;
+  context: string;
+}
+
 export default function OmniChatDrawer() {
   const [isOpen, setIsOpen] = useState(false);
   const [mounted, setMounted] = useState(false);
@@ -39,6 +45,8 @@ export default function OmniChatDrawer() {
   const [uploading, setUploading] = useState(false);
   const [youtubeOpen, setYoutubeOpen] = useState(false);
   const [youtubeUrl, setYoutubeUrl] = useState("");
+  // Attachment chip state — does NOT trigger AI until user sends a prompt
+  const [attachedFile, setAttachedFile] = useState<AttachedFile | null>(null);
 
   const { isPremium, activeChatContext, addChatContext } = useAppStore();
   const fileInputRef = useRef<HTMLInputElement>(null);
@@ -70,6 +78,7 @@ export default function OmniChatDrawer() {
 
   const hasUploadedMaterial =
     activeChatContext.length > 0 ||
+    attachedFile !== null ||
     (typeof window !== "undefined" && Boolean(sessionStorage.getItem("recallmate-content")));
 
   const getRecommendationPills = () => {
@@ -119,8 +128,14 @@ export default function OmniChatDrawer() {
       timestamp: new Date().toLocaleTimeString([], { hour: "2-digit", minute: "2-digit" }),
     };
 
+    // Check if the message itself is a YouTube link — if so, bypass the upload guard
+    // because the link IS the material. The backend's extractYouTubeId handles all formats.
+    const ytPattern = /(?:youtu\.be\/|youtube\.com\/(?:watch\?v=|embed\/|shorts\/))[a-zA-Z0-9_-]{11}/;
+    const isYouTubeMessage = ytPattern.test(textToSend);
+
     // Guard: Require uploaded material before querying AI engine
-    if (!hasUploadedMaterial) {
+    // Bypassed when: material already uploaded, attachment chip present, or message is a YouTube link
+    if (!hasUploadedMaterial && !isYouTubeMessage) {
       setMessages((prev) => [
         ...prev,
         userMsg,
@@ -141,10 +156,23 @@ export default function OmniChatDrawer() {
     const controller = new AbortController();
     abortControllerRef.current = controller;
 
+    // Capture and clear attachment chip BEFORE the async call
+    const pendingAttachment = attachedFile;
+    setAttachedFile(null);
+
     try {
-      // Build context string from activeChatContext + sessionStorage
+      // Build context string: priority: attachedFile chip → activeChatContext → sessionStorage
       let docContext = "";
-      if (activeChatContext.length > 0) {
+      if (pendingAttachment) {
+        // Attachment chip was held quietly — now bundle it into this single request
+        docContext = `[DOCUMENT: ${pendingAttachment.name}]\n${pendingAttachment.context.slice(0, 6000)}`;
+        // Also persist it to Zustand so future messages can access it
+        addChatContext({
+          source_type: "document",
+          source_name: pendingAttachment.name,
+          extracted_text: pendingAttachment.context,
+        });
+      } else if (activeChatContext.length > 0) {
         docContext = activeChatContext
           .map((ctx) => `[${ctx.source_type.toUpperCase()}: ${ctx.source_name}]\n${ctx.extracted_text.slice(0, 4000)}`)
           .join("\n\n");
@@ -208,9 +236,17 @@ export default function OmniChatDrawer() {
     }
   };
 
-  const handleFileUpload = async (e: React.ChangeEvent<HTMLInputElement>) => {
+  /**
+   * Quiet file attachment handler.
+   * Parses the file server-side but does NOT post any chat message or trigger AI.
+   * The extracted text is held in attachedFile state and displayed as a removable chip
+   * above the input bar. It is only sent to the API when the student hits Send.
+   */
+  const handleFileSelect = async (e: React.ChangeEvent<HTMLInputElement>) => {
     const file = e.target.files?.[0];
     if (!file) return;
+    // Reset input so the same file can be re-selected if needed
+    e.target.value = "";
 
     setUploading(true);
     const formData = new FormData();
@@ -225,21 +261,8 @@ export default function OmniChatDrawer() {
       const data = await res.json();
       if (!res.ok) throw new Error(data.error || "Failed to parse document.");
 
-      addChatContext({
-        source_type: "document",
-        source_name: file.name,
-        extracted_text: data.text,
-      });
-
-      setMessages((prev) => [
-        ...prev,
-        {
-          id: Date.now().toString(),
-          role: "assistant",
-          content: `I've successfully digested your new file (**${file.name}**)! Let's study this topic together. Ask me anything!`,
-          timestamp: new Date().toLocaleTimeString([], { hour: "2-digit", minute: "2-digit" }),
-        },
-      ]);
+      // Save as quiet chip — no chat message, no API call yet
+      setAttachedFile({ name: file.name, context: data.text });
     } catch (err: any) {
       alert(`File upload failed: ${err.message}`);
     } finally {
@@ -439,6 +462,25 @@ export default function OmniChatDrawer() {
               </div>
             )}
 
+            {/* Attachment Chip — shown when a file is quietly held, before user sends */}
+            {attachedFile && (
+              <div className="px-4 py-2 bg-indigo-50 dark:bg-indigo-950/50 border-t border-indigo-100 dark:border-indigo-900/40 flex items-center gap-2 animate-in fade-in duration-200">
+                <FileText className="w-3.5 h-3.5 text-indigo-500 flex-shrink-0" />
+                <span className="text-xs font-semibold text-indigo-700 dark:text-indigo-300 truncate flex-1">
+                  {attachedFile.name}
+                </span>
+                <span className="text-[10px] text-indigo-500 dark:text-indigo-400 font-medium">Ready — type your question &amp; send</span>
+                <button
+                  type="button"
+                  onClick={() => setAttachedFile(null)}
+                  className="p-1 rounded-full hover:bg-indigo-200 dark:hover:bg-indigo-800 text-indigo-400 hover:text-indigo-700 dark:hover:text-indigo-200 transition-colors"
+                  title="Remove attachment"
+                >
+                  <X className="w-3 h-3" />
+                </button>
+              </div>
+            )}
+
             {/* In-Chat Form + File Attachment Button + Pause Button */}
             <form
               onSubmit={(e) => handleSend(e)}
@@ -448,7 +490,7 @@ export default function OmniChatDrawer() {
               <input
                 type="file"
                 ref={fileInputRef}
-                onChange={handleFileUpload}
+                onChange={handleFileSelect}
                 accept=".pdf,.docx,.txt,.md,image/*"
                 className="hidden"
               />
