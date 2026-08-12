@@ -123,10 +123,23 @@ RESPONSE STRUCTURE & RULES (STRICT):
       return NextResponse.json({ error: lastErrorMsg }, { status: 500 });
     }
 
-    // Sanitize any accidental meta-reasoning text
-    let cleanText = replyText.replace(/(\* User asks:[\s\S]*?(Wait|That's|So|Let's|The Analogy))/gi, "$2").trim();
-    cleanText = cleanText.replace(/\* Persona:[\s\S]*?\n\n/gi, "").trim();
-    cleanText = cleanText.replace(/\* Rule \d+:[\s\S]*?\n\n/gi, "").trim();
+    // Aggressive Sanitizer: Strip out any meta-thought/persona breakdown blocks
+    let cleanText = replyText;
+
+    if (/^\s*\*\s*(User|Persona|Context|Goal|Rule|Big Data|NoSQL)/i.test(cleanText)) {
+      const paragraphs = cleanText.split(/\n\s*\n/);
+      const realParagraphs = paragraphs.filter(
+        (p) => !/^\s*\*\s*(User|Persona|Context|Goal|Rule|\+Rule|Check|\(Check\)|Introduction|The Predictive Exam|Question \d)/i.test(p)
+      );
+      if (realParagraphs.length > 0) {
+        cleanText = realParagraphs.join("\n\n");
+      }
+    }
+
+    cleanText = cleanText
+      .replace(/^\s*\*\s*(User|Persona|Context|Goal|Rule|\+Rule|Check|\(Check\)).*$/gim, "")
+      .replace(/\n{3,}/g, "\n\n")
+      .trim();
 
     return NextResponse.json({
       role: "assistant",

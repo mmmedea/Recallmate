@@ -167,8 +167,16 @@ export default function OmniChatDrawer() {
         extracted_text: data.text,
       });
 
-      const noticeMsg = `📁 Ingested document: **${file.name}**. Initiate Predictive Exam sequence!`;
-      handleSend(undefined, noticeMsg);
+      // Show local confirmation message without triggering AI API request until user types a question
+      setMessages((prev) => [
+        ...prev,
+        {
+          id: Date.now().toString(),
+          role: "assistant",
+          content: `📁 Ingested study material: **${file.name}**. Ask me any question about this document to start studying!`,
+          timestamp: new Date().toLocaleTimeString([], { hour: "2-digit", minute: "2-digit" }),
+        },
+      ]);
     } catch (err: any) {
       alert(`File upload failed: ${err.message}`);
     } finally {
@@ -199,9 +207,17 @@ export default function OmniChatDrawer() {
         extracted_text: data.transcript,
       });
 
-      const noticeMsg = `🎥 Ingested YouTube video. Initiate Predictive Exam sequence!`;
+      // Show local confirmation message without triggering AI API request until user types a question
+      setMessages((prev) => [
+        ...prev,
+        {
+          id: Date.now().toString(),
+          role: "assistant",
+          content: `🎥 Ingested YouTube lecture video. Ask me any question about this video to start studying!`,
+          timestamp: new Date().toLocaleTimeString([], { hour: "2-digit", minute: "2-digit" }),
+        },
+      ]);
       setYoutubeUrl("");
-      handleSend(undefined, noticeMsg);
     } catch (err: any) {
       alert(`YouTube transcription failed: ${err.message}`);
     } finally {
