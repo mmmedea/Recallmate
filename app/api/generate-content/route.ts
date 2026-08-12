@@ -132,9 +132,9 @@ export async function POST(req: NextRequest) {
       );
     }
 
-    const apiKey = process.env.GEMINI_API_KEY;
+    const apiKey = process.env.GEMINI_API_KEY_02 || process.env.GEMINI_API_KEY;
     if (!apiKey) {
-      return NextResponse.json({ error: "Server Configuration Error: GEMINI_API_KEY is not set." }, { status: 500 });
+      return NextResponse.json({ error: "Server Configuration Error: GEMINI_API_KEY_02 or GEMINI_API_KEY is not set on Vercel." }, { status: 500 });
     }
 
     // 2. PARSE REQUEST & SECURE SERVER-SIDE LIMIT ENFORCEMENT

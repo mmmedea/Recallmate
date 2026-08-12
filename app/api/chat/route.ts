@@ -19,8 +19,10 @@ export const preferredRegion = "iad1";
  *  4. Feynman evaluation path kept as a separate lightweight call.
  */
 
-// ── Stable SDK init ──────────────────────────────────────────────────────────
-const genAI = new GoogleGenerativeAI(process.env.GEMINI_API_KEY || "");
+// Support both GEMINI_API_KEY_02 (Vercel new key) and GEMINI_API_KEY (fallback)
+const genAI = new GoogleGenerativeAI(
+  process.env.GEMINI_API_KEY_02 || process.env.GEMINI_API_KEY || ""
+);
 
 // ── Bulletproof YouTube ID extractor ────────────────────────────────────────
 // Handles: full links, short links (youtu.be), /shorts/, /embed/,
@@ -72,9 +74,9 @@ Rules for clean_response:
 
 export async function POST(req: NextRequest) {
   try {
-    if (!process.env.GEMINI_API_KEY) {
+    if (!process.env.GEMINI_API_KEY_02 && !process.env.GEMINI_API_KEY) {
       return NextResponse.json(
-        { error: "Server Configuration Error: GEMINI_API_KEY is not set." },
+        { error: "Server Configuration Error: GEMINI_API_KEY_02 or GEMINI_API_KEY is not set on Vercel." },
         { status: 500 }
       );
     }

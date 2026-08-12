@@ -25,7 +25,7 @@ export async function POST(req: NextRequest) {
       const videoId = videoIdMatch ? videoIdMatch[1] : null;
 
       // Ask Gemini AI to generate structured lecture study notes for the video
-      const apiKey = process.env.GEMINI_API_KEY;
+      const apiKey = process.env.GEMINI_API_KEY_02 || process.env.GEMINI_API_KEY;
       if (apiKey) {
         try {
           const promptText = `Analyze and provide a detailed academic transcript summary and study guide for this YouTube video/lecture URL: ${url} (Video ID: ${videoId || "Unknown"}). Include key concepts, core definitions, and main takeaways.`;
