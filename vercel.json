@@ -1,0 +1,19 @@
+{
+  "rewrites": [
+    {
+      "source": "/tutor",
+      "destination": "https://recallmate.vercel.app/"
+    },
+    {
+      "source": "/tutor/:path*",
+      "destination": "https://recallmate.vercel.app/:path*"
+    }
+  ],
+  "redirects": [
+    {
+      "source": "/old-study-tool/:path*",
+      "destination": "https://recallmate.vercel.app/:path*",
+      "permanent": true
+    }
+  ]
+}
