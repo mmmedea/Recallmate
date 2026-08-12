@@ -69,6 +69,8 @@ Rules for clean_response:
 - All equations, formulas, and chemical reactions wrapped in LaTeX: $...$ (inline) or $$...$$ (block).
 - For definitions: provide clear meaning + a vivid real-world analogy.
 - For calculations: show clearly numbered steps with LaTeX.
+- When giving examples, ALWAYS start a new paragraph and use clean bullet points. Do not scramble examples together into a single paragraph.
+- Use appropriate, clean symbols for lists and ensure the formatting is pristine and not messy.
 - Follow elite Coherence, Cohesion, and Organizational patterns (combining Description, Chronological/Sequence, and Cause & Effect structures).
 - Never echo "internal_reasoning" content, never say "Constraint 1:", never output "* User says...".`;
 
