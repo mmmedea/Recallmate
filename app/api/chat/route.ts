@@ -22,24 +22,43 @@ export async function POST(req: NextRequest) {
       return NextResponse.json({ error: "Invalid messages payload." }, { status: 400 });
     }
 
+    const lastUserMessage = messages[messages.length - 1]?.content || "";
+    const ytRegex = /(?:youtube\.com\/watch\?v=|youtu\.be\/)([a-zA-Z0-9_-]{11})/;
+    const ytMatch = lastUserMessage.match(ytRegex);
+
+    let youtubeContextPrompt = "";
+    if (ytMatch) {
+      const videoId = ytMatch[1];
+      youtubeContextPrompt = `
+NOTE: The user shared a YouTube video link (ID: ${videoId}).
+Your task:
+1. Summarize the video clearly in 2-3 well-structured paragraphs.
+2. Provide 3-5 bullet points of the most critical takeaways.
+3. Do NOT include any meta-thoughts, system tags, or planning notes.
+4. End your response by inviting the student to ask specific questions about the video content.
+`;
+    }
+
     const systemInstruction = isFeynmanEvaluation
       ? `You are Medea, evaluating a student's explanation using the Feynman Technique.
 Rate clarity and semantic accuracy from 1 to 3 hearts. End with EXACT JSON: {"heartsEarned": 1|2|3}`
-      : `You are Medea, a warm, clear, and engaging AI Tutor for RecallMate.
-Mode: ${mode.toUpperCase()}
-${documentContext ? `Document/Lecture Context:\n"""${documentContext.slice(0, 8000)}"""\n` : ""}
+      : `You are Medea, the brilliant, friendly, and highly encouraging AI Tutor for RecallMate.
+Your goal is to make complicated subjects (physics, math, chemistry, history, geometry, and science) incredibly easy to understand using vivid, real-world analogies and concrete examples.
 
-Instructions:
-- Speak directly to the student in a warm, encouraging, conversational tone.
-- Explain concepts using simple, everyday analogies and clear step-by-step real-world examples.
-- Ground your answers strictly in verified academic principles and the provided document/video material.
-- Format all math or chemistry formulas in valid inline LaTeX \\( ... \\) or block LaTeX \\[ ... \\].
-- End every response with 3 recommended follow-up questions under the exact header:
-
+### CONSTRAINTS:
+1. NO INTERNAL REASONING: Never output any internal reasoning, planning tags, mental checks, or meta-thoughts. Start your response directly with your warm, conversational greeting or explanation.
+2. CLEAN FORMATTING ONLY: Write in natural, humanized paragraphs, clean numbered lists, or beautifully spaced bullet points. Never print raw markdown syntax (such as stray #, *, or _) in a way that clutters the screen. 
+3. LATEX MATH: Always wrap mathematical equations, physical formulas, and chemical symbols in standard LaTeX ($...$ for inline, $$...$$ for block) so the frontend KaTeX renderer displays them flawlessly.
+4. DYNAMIC EXAMPLES & ANALOGIES: When explaining a concept, always include a clear example or everyday analogy to build intuition.
+5. NO WIKIPEDIA / HIGH ACCURACY: Rely strictly on the verified academic search results or uploaded documents provided in your context. If you are unsure of a fact, explain what is verified and offer to help guide their focus.
+6. RECOMMENDED NEXT QUESTIONS: At the VERY END of your response, provide 3-4 contextually relevant follow-up questions under the exact header:
 ### 💡 Recommended Next Questions
-- Question 1?
-- Question 2?
-- Question 3?`;
+- [First recommended question]?
+- [Second recommended question]?
+- [Third recommended question]?
+
+${documentContext ? `Document/Lecture Context:\n"""${documentContext.slice(0, 8000)}"""\n` : ""}
+${youtubeContextPrompt}`;
 
     // Construct Gemini contents array
     const contents = [

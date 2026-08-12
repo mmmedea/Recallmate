@@ -18,6 +18,7 @@ import {
   Zap,
   HelpCircle,
   CheckCircle2,
+  Square,
 } from "lucide-react";
 import MathRenderer from "./MathRenderer";
 import { useAppStore } from "@/lib/store";
@@ -41,6 +42,7 @@ export default function OmniChatDrawer() {
 
   const { isPremium, activeChatContext, addChatContext } = useAppStore();
   const fileInputRef = useRef<HTMLInputElement>(null);
+  const abortControllerRef = useRef<AbortController | null>(null);
 
   const [messages, setMessages] = useState<Message[]>([
     {
@@ -66,6 +68,14 @@ export default function OmniChatDrawer() {
 
   if (!mounted) return null;
 
+  const handlePauseStream = () => {
+    if (abortControllerRef.current) {
+      abortControllerRef.current.abort();
+      abortControllerRef.current = null;
+    }
+    setLoading(false);
+  };
+
   const handleSend = async (e?: React.FormEvent, customText?: string) => {
     if (e) e.preventDefault();
     const textToSend = (customText || input).trim();
@@ -82,6 +92,9 @@ export default function OmniChatDrawer() {
 
     setMessages((prev) => [...prev, userMsg]);
     setLoading(true);
+
+    const controller = new AbortController();
+    abortControllerRef.current = controller;
 
     try {
       // Build context string from activeChatContext + sessionStorage
@@ -105,6 +118,7 @@ export default function OmniChatDrawer() {
       const res = await fetch("/api/chat", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
+        signal: controller.signal,
         body: JSON.stringify({
           mode,
           documentContext: docContext,
@@ -130,17 +144,22 @@ export default function OmniChatDrawer() {
 
       setMessages((prev) => [...prev, aiMsg]);
     } catch (err: any) {
-      setMessages((prev) => [
-        ...prev,
-        {
-          id: (Date.now() + 1).toString(),
-          role: "assistant",
-          content: `⚠️ ${err.message || "Something went wrong. Please check your connection."}`,
-          timestamp: new Date().toLocaleTimeString([], { hour: "2-digit", minute: "2-digit" }),
-        },
-      ]);
+      if (err.name === "AbortError") {
+        console.log("Stream generation paused by user.");
+      } else {
+        setMessages((prev) => [
+          ...prev,
+          {
+            id: (Date.now() + 1).toString(),
+            role: "assistant",
+            content: `⚠️ ${err.message || "Something went wrong. Please check your connection."}`,
+            timestamp: new Date().toLocaleTimeString([], { hour: "2-digit", minute: "2-digit" }),
+          },
+        ]);
+      }
     } finally {
       setLoading(false);
+      abortControllerRef.current = null;
     }
   };
 
@@ -167,13 +186,12 @@ export default function OmniChatDrawer() {
         extracted_text: data.text,
       });
 
-      // Show local confirmation message without triggering AI API request until user types a question
       setMessages((prev) => [
         ...prev,
         {
           id: Date.now().toString(),
           role: "assistant",
-          content: `📁 Ingested study material: **${file.name}**. Ask me any question about this document to start studying!`,
+          content: `I've successfully digested your new file (**${file.name}**)! Let's study this topic together. Ask me anything!`,
           timestamp: new Date().toLocaleTimeString([], { hour: "2-digit", minute: "2-digit" }),
         },
       ]);
@@ -396,7 +414,9 @@ export default function OmniChatDrawer() {
                     onClick={() => {
                       handleSend(undefined, item.text);
                     }}
-                    className="px-2.5 py-1 rounded-lg bg-indigo-50 dark:bg-indigo-950/60 hover:bg-indigo-100 dark:hover:bg-indigo-900 border border-indigo-200/60 dark:border-indigo-800/60 text-indigo-600 dark:text-indigo-300 font-semibold whitespace-nowrap transition-colors flex items-center gap-1"
+                    className={`px-2.5 py-1 rounded-lg bg-indigo-50 dark:bg-indigo-950/60 hover:bg-indigo-100 dark:hover:bg-indigo-900 border border-indigo-200/60 dark:border-indigo-800/60 text-indigo-600 dark:text-indigo-300 font-semibold whitespace-nowrap transition-colors flex items-center gap-1 ${
+                      loading || uploading ? "opacity-50 pointer-events-none cursor-not-allowed" : ""
+                    }`}
                   >
                     <span>{item.text}</span>
                     <span className="text-[9px] px-1 py-0.2 bg-indigo-200/50 dark:bg-indigo-800/50 rounded font-bold uppercase">
@@ -407,7 +427,7 @@ export default function OmniChatDrawer() {
               </div>
             </div>
 
-            {/* In-Chat Form + File Attachment Button */}
+            {/* In-Chat Form + File Attachment Button + Pause Button */}
             <form
               onSubmit={(e) => handleSend(e)}
               className="p-4 border-t border-slate-200 dark:border-slate-800 bg-white dark:bg-slate-900 flex gap-2 items-center"
@@ -425,7 +445,7 @@ export default function OmniChatDrawer() {
                 onClick={() => fileInputRef.current?.click()}
                 disabled={loading || uploading}
                 title="Upload PDF, DOCX, image, or text file (50MB limit)"
-                className="p-3 rounded-xl bg-slate-100 dark:bg-slate-800 hover:bg-slate-200 dark:hover:bg-slate-700 text-slate-600 dark:text-slate-300 transition-colors"
+                className="p-3 rounded-xl bg-slate-100 dark:bg-slate-800 hover:bg-slate-200 dark:hover:bg-slate-700 text-slate-600 dark:text-slate-300 transition-colors disabled:opacity-40 disabled:cursor-not-allowed"
               >
                 <Paperclip className="w-4 h-4" />
               </button>
@@ -436,7 +456,7 @@ export default function OmniChatDrawer() {
                 onClick={() => setYoutubeOpen(true)}
                 disabled={loading || uploading}
                 title="Paste YouTube link to ingest lecture audio transcript"
-                className="p-3 rounded-xl bg-rose-50 dark:bg-rose-950/60 hover:bg-rose-100 dark:hover:bg-rose-900 text-rose-600 dark:text-rose-300 transition-colors"
+                className="p-3 rounded-xl bg-rose-50 dark:bg-rose-950/60 hover:bg-rose-100 dark:hover:bg-rose-900 text-rose-600 dark:text-rose-300 transition-colors disabled:opacity-40 disabled:cursor-not-allowed"
               >
                 <Youtube className="w-4 h-4" />
               </button>
@@ -445,18 +465,30 @@ export default function OmniChatDrawer() {
                 type="text"
                 value={input}
                 onChange={(e) => setInput(e.target.value)}
-                placeholder="Ask Medea a question..."
+                placeholder={loading ? "Medea is writing..." : "Ask Medea a question..."}
                 disabled={loading || uploading}
-                className="flex-1 px-4 py-3 rounded-xl bg-slate-100 dark:bg-slate-800 border border-slate-200 dark:border-slate-700 text-slate-900 dark:text-white placeholder-slate-400 focus:outline-none focus:ring-2 focus:ring-indigo-500 font-medium text-sm transition-colors"
+                className="flex-1 px-4 py-3 rounded-xl bg-slate-100 dark:bg-slate-800 border border-slate-200 dark:border-slate-700 text-slate-900 dark:text-white placeholder-slate-400 focus:outline-none focus:ring-2 focus:ring-indigo-500 font-medium text-sm transition-colors disabled:opacity-60 disabled:cursor-not-allowed"
               />
 
-              <button
-                type="submit"
-                disabled={!input.trim() || loading || uploading}
-                className="px-4 py-3 rounded-xl bg-indigo-600 hover:bg-indigo-700 disabled:opacity-40 text-white font-bold shadow-md transition-all flex items-center justify-center"
-              >
-                <Send className="w-4 h-4" />
-              </button>
+              {loading ? (
+                <button
+                  type="button"
+                  onClick={handlePauseStream}
+                  title="Pause / Stop generation"
+                  className="px-4 py-3 rounded-xl bg-red-600 hover:bg-red-700 text-white font-bold shadow-md transition-all flex items-center justify-center gap-1.5 animate-pulse"
+                >
+                  <Square className="w-3.5 h-3.5 fill-current text-white" />
+                  <span className="text-xs">Pause</span>
+                </button>
+              ) : (
+                <button
+                  type="submit"
+                  disabled={!input.trim() || uploading}
+                  className="px-4 py-3 rounded-xl bg-indigo-600 hover:bg-indigo-700 disabled:opacity-40 text-white font-bold shadow-md transition-all flex items-center justify-center"
+                >
+                  <Send className="w-4 h-4" />
+                </button>
+              )}
             </form>
           </div>
         </div>
