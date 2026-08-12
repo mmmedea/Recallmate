@@ -1,30 +1,28 @@
 import { NextRequest, NextResponse } from "next/server";
 import { GoogleGenerativeAI, SchemaType } from "@google/generative-ai";
+import { callGroqChat, withFallback, GROQ_MODEL } from "@/lib/ai-provider";
 
 export const runtime = "nodejs";
-// Pin this function to US East (Washington D.C.) where Gemini API is fully available.
-// This prevents 404 errors caused by Vercel deploying to EU regions where Gemini is geo-blocked.
+// Pin to US East where Gemini API is fully available (avoids EU geo-block)
 export const preferredRegion = "iad1";
 
 /**
- * Medea AI Tutor — Structured JSON Chat Route (v4)
+ * Medea AI Tutor — Structured JSON Chat Route (v5 — Hybrid Free Tier)
  *
- * Changes in this version:
- *  1. Uses @google/generative-ai SDK (GoogleGenerativeAI) instead of raw REST fetch,
- *     avoiding the v1beta model-path mismatch that caused "models/gemini-1.5-pro" crashes.
- *  2. Bulletproof YouTube ID extractor handles all URL formats including
- *     short links with tracking params (e.g. youtu.be/ID?si=XXXXXXXX).
- *  3. Enforces strict JSON responseSchema so internal_reasoning is ALWAYS
- *     trapped server-side — zero chain-of-thought leakage to the client.
- *  4. Feynman evaluation path kept as a separate lightweight call.
+ * Changes in v5:
+ *  1. Gemini 1.5 Flash remains the primary engine (free tier, strict JSON schema).
+ *  2. Groq Llama 3.1 70B is the automatic fallback (free tier, JSON mode).
+ *     If Gemini hits its 15 RPM rate limit or fails for any reason, Groq
+ *     silently takes over — zero downtime for the student.
+ *  3. Both paths preserve the Medea persona and internal_reasoning quarantine.
  */
 
-// Support both GEMINI_API_KEY_02 (Vercel new key) and GEMINI_API_KEY (fallback)
+// ── Gemini client ─────────────────────────────────────────────────────────────
 const genAI = new GoogleGenerativeAI(
   process.env.GEMINI_API_KEY_02 || process.env.GEMINI_API_KEY || ""
 );
 
-// ── Bulletproof YouTube ID extractor ────────────────────────────────────────
+// ── Bulletproof YouTube ID extractor ─────────────────────────────────────────
 // Handles: full links, short links (youtu.be), /shorts/, /embed/,
 //          and any trailing tracking params (?si=..., &feature=..., etc.)
 function extractYouTubeId(url: string): string | null {
@@ -34,7 +32,7 @@ function extractYouTubeId(url: string): string | null {
   return match && match[1].length === 11 ? match[1] : null;
 }
 
-// ── Shared JSON response schema ──────────────────────────────────────────────
+// ── Shared JSON response schema (Gemini path) ─────────────────────────────────
 const responseSchema = {
   type: SchemaType.OBJECT,
   properties: {
@@ -58,7 +56,7 @@ const responseSchema = {
   required: ["internal_reasoning", "clean_response", "recommended_questions"],
 };
 
-// ── Medea system persona (injected into every non-Feynman prompt) ────────────
+// ── Medea system persona ──────────────────────────────────────────────────────
 const MEDEA_PERSONA = `You are Medea, the brilliant, friendly, and highly encouraging AI Tutor & Smart Dictionary for RecallMate.
 Your mission: make complicated academic subjects — physics, math, chemistry, history, geometry — incredibly easy to understand using vivid real-world analogies, clear worked examples, and warm encouragement.
 
@@ -72,11 +70,47 @@ Rules for clean_response:
 - For calculations: show clearly numbered steps with LaTeX.
 - Never echo "internal_reasoning" content, never say "Constraint 1:", never output "* User says...".`;
 
+// ── Groq system prompt (adapted for JSON mode without strict schema) ───────────
+const GROQ_SYSTEM_PROMPT = `${MEDEA_PERSONA}
+
+IMPORTANT: You MUST respond with ONLY a valid JSON object in this exact shape:
+{
+  "internal_reasoning": "<your private step-by-step thinking — never shown to students>",
+  "clean_response": "<your final warm tutoring response with LaTeX where needed>",
+  "recommended_questions": ["question 1", "question 2", "question 3"]
+}
+No text outside the JSON object. No markdown code fences.`;
+
+// ── Shared JSON parser used by both providers ─────────────────────────────────
+function parseStructuredResponse(rawText: string): {
+  cleanResponse: string;
+  recommendedQuestions: string[];
+} {
+  try {
+    const parsed = JSON.parse(rawText);
+    // internal_reasoning is extracted and permanently DISCARDED server-side
+    const cleanResponse = (parsed.clean_response || "").trim();
+    const recommendedQuestions = Array.isArray(parsed.recommended_questions)
+      ? parsed.recommended_questions.filter(
+          (q: unknown): q is string =>
+            typeof q === "string" && q.trim().length > 0
+        )
+      : [];
+    return { cleanResponse, recommendedQuestions };
+  } catch {
+    // Graceful fallback: treat raw text as the response
+    return { cleanResponse: rawText.trim(), recommendedQuestions: [] };
+  }
+}
+
 export async function POST(req: NextRequest) {
   try {
-    if (!process.env.GEMINI_API_KEY_02 && !process.env.GEMINI_API_KEY) {
+    const hasGemini = !!(process.env.GEMINI_API_KEY_02 || process.env.GEMINI_API_KEY);
+    const hasGroq = !!process.env.GROQ_API_KEY;
+
+    if (!hasGemini && !hasGroq) {
       return NextResponse.json(
-        { error: "Server Configuration Error: GEMINI_API_KEY_02 or GEMINI_API_KEY is not set on Vercel." },
+        { error: "Server Configuration Error: No AI provider keys are configured." },
         { status: 500 }
       );
     }
@@ -93,26 +127,37 @@ export async function POST(req: NextRequest) {
 
     const lastUserMessage: string = messages[messages.length - 1]?.content || "";
 
-    // ── FEYNMAN EVALUATION (lightweight, non-JSON path) ──────────────────────
+    // ── FEYNMAN EVALUATION (lightweight, non-JSON path) ───────────────────────
     if (isFeynmanEvaluation) {
-      const model = genAI.getGenerativeModel({ model: "gemini-1.5-flash" });
-      const result = await model.generateContent(
-        `You are Medea, evaluating a student's explanation using the Feynman Technique.
+      const feynmanPrompt = `You are Medea, evaluating a student's explanation using the Feynman Technique.
 Rate clarity and semantic accuracy from 1 to 3 hearts. End with EXACT JSON: {"heartsEarned": 1|2|3}
 
 Student explanation:
-${lastUserMessage}`
+${lastUserMessage}`;
+
+      const feynmanText = await withFallback(
+        async () => {
+          const model = genAI.getGenerativeModel({ model: "gemini-1.5-flash" });
+          const result = await model.generateContent(feynmanPrompt);
+          return result.response.text();
+        },
+        async () => {
+          return await callGroqChat(
+            "You are Medea, an AI tutor evaluating student explanations. Always end your response with JSON: {\"heartsEarned\": 1|2|3}",
+            `Evaluate this student explanation using the Feynman Technique. Rate 1-3 hearts based on clarity and accuracy.\n\n${lastUserMessage}`,
+            { jsonMode: false }
+          );
+        },
+        "Feynman"
       );
-      return NextResponse.json({
-        role: "assistant",
-        content: result.response.text(),
-      });
+
+      return NextResponse.json({ role: "assistant", content: feynmanText });
     }
 
-    // ── DETECT YOUTUBE LINK ──────────────────────────────────────────────────
+    // ── DETECT YOUTUBE LINK ───────────────────────────────────────────────────
     const youtubeVideoId = extractYouTubeId(lastUserMessage);
 
-    // ── BUILD CONTEXT BLOCKS ─────────────────────────────────────────────────
+    // ── BUILD CONTEXT BLOCKS ──────────────────────────────────────────────────
     const documentBlock = documentContext
       ? `\n\n## ACTIVE STUDY MATERIAL (uploaded by student):\n"""\n${documentContext.slice(0, 8000)}\n"""\n`
       : "";
@@ -128,7 +173,7 @@ In your clean_response you MUST:
 Your recommended_questions MUST be directly relevant to the video topic.`
       : "";
 
-    // ── ASSEMBLE FULL PROMPT ─────────────────────────────────────────────────
+    // ── ASSEMBLE FULL PROMPT ──────────────────────────────────────────────────
     const conversationHistory = messages
       .slice(0, -1)
       .map((m: { role: string; content: string }) => `[${m.role.toUpperCase()}]: ${m.content}`)
@@ -143,37 +188,45 @@ ${conversationHistory || "No prior conversation yet."}
 ## STUDENT'S CURRENT MESSAGE:
 ${lastUserMessage}`;
 
-    // ── GENERATE WITH SDK (stable, no v1beta path mismatch) ─────────────────
-    const model = genAI.getGenerativeModel({
-      model: "gemini-1.5-flash",
-      generationConfig: {
-        temperature: 0.7,
-        maxOutputTokens: 3000,
-        responseMimeType: "application/json",
-        responseSchema,
-      } as any,
-    });
+    // ── HYBRID CALL: Gemini (primary) → Groq (fallback) ─────────────────────
+    const rawText = await withFallback(
+      // PRIMARY: Gemini 1.5 Flash with strict JSON schema
+      async () => {
+        if (!hasGemini) throw new Error("Gemini key not configured.");
+        const model = genAI.getGenerativeModel({
+          model: "gemini-1.5-flash",
+          generationConfig: {
+            temperature: 0.7,
+            maxOutputTokens: 3000,
+            responseMimeType: "application/json",
+            responseSchema,
+          } as any,
+        });
+        const result = await model.generateContent(unifiedPrompt);
+        const text = result.response.text();
+        if (!text) throw new Error("Gemini returned empty response.");
+        return text;
+      },
+      // FALLBACK: Groq Llama 3.1 70B with JSON mode
+      async () => {
+        if (!hasGroq) throw new Error("Groq key not configured.");
+        return await callGroqChat(
+          GROQ_SYSTEM_PROMPT,
+          `${documentBlock}${youtubeBlock}
 
-    const result = await model.generateContent(unifiedPrompt);
-    const rawText = result.response.text();
+## CONVERSATION HISTORY:
+${conversationHistory || "No prior conversation yet."}
 
-    // ── PARSE STRUCTURED JSON ────────────────────────────────────────────────
-    let cleanResponse = "";
-    let recommendedQuestions: string[] = [];
+## STUDENT'S CURRENT MESSAGE:
+${lastUserMessage}`,
+          { temperature: 0.7, maxTokens: 3000, jsonMode: true }
+        );
+      },
+      "Medea Chat"
+    );
 
-    try {
-      const parsed = JSON.parse(rawText);
-      // ✅ internal_reasoning is extracted and permanently DISCARDED server-side
-      cleanResponse = (parsed.clean_response || "").trim();
-      recommendedQuestions = Array.isArray(parsed.recommended_questions)
-        ? parsed.recommended_questions.filter(
-            (q: unknown): q is string => typeof q === "string" && q.trim().length > 0
-          )
-        : [];
-    } catch {
-      // Graceful fallback: treat entire raw text as clean response if JSON parse fails
-      cleanResponse = rawText.trim();
-    }
+    // ── PARSE STRUCTURED JSON ─────────────────────────────────────────────────
+    const { cleanResponse, recommendedQuestions } = parseStructuredResponse(rawText);
 
     if (!cleanResponse) {
       return NextResponse.json(
@@ -182,7 +235,7 @@ ${lastUserMessage}`;
       );
     }
 
-    // ── BUILD FINAL CLIENT PAYLOAD ───────────────────────────────────────────
+    // ── BUILD FINAL CLIENT PAYLOAD ────────────────────────────────────────────
     const questionsBlock =
       recommendedQuestions.length > 0
         ? `\n\n### 💡 Recommended Next Questions\n${recommendedQuestions.map((q) => `- ${q}`).join("\n")}`

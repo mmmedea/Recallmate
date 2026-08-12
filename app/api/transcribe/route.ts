@@ -1,4 +1,5 @@
 import { NextRequest, NextResponse } from "next/server";
+import { callGeminiRest, callGroqChat, withFallback } from "@/lib/ai-provider";
 
 // Handles video/audio files by transcribing them via AssemblyAI,
 // since the Anthropic API does not accept raw audio/video input.
@@ -11,7 +12,7 @@ export async function POST(req: NextRequest) {
   try {
     const contentType = req.headers.get("content-type") || "";
 
-    // Handle JSON payload for YouTube URLs
+    // ── Handle JSON payload for YouTube URLs ────────────────────────────────
     if (contentType.includes("application/json")) {
       const body = await req.json();
       const { url } = body;
@@ -21,47 +22,54 @@ export async function POST(req: NextRequest) {
       }
 
       // Extract Video ID
-      const videoIdMatch = url.match(/(?:youtu\.be\/|youtube\.com\/(?:embed\/|v\/|watch\?v=|watch\?.+&v=))([\w-]{11})/);
+      const videoIdMatch = url.match(
+        /(?:youtu\.be\/|youtube\.com\/(?:embed\/|v\/|watch\?v=|watch\?.+&v=))([\w-]{11})/
+      );
       const videoId = videoIdMatch ? videoIdMatch[1] : null;
 
-      // Ask Gemini AI to generate structured lecture study notes for the video
-      const apiKey = process.env.GEMINI_API_KEY_02 || process.env.GEMINI_API_KEY;
-      if (apiKey) {
-        try {
-          const promptText = `Analyze and provide a detailed academic transcript summary and study guide for this YouTube video/lecture URL: ${url} (Video ID: ${videoId || "Unknown"}). Include key concepts, core definitions, and main takeaways.`;
-          
-          const generateUrl = `https://generativelanguage.googleapis.com/v1beta/models/gemini-1.5-flash:generateContent?key=${apiKey}`;
-          const aiRes = await fetch(generateUrl, {
-            method: "POST",
-            headers: { "Content-Type": "application/json" },
-            body: JSON.stringify({
-              contents: [{ parts: [{ text: promptText }] }],
-              generationConfig: { temperature: 0.5, maxOutputTokens: 2000 },
-            }),
-          });
+      const promptText = `Analyze and provide a detailed academic transcript summary and study guide for this YouTube video/lecture URL: ${url} (Video ID: ${videoId || "Unknown"}). Include key concepts, core definitions, and main takeaways.`;
 
-          const aiData = await aiRes.json();
-          const transcriptText = aiData.candidates?.[0]?.content?.parts?.[0]?.text;
-
-          if (transcriptText) {
-            return NextResponse.json({
-              transcript: transcriptText,
-              text: transcriptText,
-              videoId,
+      try {
+        // HYBRID CALL: Gemini (primary) → Groq (fallback) for YouTube summaries
+        const transcriptText = await withFallback(
+          async () => {
+            if (!(process.env.GEMINI_API_KEY_02 || process.env.GEMINI_API_KEY)) {
+              throw new Error("Gemini key not configured.");
+            }
+            return await callGeminiRest(promptText, {
+              temperature: 0.5,
+              maxOutputTokens: 2000,
             });
-          }
-        } catch (err) {
-          console.warn("Gemini video extraction fallback triggered.");
-        }
-      }
+          },
+          async () => {
+            if (!process.env.GROQ_API_KEY) {
+              throw new Error("Groq key not configured.");
+            }
+            return await callGroqChat(
+              "You are an expert academic content summarizer. Provide clear, detailed study guides from YouTube video URLs.",
+              promptText,
+              { temperature: 0.5, maxTokens: 2000, jsonMode: false }
+            );
+          },
+          "YouTube Transcribe"
+        );
 
-      return NextResponse.json({
-        transcript: `YouTube Video (ID: ${videoId || "extracted"}). Study content imported from ${url}.`,
-        text: `YouTube Video (ID: ${videoId || "extracted"}). Study content imported from ${url}.`,
-      });
+        return NextResponse.json({
+          transcript: transcriptText,
+          text: transcriptText,
+          videoId,
+        });
+      } catch (err) {
+        console.warn("Both AI providers failed for YouTube extraction. Using stub fallback.");
+        // Final stub fallback — always succeeds
+        return NextResponse.json({
+          transcript: `YouTube Video (ID: ${videoId || "extracted"}). Study content imported from ${url}.`,
+          text: `YouTube Video (ID: ${videoId || "extracted"}). Study content imported from ${url}.`,
+        });
+      }
     }
 
-    // Handle FormData for raw Audio / Media file upload via AssemblyAI
+    // ── Handle FormData for raw Audio / Media file upload via AssemblyAI ────
     if (!ASSEMBLYAI_KEY) {
       return NextResponse.json(
         { error: "AssemblyAI API key is missing. Set ASSEMBLYAI_API_KEY." },
@@ -108,6 +116,9 @@ export async function POST(req: NextRequest) {
     return NextResponse.json({ text: transcript.text, transcript: transcript.text });
   } catch (err: any) {
     console.error(err);
-    return NextResponse.json({ error: err.message || "Transcription failed." }, { status: 500 });
+    return NextResponse.json(
+      { error: err.message || "Transcription failed." },
+      { status: 500 }
+    );
   }
 }
