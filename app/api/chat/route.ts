@@ -67,6 +67,7 @@ Strip all conversational greetings, redundant "Hellos", and internal planning mo
 Rules for clean_response:
 - Natural paragraphs and clean lists only. No stray #, *, _ symbols.
 - All equations, formulas, and chemical reactions wrapped in LaTeX: $...$ (inline) or $$...$$ (block).
+- CRITICAL JSON RULE: You MUST double-escape all LaTeX backslashes (e.g., use \\\\times instead of \\times, \\\\frac instead of \\frac).
 - For definitions: provide clear meaning + a vivid real-world analogy.
 - For calculations: show clearly numbered steps with LaTeX.
 - When giving examples, ALWAYS start a new paragraph and use clean bullet points. Do not scramble examples together into a single paragraph.
@@ -91,8 +92,10 @@ function parseStructuredResponse(rawText: string): {
   recommendedQuestions: string[];
 } {
   try {
-    // 1. LaTeX Normalization: Convert \( \) and \[ \] to $ and $$
+    // 1. LaTeX Normalization: Convert \( \) and \[ \] to $ and $$, and fix common unescaped math commands
+    // LLMs often forget to double-escape \times in JSON, which JSON.parse turns into a tab + "imes"
     let normalizedText = rawText
+      .replace(/(?<!\\)\\(times|text|theta|tan|tau|frac|nabla|neq|rightarrow|Rightarrow|rho|beta|begin)/g, "\\\\$1")
       .replace(/\\\(/g, "$")
       .replace(/\\\)/g, "$")
       .replace(/\\\[/g, "$$")
