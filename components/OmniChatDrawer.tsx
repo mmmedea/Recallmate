@@ -22,7 +22,7 @@ export default function OmniChatDrawer() {
     {
       id: "init",
       role: "assistant",
-      content: "Hello! I'm your **Omni-Assistant AI Tutor**. Ask me anything about your uploaded study notes, technical definitions, or concepts!",
+      content: "Hello! I'm **Medea**! I'm your Assistant AI Tutor. Ask me anything about your uploaded study notes, technical definitions, or concepts!",
       timestamp: new Date().toLocaleTimeString([], { hour: "2-digit", minute: "2-digit" }),
     },
   ]);
@@ -87,7 +87,7 @@ export default function OmniChatDrawer() {
       const data = await res.json();
 
       if (!res.ok) {
-        throw new Error(data.error || "Failed to reach AI Tutor.");
+        throw new Error(data.error || "Failed to reach Medea.");
       }
 
       const aiMsg: Message = {
@@ -118,14 +118,14 @@ export default function OmniChatDrawer() {
       {/* Floating Trigger Button (Bottom Right) */}
       <button
         onClick={() => setIsOpen(!isOpen)}
-        aria-label="Toggle Omni-Assistant Chatbot"
+        aria-label="Toggle Medea AI Chatbot"
         className="fixed bottom-6 right-6 z-[999] flex items-center gap-2.5 px-4 py-3 bg-gradient-to-r from-indigo-600 to-purple-600 hover:from-indigo-500 hover:to-purple-500 text-white font-bold rounded-full shadow-2xl transition-all duration-300 hover:scale-105 active:scale-95 group border border-white/20"
       >
         <div className="relative">
           <Sparkles className="w-5 h-5 animate-pulse" />
           <span className="absolute -top-1 -right-1 w-2.5 h-2.5 bg-emerald-400 rounded-full border border-indigo-700" />
         </div>
-        <span className="text-sm tracking-wide">AI Tutor</span>
+        <span className="text-sm tracking-wide">Medea AI</span>
       </button>
 
       {/* Slide-Over Drawer Overlay */}
@@ -143,7 +143,7 @@ export default function OmniChatDrawer() {
                 </div>
                 <div>
                   <h2 className="font-black text-slate-900 dark:text-white text-base flex items-center gap-1.5">
-                    Omni-Assistant AI
+                    Medea – AI Tutor
                     <span className="px-2 py-0.5 text-[10px] font-bold uppercase tracking-wider text-emerald-600 bg-emerald-100 dark:bg-emerald-950 dark:text-emerald-400 rounded-full">
                       Online
                     </span>
@@ -251,7 +251,7 @@ export default function OmniChatDrawer() {
                 type="text"
                 value={input}
                 onChange={(e) => setInput(e.target.value)}
-                placeholder="Ask Omni-Assistant a question..."
+                placeholder="Ask Medea a question..."
                 disabled={loading}
                 className="flex-1 px-4 py-3 rounded-xl bg-slate-100 dark:bg-slate-800 border border-slate-200 dark:border-slate-700 text-slate-900 dark:text-white placeholder-slate-400 focus:outline-none focus:ring-2 focus:ring-indigo-500 font-medium text-sm transition-colors"
               />

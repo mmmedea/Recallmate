@@ -22,7 +22,7 @@ export async function POST(req: NextRequest) {
       return NextResponse.json({ error: "Invalid messages payload." }, { status: 400 });
     }
 
-    const systemInstruction = `You are the RecallMate Omni-Assistant, an elite AI tutor specialized in active recall study sessions.
+    const systemInstruction = `You are Medea, the RecallMate AI Tutor, an elite AI assistant specialized in active recall study sessions.
 Mode: ${mode.toUpperCase()}
 ${
   documentContext
@@ -44,30 +44,67 @@ Rules:
       })),
     ];
 
-    const generateUrl = `https://generativelanguage.googleapis.com/v1beta/models/gemini-1.5-flash:generateContent?key=${apiKey}`;
-
-    const aiRes = await fetch(generateUrl, {
-      method: "POST",
-      headers: { "Content-Type": "application/json" },
-      body: JSON.stringify({
-        contents,
-        generationConfig: {
-          temperature: 0.7,
-          maxOutputTokens: 2000,
-        },
-      }),
-    });
-
-    const aiData = await aiRes.json();
-
-    if (!aiRes.ok) {
-      const errMsg = aiData.error?.message || "Failed to communicate with Gemini AI API.";
-      return NextResponse.json({ error: errMsg }, { status: 500 });
+    // AUTO-DISCOVERY of valid Gemini models
+    let validModelNames: string[] = [];
+    try {
+      const listUrl = `https://generativelanguage.googleapis.com/v1beta/models?key=${apiKey}`;
+      const listRes = await fetch(listUrl);
+      if (listRes.ok) {
+        const listData = await listRes.json();
+        const models = (listData.models || []).filter(
+          (m: any) =>
+            m.supportedGenerationMethods?.includes("generateContent") &&
+            !m.name.includes("preview") &&
+            !m.name.includes("robotics")
+        );
+        validModelNames = models.map((m: any) => m.name);
+      }
+    } catch (e) {
+      console.warn("Model listing failed, using fallback candidate list.");
     }
 
-    const replyText =
-      aiData.candidates?.[0]?.content?.parts?.[0]?.text ||
-      "I'm sorry, I could not generate a response. Please try again.";
+    if (validModelNames.length === 0) {
+      validModelNames = [
+        "models/gemini-1.5-flash-latest",
+        "models/gemini-1.5-flash",
+        "models/gemini-2.0-flash",
+        "models/gemini-1.5-pro",
+        "models/gemini-pro",
+      ];
+    }
+
+    let replyText = "";
+    let lastErrorMsg = "Failed to communicate with Gemini AI API.";
+
+    for (const modelName of validModelNames) {
+      const cleanModelPath = modelName.startsWith("models/") ? modelName : `models/${modelName}`;
+      const generateUrl = `https://generativelanguage.googleapis.com/v1beta/${cleanModelPath}:generateContent?key=${apiKey}`;
+
+      const aiRes = await fetch(generateUrl, {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          contents,
+          generationConfig: {
+            temperature: 0.7,
+            maxOutputTokens: 2000,
+          },
+        }),
+      });
+
+      const aiData = await aiRes.json();
+
+      if (aiRes.ok) {
+        replyText = aiData.candidates?.[0]?.content?.parts?.[0]?.text || "";
+        if (replyText) break;
+      } else {
+        lastErrorMsg = aiData.error?.message || `Failed on ${cleanModelPath}`;
+      }
+    }
+
+    if (!replyText) {
+      return NextResponse.json({ error: lastErrorMsg }, { status: 500 });
+    }
 
     return NextResponse.json({
       role: "assistant",

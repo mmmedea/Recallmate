@@ -46,8 +46,22 @@ export default function MathRenderer({ content, className = "" }: MathRendererPr
         );
       }
 
-      // Regular text
-      return <span key={index}>{part}</span>;
+      // Regular text with markdown formatting (e.g. **bold**)
+      const renderMarkdownFormatting = (str: string) => {
+        const subParts = str.split(/(\*\*[\s\S]*?\*\*)/g);
+        return subParts.map((sub, sIdx) => {
+          if (sub.startsWith("**") && sub.endsWith("**") && sub.length > 4) {
+            return (
+              <strong key={sIdx} className="font-bold text-slate-900 dark:text-white">
+                {sub.slice(2, -2)}
+              </strong>
+            );
+          }
+          return sub;
+        });
+      };
+
+      return <span key={index}>{renderMarkdownFormatting(part)}</span>;
     });
   };
 
