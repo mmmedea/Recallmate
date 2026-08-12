@@ -1,7 +1,8 @@
 "use client";
 
 import { create } from "zustand";
-import { persist } from "zustand/middleware";
+import { persist, StateStorage, createJSONStorage } from "zustand/middleware";
+import { get, set, del } from "idb-keyval";
 import { MAX_HEARTS, HEART_REGEN_MINUTES, PREMIUM_PASSWORD } from "./constants";
 
 export interface ChatContextItem {
@@ -25,6 +26,19 @@ interface AppState {
   addChatContext: (item: Omit<ChatContextItem, "id" | "timestamp">) => void;
   clearChatContext: () => void;
 }
+
+// Custom IndexedDB Storage for Zustand
+const idbStorage: StateStorage = {
+  getItem: async (name: string): Promise<string | null> => {
+    return (await get(name)) || null;
+  },
+  setItem: async (name: string, value: string): Promise<void> => {
+    await set(name, value);
+  },
+  removeItem: async (name: string): Promise<void> => {
+    await del(name);
+  },
+};
 
 export const useAppStore = create<AppState>()(
   persist(
@@ -88,6 +102,16 @@ export const useAppStore = create<AppState>()(
         set({ activeChatContext: [] });
       },
     }),
-    { name: "recallmate-storage" }
+    {
+      name: "recallmate-storage",
+      storage: createJSONStorage(() => idbStorage),
+    }
   )
 );
+
+// Setup persistent heart regeneration on window focus
+if (typeof window !== "undefined") {
+  window.addEventListener("focus", () => {
+    useAppStore.getState().regenHearts();
+  });
+}

@@ -1,5 +1,6 @@
 import { NextRequest, NextResponse } from "next/server";
 import { callGeminiRest, callGroqChat, withFallback } from "@/lib/ai-provider";
+import { Redis } from "@upstash/redis";
 
 // Handles video/audio files by transcribing them via AssemblyAI,
 // since the Anthropic API does not accept raw audio/video input.
@@ -7,6 +8,10 @@ export const runtime = "nodejs";
 export const preferredRegion = "iad1";
 
 const ASSEMBLYAI_KEY = process.env.ASSEMBLYAI_API_KEY;
+
+const redisUrl = process.env.KV_REST_API_URL || process.env.UPSTASH_REDIS_REST_URL || "";
+const redisToken = process.env.KV_REST_API_TOKEN || process.env.UPSTASH_REDIS_REST_TOKEN || "";
+const redis = (redisUrl && redisToken) ? new Redis({ url: redisUrl, token: redisToken }) : null;
 
 export async function POST(req: NextRequest) {
   try {
@@ -28,6 +33,22 @@ export async function POST(req: NextRequest) {
       const videoId = videoIdMatch ? videoIdMatch[1] : null;
 
       const promptText = `Analyze and provide a detailed academic transcript summary and study guide for this YouTube video/lecture URL: ${url} (Video ID: ${videoId || "Unknown"}). Include key concepts, core definitions, and main takeaways.`;
+
+      if (redis && videoId) {
+        try {
+          const cached = await redis.get(`yt-summary:${videoId}`);
+          if (cached) {
+            return NextResponse.json({
+              transcript: cached,
+              text: cached,
+              videoId,
+              cached: true
+            });
+          }
+        } catch (err) {
+          console.warn("Redis cache read failed:", err);
+        }
+      }
 
       try {
         // HYBRID CALL: Gemini (primary) → Groq (fallback) for YouTube summaries
@@ -53,6 +74,14 @@ export async function POST(req: NextRequest) {
           },
           "YouTube Transcribe"
         );
+
+        if (redis && videoId) {
+          try {
+            await redis.set(`yt-summary:${videoId}`, transcriptText, { ex: 604800 }); // 7 days
+          } catch (err) {
+            console.warn("Redis cache write failed:", err);
+          }
+        }
 
         return NextResponse.json({
           transcript: transcriptText,

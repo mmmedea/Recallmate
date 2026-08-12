@@ -1,6 +1,10 @@
 "use client";
 
 import React from "react";
+import ReactMarkdown from "react-markdown";
+import remarkMath from "remark-math";
+import rehypeKatex from "rehype-katex";
+import "katex/dist/katex.min.css";
 
 interface MathRendererProps {
   content: string;
@@ -8,62 +12,36 @@ interface MathRendererProps {
 }
 
 /**
- * Lightweight LaTeX Math & Text Renderer
- * Supports inline math \( ... \) or $ ... $ and block math \[ ... \] or $$ ... $$
+ * Advanced LaTeX Math & Markdown Renderer
+ * Uses react-markdown with remark-math and rehype-katex plugins.
  */
 export default function MathRenderer({ content, className = "" }: MathRendererProps) {
   if (!content) return null;
 
-  // Simple regex parser for LaTeX expressions in AI responses
-  const renderFormattedText = (text: string) => {
-    // Split text by inline/block math delimiters
-    const parts = text.split(/(\$\$[\s\S]*?\$\$|\\\[[\s\S]*?\\\]|\\\(.*?\\\))/g);
-
-    return parts.map((part, index) => {
-      // Block math $$ ... $$ or \[ ... \]
-      if ((part.startsWith("$$") && part.endsWith("$$")) || (part.startsWith("\\[") && part.endsWith("\\]"))) {
-        const math = part.replace(/^(\$\$|\\\[)|(\$\$|\\\])$/g, "").trim();
-        return (
-          <div
-            key={index}
-            className="my-3 p-3 bg-indigo-50/50 dark:bg-indigo-950/40 border-l-4 border-indigo-500 rounded-r-xl font-mono text-sm overflow-x-auto text-indigo-900 dark:text-indigo-200"
-          >
-            {math}
-          </div>
-        );
-      }
-
-      // Inline math \( ... \)
-      if (part.startsWith("\\(") && part.endsWith("\\)")) {
-        const math = part.replace(/^\\\(|\\\)$/g, "").trim();
-        return (
-          <span
-            key={index}
-            className="px-1.5 py-0.5 mx-0.5 bg-slate-100 dark:bg-slate-800 rounded font-mono text-xs text-indigo-600 dark:text-indigo-400 font-semibold"
-          >
-            {math}
-          </span>
-        );
-      }
-
-      // Regular text with markdown formatting (e.g. **bold**)
-      const renderMarkdownFormatting = (str: string) => {
-        const subParts = str.split(/(\*\*[\s\S]*?\*\*)/g);
-        return subParts.map((sub, sIdx) => {
-          if (sub.startsWith("**") && sub.endsWith("**") && sub.length > 4) {
-            return (
-              <strong key={sIdx} className="font-bold text-slate-900 dark:text-white">
-                {sub.slice(2, -2)}
-              </strong>
-            );
-          }
-          return sub;
-        });
-      };
-
-      return <span key={index}>{renderMarkdownFormatting(part)}</span>;
-    });
-  };
-
-  return <div className={className}>{renderFormattedText(content)}</div>;
+  return (
+    <div className={`text-sm ${className}`}>
+      <ReactMarkdown
+        remarkPlugins={[remarkMath]}
+        rehypePlugins={[rehypeKatex]}
+        components={{
+          h1: ({node, ...props}) => <h1 className="text-xl font-bold mt-4 mb-2 text-indigo-900 dark:text-indigo-100" {...props}/>,
+          h2: ({node, ...props}) => <h2 className="text-lg font-bold mt-4 mb-2 text-indigo-900 dark:text-indigo-100" {...props}/>,
+          h3: ({node, ...props}) => <h3 className="text-md font-bold mt-3 mb-2 text-indigo-900 dark:text-indigo-100" {...props}/>,
+          p: ({node, ...props}) => <p className="mb-2 leading-relaxed last:mb-0" {...props}/>,
+          ul: ({node, ...props}) => <ul className="list-disc pl-5 mb-2 space-y-1" {...props}/>,
+          ol: ({node, ...props}) => <ol className="list-decimal pl-5 mb-2 space-y-1" {...props}/>,
+          li: ({node, ...props}) => <li {...props}/>,
+          strong: ({node, ...props}) => <strong className="font-bold text-indigo-900 dark:text-indigo-200" {...props}/>,
+          a: ({node, ...props}) => <a className="text-indigo-600 hover:underline dark:text-indigo-400" {...props}/>,
+          blockquote: ({node, ...props}) => <blockquote className="border-l-4 border-indigo-500 pl-4 my-2 italic text-slate-600 dark:text-slate-300" {...props}/>,
+          code: ({node, inline, ...props}: any) => 
+            inline ? 
+              <code className="bg-slate-200 dark:bg-slate-800 px-1 py-0.5 rounded text-xs text-indigo-600 dark:text-indigo-400" {...props}/> : 
+              <pre className="bg-slate-900 text-slate-100 p-3 rounded-lg overflow-x-auto text-xs my-2"><code {...props}/></pre>,
+        }}
+      >
+        {content}
+      </ReactMarkdown>
+    </div>
+  );
 }

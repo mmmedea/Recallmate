@@ -61,13 +61,15 @@ const MEDEA_PERSONA = `You are Medea, the brilliant, friendly, and highly encour
 Your mission: make complicated academic subjects — physics, math, chemistry, history, geometry — incredibly easy to understand using vivid real-world analogies, clear worked examples, and warm encouragement.
 
 You output STRICT JSON. Your thinking goes into internal_reasoning (never shown to students).
-Your clean_response is the ONLY text the student sees — start it immediately with a warm, conversational message, never with meta-tags, constraint labels, or planning headers.
+Your clean_response is the ONLY text the student sees — never output meta-tags, constraint labels, or planning headers.
+Strip all conversational greetings, redundant "Hellos", and internal planning monologues from clean_response.
 
 Rules for clean_response:
 - Natural paragraphs and clean lists only. No stray #, *, _ symbols.
 - All equations, formulas, and chemical reactions wrapped in LaTeX: $...$ (inline) or $$...$$ (block).
 - For definitions: provide clear meaning + a vivid real-world analogy.
 - For calculations: show clearly numbered steps with LaTeX.
+- Follow elite Coherence, Cohesion, and Organizational patterns (combining Description, Chronological/Sequence, and Cause & Effect structures).
 - Never echo "internal_reasoning" content, never say "Constraint 1:", never output "* User says...".`;
 
 // ── Groq system prompt (adapted for JSON mode without strict schema) ───────────
@@ -87,7 +89,27 @@ function parseStructuredResponse(rawText: string): {
   recommendedQuestions: string[];
 } {
   try {
-    const parsed = JSON.parse(rawText);
+    // 1. LaTeX Normalization: Convert \( \) and \[ \] to $ and $$
+    let normalizedText = rawText
+      .replace(/\\\(/g, "$")
+      .replace(/\\\)/g, "$")
+      .replace(/\\\[/g, "$$")
+      .replace(/\\\]/g, "$$");
+
+    // 2. JSON Truncation Patching
+    let patchedText = normalizedText;
+    if (!patchedText.trim().endsWith("}")) {
+      const patches = ['"}', '"]}', ']}', '}'];
+      for (const patch of patches) {
+        try {
+          JSON.parse(patchedText + patch);
+          patchedText += patch;
+          break;
+        } catch (e) {}
+      }
+    }
+
+    const parsed = JSON.parse(patchedText);
     // internal_reasoning is extracted and permanently DISCARDED server-side
     const cleanResponse = (parsed.clean_response || "").trim();
     const recommendedQuestions = Array.isArray(parsed.recommended_questions)
@@ -156,6 +178,19 @@ ${lastUserMessage}`;
 
     // ── DETECT YOUTUBE LINK ───────────────────────────────────────────────────
     const youtubeVideoId = extractYouTubeId(lastUserMessage);
+    let youtubeTitle = "YouTube Video";
+
+    if (youtubeVideoId) {
+      try {
+        const oembedRes = await fetch(`https://www.youtube.com/oembed?url=https://www.youtube.com/watch?v=${youtubeVideoId}&format=json`);
+        if (oembedRes.ok) {
+          const oembedData = await oembedRes.json();
+          youtubeTitle = oembedData.title || youtubeTitle;
+        }
+      } catch (err) {
+        console.warn("Failed to fetch YouTube title via oembed", err);
+      }
+    }
 
     // ── BUILD CONTEXT BLOCKS ──────────────────────────────────────────────────
     const documentBlock = documentContext
@@ -163,13 +198,13 @@ ${lastUserMessage}`;
       : "";
 
     const youtubeBlock = youtubeVideoId
-      ? `\n\n## YOUTUBE VIDEO LINK DETECTED (Video ID: ${youtubeVideoId}):
+      ? `\n\n## YOUTUBE VIDEO LINK DETECTED (Video ID: ${youtubeVideoId}, Title: "${youtubeTitle}"):
 In your clean_response you MUST:
-1. Open with a warm greeting confirming you have studied the video.
-2. Write a 2-3 paragraph academic summary of the video's core concepts.
-3. List 3-5 key takeaways as clean bullet points.
-4. Break down the video's most complex concept using a vivid, real-world analogy.
-5. Invite the student to ask deeper follow-up questions.
+1. Open STRICTLY with "I've summarized it and here is the result:\\n\\n**${youtubeTitle}**".
+2. Strip all conversational greetings, redundant "Hellos", and internal planning monologues.
+3. Follow elite Coherence, Cohesion, and Organizational patterns.
+4. Structure the summary strictly combining Description, Chronological/Sequence, and Cause & Effect structures using Roman Numerals (I, II, III).
+5. For example: "I. Conceptual Overview (Description Pattern)", "II. Step-by-Step... (Sequence Pattern)", "III. Scientific Implications (Cause and Effect Pattern)".
 Your recommended_questions MUST be directly relevant to the video topic.`
       : "";
 
