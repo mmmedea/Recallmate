@@ -46,7 +46,7 @@ export default function OmniChatDrawer() {
   const [youtubeOpen, setYoutubeOpen] = useState(false);
   const [youtubeUrl, setYoutubeUrl] = useState("");
   // Attachment chip state — does NOT trigger AI until user sends a prompt
-  const [attachedFile, setAttachedFile] = useState<AttachedFile | null>(null);
+  const [attachedFiles, setAttachedFiles] = useState<AttachedFile[]>([]);
 
   const { isPremium, activeChatContext, addChatContext } = useAppStore();
   const fileInputRef = useRef<HTMLInputElement>(null);
@@ -78,7 +78,7 @@ export default function OmniChatDrawer() {
 
   const hasUploadedMaterial =
     activeChatContext.length > 0 ||
-    attachedFile !== null ||
+    attachedFiles.length > 0 ||
     (typeof window !== "undefined" && Boolean(sessionStorage.getItem("recallmate-content")));
 
   const getRecommendationPills = () => {
@@ -137,23 +137,32 @@ export default function OmniChatDrawer() {
     abortControllerRef.current = controller;
 
     // Capture and clear attachment chip BEFORE the async call
-    const pendingAttachment = attachedFile;
-    setAttachedFile(null);
+    const pendingAttachments = attachedFiles;
+    setAttachedFiles([]);
 
     try {
-      // Build context string: priority: attachedFile chip → activeChatContext → sessionStorage
+      // Build context string: priority: attachedFiles chip → activeChatContext → sessionStorage
       let docContext = "";
-      if (pendingAttachment) {
-        // Attachment chip was held quietly — now bundle it into this single request
-        docContext = `[DOCUMENT: ${pendingAttachment.name}]\n${pendingAttachment.context.slice(0, 6000)}`;
-        // Also persist it to Zustand so future messages can access it
-        addChatContext({
-          source_type: "document",
-          source_name: pendingAttachment.name,
-          extracted_text: pendingAttachment.context,
+      let combinedContexts = [...activeChatContext];
+
+      if (pendingAttachments.length > 0) {
+        pendingAttachments.forEach(file => {
+          combinedContexts.push({
+            id: Date.now().toString() + Math.random(),
+            source_type: "document",
+            source_name: file.name,
+            extracted_text: file.context,
+          });
+          addChatContext({
+            source_type: "document",
+            source_name: file.name,
+            extracted_text: file.context,
+          });
         });
-      } else if (activeChatContext.length > 0) {
-        docContext = activeChatContext
+      }
+
+      if (combinedContexts.length > 0) {
+        docContext = combinedContexts
           .map((ctx) => `[${ctx.source_type.toUpperCase()}: ${ctx.source_name}]\n${ctx.extracted_text.slice(0, 4000)}`)
           .join("\n\n");
       } else {
@@ -223,31 +232,50 @@ export default function OmniChatDrawer() {
    * above the input bar. It is only sent to the API when the student hits Send.
    */
   const handleFileSelect = async (e: React.ChangeEvent<HTMLInputElement>) => {
-    const file = e.target.files?.[0];
-    if (!file) return;
-    // Reset input so the same file can be re-selected if needed
+    const files = Array.from(e.target.files || []);
+    if (files.length === 0) return;
+    // Reset input so the same files can be re-selected if needed
     e.target.value = "";
 
-    setUploading(true);
-    const formData = new FormData();
-    formData.append("file", file);
-
-    try {
-      const res = await fetch("/api/extract-text", {
-        method: "POST",
-        body: formData,
-      });
-
-      const data = await res.json();
-      if (!res.ok) throw new Error(data.error || "Failed to parse document.");
-
-      // Save as quiet chip — no chat message, no API call yet
-      setAttachedFile({ name: file.name, context: data.text });
-    } catch (err: any) {
-      alert(`File upload failed: ${err.message}`);
-    } finally {
-      setUploading(false);
+    if (attachedFiles.length + files.length > 5) {
+      alert("You can only upload up to 5 files at a time.");
+      return;
     }
+
+    setUploading(true);
+
+    for (const file of files) {
+      const formData = new FormData();
+      formData.append("file", file);
+
+      try {
+        const res = await fetch("/api/extract-text", {
+          method: "POST",
+          body: formData,
+        });
+
+        let data;
+        try {
+          data = await res.json();
+        } catch (parseErr) {
+          if (!res.ok) {
+            if (res.status === 413) throw new Error("File is too large (max 4.5MB).");
+            if (res.status === 429) throw new Error("Too many requests. Please wait a moment.");
+            throw new Error(`Server returned an error (${res.status}).`);
+          }
+          throw new Error("Failed to parse server response.");
+        }
+
+        if (!res.ok) throw new Error(data.error || "Failed to parse document.");
+
+        // Save as quiet chip — no chat message, no API call yet
+        setAttachedFiles((prev) => [...prev, { name: file.name, context: data.text }]);
+      } catch (err: any) {
+        alert(`File upload failed for ${file.name}: ${err.message}`);
+      }
+    }
+
+    setUploading(false);
   };
 
   const handleYoutubeSubmit = async (e: React.FormEvent) => {
@@ -442,22 +470,26 @@ export default function OmniChatDrawer() {
               </div>
             )}
 
-            {/* Attachment Chip — shown when a file is quietly held, before user sends */}
-            {attachedFile && (
-              <div className="px-4 py-2 bg-indigo-50 dark:bg-indigo-950/50 border-t border-indigo-100 dark:border-indigo-900/40 flex items-center gap-2 animate-in fade-in duration-200">
-                <FileText className="w-3.5 h-3.5 text-indigo-500 flex-shrink-0" />
-                <span className="text-xs font-semibold text-indigo-700 dark:text-indigo-300 truncate flex-1">
-                  {attachedFile.name}
-                </span>
+            {/* Attachment Chips — shown when files are quietly held, before user sends */}
+            {attachedFiles.length > 0 && (
+              <div className="px-4 py-2 bg-indigo-50 dark:bg-indigo-950/50 border-t border-indigo-100 dark:border-indigo-900/40 flex flex-col gap-2 animate-in fade-in duration-200">
+                {attachedFiles.map((file, idx) => (
+                  <div key={idx} className="flex items-center gap-2">
+                    <FileText className="w-3.5 h-3.5 text-indigo-500 flex-shrink-0" />
+                    <span className="text-xs font-semibold text-indigo-700 dark:text-indigo-300 truncate flex-1">
+                      {file.name}
+                    </span>
+                    <button
+                      type="button"
+                      onClick={() => setAttachedFiles((prev) => prev.filter((_, i) => i !== idx))}
+                      className="p-1 rounded-full hover:bg-indigo-200 dark:hover:bg-indigo-800 text-indigo-400 hover:text-indigo-700 dark:hover:text-indigo-200 transition-colors"
+                      title="Remove attachment"
+                    >
+                      <X className="w-3 h-3" />
+                    </button>
+                  </div>
+                ))}
                 <span className="text-[10px] text-indigo-500 dark:text-indigo-400 font-medium">Ready — type your question &amp; send</span>
-                <button
-                  type="button"
-                  onClick={() => setAttachedFile(null)}
-                  className="p-1 rounded-full hover:bg-indigo-200 dark:hover:bg-indigo-800 text-indigo-400 hover:text-indigo-700 dark:hover:text-indigo-200 transition-colors"
-                  title="Remove attachment"
-                >
-                  <X className="w-3 h-3" />
-                </button>
               </div>
             )}
 
@@ -469,6 +501,7 @@ export default function OmniChatDrawer() {
               {/* File Upload Trigger */}
               <input
                 type="file"
+                multiple
                 ref={fileInputRef}
                 onChange={handleFileSelect}
                 accept=".pdf,.docx,.txt,.md,image/*"

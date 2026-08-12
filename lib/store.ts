@@ -3,7 +3,7 @@
 import { create } from "zustand";
 import { persist, StateStorage, createJSONStorage } from "zustand/middleware";
 import { get, set, del } from "idb-keyval";
-import { MAX_HEARTS, HEART_REGEN_MINUTES, PREMIUM_PASSWORD } from "./constants";
+import { MAX_HEARTS, HEART_REGEN_MINUTES } from "./constants";
 
 export interface ChatContextItem {
   id: string;
@@ -22,7 +22,7 @@ interface AppState {
   loseHeart: () => boolean;
   regenHearts: () => void;
   addHeart: (amount?: number) => void;
-  unlockPremium: (password: string) => boolean;
+  unlockPremium: (password: string) => Promise<boolean>;
   addChatContext: (item: Omit<ChatContextItem, "id" | "timestamp">) => void;
   clearChatContext: () => void;
 }
@@ -79,12 +79,23 @@ export const useAppStore = create<AppState>()(
         }
       },
 
-      unlockPremium: (password: string) => {
-        if (password.trim() === PREMIUM_PASSWORD) {
-          set({ isPremium: true, hearts: MAX_HEARTS });
-          return true;
+      unlockPremium: async (password: string) => {
+        try {
+          const res = await fetch("/api/premium/verify", {
+            method: "POST",
+            headers: { "Content-Type": "application/json" },
+            body: JSON.stringify({ password }),
+          });
+          const data = await res.json();
+          if (res.ok && data.success) {
+            set({ isPremium: true, hearts: MAX_HEARTS });
+            return true;
+          }
+          return false;
+        } catch (e) {
+          console.error(e);
+          return false;
         }
-        return false;
       },
 
       addChatContext: (item) => {

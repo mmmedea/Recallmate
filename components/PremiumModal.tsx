@@ -10,6 +10,7 @@ export default function PremiumModal({ open, onClose }: { open: boolean; onClose
   const [error, setError] = useState("");
   const [success, setSuccess] = useState(false);
   const [mounted, setMounted] = useState(false);
+  const [isLoading, setIsLoading] = useState(false);
   const { unlockPremium } = useAppStore();
 
   useEffect(() => {
@@ -18,11 +19,14 @@ export default function PremiumModal({ open, onClose }: { open: boolean; onClose
 
   if (!open || !mounted) return null;
 
-  const handleUnlock = (e: React.FormEvent) => {
+  const handleUnlock = async (e: React.FormEvent) => {
     e.preventDefault();
     setError("");
+    setIsLoading(true);
 
-    const isSuccess = unlockPremium(code);
+    const isSuccess = await unlockPremium(code);
+    
+    setIsLoading(false);
 
     if (isSuccess) {
       setSuccess(true);
@@ -103,9 +107,10 @@ export default function PremiumModal({ open, onClose }: { open: boolean; onClose
                 </button>
                 <button
                   type="submit"
-                  className="w-2/3 py-3 bg-indigo-600 hover:bg-indigo-700 dark:bg-indigo-500 dark:hover:bg-indigo-600 text-white rounded-xl font-bold shadow-md transition-all text-sm active:scale-[0.98]"
+                  disabled={isLoading}
+                  className="w-2/3 py-3 bg-indigo-600 hover:bg-indigo-700 dark:bg-indigo-500 dark:hover:bg-indigo-600 text-white rounded-xl font-bold shadow-md transition-all text-sm active:scale-[0.98] disabled:opacity-50"
                 >
-                  Unlock Premium
+                  {isLoading ? "Verifying..." : "Unlock Premium"}
                 </button>
               </div>
             </form>
