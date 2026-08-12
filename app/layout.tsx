@@ -4,6 +4,7 @@ import "@/app/globals.css";
 import Navbar from "@/components/Navbar";
 import { ThemeProvider } from "@/components/ThemeProvider";
 import InactivityPreventer from "@/components/InactivityPreventer";
+import OmniChatDrawer from "@/components/OmniChatDrawer";
 
 const inter = Inter({ subsets: ["latin"] });
 
@@ -20,6 +21,7 @@ export default function RootLayout({ children }: { children: React.ReactNode }) 
           <InactivityPreventer />
           <Navbar />
           <main className="mx-auto max-w-6xl px-4 pb-20 pt-6">{children}</main>
+          <OmniChatDrawer />
         </ThemeProvider>
       </body>
     </html>
