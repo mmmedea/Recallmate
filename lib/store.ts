@@ -4,14 +4,26 @@ import { create } from "zustand";
 import { persist } from "zustand/middleware";
 import { MAX_HEARTS, HEART_REGEN_MINUTES, PREMIUM_PASSWORD } from "./constants";
 
+export interface ChatContextItem {
+  id: string;
+  source_type: "document" | "image" | "youtube_link" | "audio";
+  source_name: string;
+  extracted_text: string;
+  summary?: string;
+  timestamp: number;
+}
+
 interface AppState {
   hearts: number;
   lastHeartLostAt: number | null;
   isPremium: boolean;
+  activeChatContext: ChatContextItem[];
   loseHeart: () => boolean;
   regenHearts: () => void;
   addHeart: (amount?: number) => void;
   unlockPremium: (password: string) => boolean;
+  addChatContext: (item: Omit<ChatContextItem, "id" | "timestamp">) => void;
+  clearChatContext: () => void;
 }
 
 export const useAppStore = create<AppState>()(
@@ -20,6 +32,7 @@ export const useAppStore = create<AppState>()(
       hearts: MAX_HEARTS,
       lastHeartLostAt: null,
       isPremium: false,
+      activeChatContext: [],
 
       loseHeart: () => {
         const { hearts, isPremium } = get();
@@ -58,7 +71,22 @@ export const useAppStore = create<AppState>()(
           return true;
         }
         return false;
-      }
+      },
+
+      addChatContext: (item) => {
+        const newItem: ChatContextItem = {
+          ...item,
+          id: Date.now().toString(),
+          timestamp: Date.now(),
+        };
+        set((state) => ({
+          activeChatContext: [...state.activeChatContext, newItem],
+        }));
+      },
+
+      clearChatContext: () => {
+        set({ activeChatContext: [] });
+      },
     }),
     { name: "recallmate-storage" }
   )

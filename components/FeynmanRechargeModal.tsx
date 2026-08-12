@@ -28,7 +28,10 @@ export default function FeynmanRechargeModal({
 
   if (!open || !mounted) return null;
 
-  const handleSubmit = (e: React.FormEvent) => {
+  const [loading, setLoading] = useState(false);
+  const [earnedCount, setEarnedCount] = useState(1);
+
+  const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
     setError("");
 
@@ -37,15 +40,50 @@ export default function FeynmanRechargeModal({
       return;
     }
 
-    // Award +1 Heart for active synthesis
-    addHeart(1);
-    setSuccess(true);
+    setLoading(true);
 
-    setTimeout(() => {
-      setSuccess(false);
-      setExplanation("");
-      onClose();
-    }, 1500);
+    try {
+      const res = await fetch("/api/chat", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          isFeynmanEvaluation: true,
+          messages: [{ role: "user", content: `Concept: ${topic}\nExplanation: ${explanation}` }],
+        }),
+      });
+
+      const data = await res.json();
+      let heartsToReward = 1;
+
+      if (data.content) {
+        const match = data.content.match(/"heartsEarned":\s*([1-3])/);
+        if (match) {
+          heartsToReward = parseInt(match[1], 10);
+        }
+      }
+
+      addHeart(heartsToReward);
+      setEarnedCount(heartsToReward);
+      setSuccess(true);
+
+      setTimeout(() => {
+        setSuccess(false);
+        setExplanation("");
+        setLoading(false);
+        onClose();
+      }, 2000);
+    } catch (err) {
+      // Fallback: award 1 heart if network fails
+      addHeart(1);
+      setEarnedCount(1);
+      setSuccess(true);
+      setTimeout(() => {
+        setSuccess(false);
+        setExplanation("");
+        setLoading(false);
+        onClose();
+      }, 1500);
+    }
   };
 
   const modalContent = (
@@ -72,7 +110,7 @@ export default function FeynmanRechargeModal({
               <Heart className="w-8 h-8 fill-rose-500 text-rose-500 animate-pulse" />
             </div>
             <h3 className="text-2xl font-black text-slate-900 dark:text-white">
-              +1 Heart Earned!
+              +{earnedCount} {earnedCount === 1 ? "Heart" : "Hearts"} Earned!
             </h3>
             <p className="text-sm text-slate-600 dark:text-slate-400 max-w-xs mx-auto">
               Great active synthesis! You've recharged a heart through the Feynman Technique.
