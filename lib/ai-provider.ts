@@ -13,7 +13,7 @@
 import OpenAI from "openai";
 
 // Best free Groq model — excellent at structured JSON, math & science
-export const GROQ_MODEL = "llama-3.1-70b-versatile";
+export const GROQ_MODEL = "llama-3.3-70b-versatile";
 
 /**
  * Lazy Groq client getter.
