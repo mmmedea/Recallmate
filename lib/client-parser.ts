@@ -172,10 +172,14 @@ export const processFileClientSide = async (rawFile: File): Promise<string> => {
           try {
             const workerUrl = `https://cdnjs.cloudflare.com/ajax/libs/pdf.js/${pdfjsLib.version}/pdf.worker.min.js`;
             const workerRes = await fetch(workerUrl);
+            if (!workerRes.ok) {
+              throw new Error(`CDN returned ${workerRes.status}`);
+            }
             const workerBlob = await workerRes.blob();
             pdfjsLib.GlobalWorkerOptions.workerSrc = URL.createObjectURL(workerBlob);
           } catch (workerErr) {
-            pdfjsLib.GlobalWorkerOptions.workerSrc = `https://cdnjs.cloudflare.com/ajax/libs/pdf.js/${pdfjsLib.version}/pdf.worker.min.js`;
+            // Fallback to unpkg if cdnjs fails or is blocked
+            pdfjsLib.GlobalWorkerOptions.workerSrc = `https://unpkg.com/pdfjs-dist@${pdfjsLib.version}/build/pdf.worker.min.js`;
           }
         }
         
