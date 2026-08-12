@@ -2,6 +2,7 @@ import { NextRequest, NextResponse } from "next/server";
 import { Redis } from "@upstash/redis";
 
 export const runtime = "nodejs";
+export const preferredRegion = "iad1";
 
 // ==========================================
 // RATE LIMITING SETUP (Redis + In-Memory Fallback)

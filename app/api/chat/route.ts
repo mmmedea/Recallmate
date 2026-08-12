@@ -2,6 +2,9 @@ import { NextRequest, NextResponse } from "next/server";
 import { GoogleGenerativeAI, SchemaType } from "@google/generative-ai";
 
 export const runtime = "nodejs";
+// Pin this function to US East (Washington D.C.) where Gemini API is fully available.
+// This prevents 404 errors caused by Vercel deploying to EU regions where Gemini is geo-blocked.
+export const preferredRegion = "iad1";
 
 /**
  * Medea AI Tutor — Structured JSON Chat Route (v4)

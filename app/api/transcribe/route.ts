@@ -3,6 +3,7 @@ import { NextRequest, NextResponse } from "next/server";
 // Handles video/audio files by transcribing them via AssemblyAI,
 // since the Anthropic API does not accept raw audio/video input.
 export const runtime = "nodejs";
+export const preferredRegion = "iad1";
 
 const ASSEMBLYAI_KEY = process.env.ASSEMBLYAI_API_KEY;
 
