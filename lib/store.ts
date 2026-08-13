@@ -4,6 +4,10 @@ import { create } from "zustand";
 import { persist, StateStorage, createJSONStorage } from "zustand/middleware";
 import { get, set, del } from "idb-keyval";
 import { MAX_HEARTS, HEART_REGEN_MINUTES } from "./constants";
+import type { OTPState, OTPFlowContext } from "./types/auth";
+
+// Re-export for convenience
+export type { OTPState, OTPFlowContext } from "./types/auth";
 
 export interface ChatContextItem {
   id: string;
@@ -15,16 +19,35 @@ export interface ChatContextItem {
 }
 
 interface AppState {
+  // ==========================================
+  // CLIENT STATE (Authoritative in Zustand)
+  // ==========================================
+  isSidebarOpen: boolean;
+  setSidebarOpen: (isOpen: boolean) => void;
+  toggleSidebar: () => void;
+  isMobileNavOpen: boolean;
+  setMobileNavOpen: (isOpen: boolean) => void;
+  chatDrawerOpen: boolean;
+  setChatDrawerOpen: (isOpen: boolean) => void;
+
+  // OTP UI State moved to useOTPStore
+
+  activeChatContext: ChatContextItem[];
+  addChatContext: (item: Omit<ChatContextItem, "id" | "timestamp">) => void;
+  clearChatContext: () => void;
+
+  // ==========================================
+  // DEPRECATED: SERVER STATE (To be removed in 6.x)
+  // ==========================================
+  // These properties belong to the backend. They remain here temporarily
+  // to ensure Phase 5 functionality is untouched during the 6.1 Foundation.
   hearts: number;
   lastHeartLostAt: number | null;
   isPremium: boolean;
-  activeChatContext: ChatContextItem[];
   loseHeart: () => boolean;
   regenHearts: () => void;
   addHeart: (amount?: number) => void;
   unlockPremium: (password: string) => Promise<boolean>;
-  addChatContext: (item: Omit<ChatContextItem, "id" | "timestamp">) => void;
-  clearChatContext: () => void;
 }
 
 // Custom IndexedDB Storage for Zustand
@@ -43,10 +66,20 @@ const idbStorage: StateStorage = {
 export const useAppStore = create<AppState>()(
   persist(
     (set, get) => ({
+      // CLIENT STATE
+      isSidebarOpen: true,
+      setSidebarOpen: (isOpen) => set({ isSidebarOpen: isOpen }),
+      toggleSidebar: () => set((state) => ({ isSidebarOpen: !state.isSidebarOpen })),
+      isMobileNavOpen: false,
+      setMobileNavOpen: (isOpen) => set({ isMobileNavOpen: isOpen }),
+      chatDrawerOpen: false,
+      setChatDrawerOpen: (isOpen) => set({ chatDrawerOpen: isOpen }),
+      activeChatContext: [],
+
+      // DEPRECATED SERVER STATE
       hearts: MAX_HEARTS,
       lastHeartLostAt: null,
       isPremium: false,
-      activeChatContext: [],
 
       loseHeart: () => {
         const { hearts, isPremium } = get();
@@ -116,6 +149,28 @@ export const useAppStore = create<AppState>()(
     {
       name: "recallmate-storage",
       storage: createJSONStorage(() => idbStorage),
+    }
+  )
+);
+
+interface OTPStoreState {
+  otpState: OTPState;
+  setOTPState: (state: OTPState) => void;
+  otpFlowContext: OTPFlowContext | null;
+  setOTPFlowContext: (ctx: OTPFlowContext | null) => void;
+}
+
+export const useOTPStore = create<OTPStoreState>()(
+  persist(
+    (set) => ({
+      otpState: "idle",
+      setOTPState: (state) => set({ otpState: state }),
+      otpFlowContext: null,
+      setOTPFlowContext: (ctx) => set({ otpFlowContext: ctx }),
+    }),
+    {
+      name: "recallmate-otp-storage",
+      storage: createJSONStorage(() => sessionStorage),
     }
   )
 );
