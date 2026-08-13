@@ -255,7 +255,7 @@ Do not remove important details simply to make the reviewer shorter.
 `;
 
     const documentBlock = documentContext
-      ? \`\\n\\n## ACTIVE STUDY MATERIAL (uploaded by student):\\n"""\\n\${documentContext.slice(0, 16000)}\\n"""\\n\${DOCUMENT_ENHANCEMENT_PROMPT}\`
+      ? `\n\n## ACTIVE STUDY MATERIAL (uploaded by student):\n"""\n${documentContext.slice(0, 16000)}\n"""\n${DOCUMENT_ENHANCEMENT_PROMPT}`
       : "";
 
     const youtubeBlock = youtubeVideoId
