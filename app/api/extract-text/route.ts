@@ -93,7 +93,9 @@ export async function POST(req: NextRequest) {
     // 5. Handle PowerPoint presentations (.pptx, .ppt)
     else if (fileName.endsWith(".pptx") || fileName.endsWith(".ppt")) {
       try {
-        extractedText = await officeParser.parseOffice(buffer) as unknown as string;
+        const ast = await officeParser.parseOffice(buffer) as any;
+        const textOutput = await ast.to('text');
+        extractedText = textOutput.value || textOutput;
       } catch (pptErr) {
         extractedText = `[Presentation File: ${file.name}]`;
       }
