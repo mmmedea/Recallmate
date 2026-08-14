@@ -178,7 +178,8 @@ export async function getDocumentLifecycle(documentId: string): Promise<{ succes
         id, filename, created_at, status, error_message,
         ai_jobs ( id, operation, status ),
         notes ( id ),
-        questions ( id )
+        questions ( id ),
+        conversations ( updated_at )
       `)
       .eq('id', documentId)
       .eq('user_id', user.id)
@@ -190,7 +191,8 @@ export async function getDocumentLifecycle(documentId: string): Promise<{ succes
       document,
       document.ai_jobs || [],
       (document.notes as any[])?.[0]?.id || null,
-      (document.questions as any[])?.[0]?.id || null
+      (document.questions as any[])?.[0]?.id || null,
+      (document.conversations as any[])?.[0]?.updated_at || null
     )
 
     return { success: true, data: summary }
@@ -212,7 +214,8 @@ export async function getRecentDocuments(): Promise<{ success: boolean; data?: D
         id, filename, created_at, status, error_message,
         ai_jobs ( id, operation, status ),
         notes ( id ),
-        questions ( id )
+        questions ( id ),
+        conversations ( updated_at )
       `)
       .eq('user_id', user.id)
       .order('created_at', { ascending: false })
@@ -225,7 +228,8 @@ export async function getRecentDocuments(): Promise<{ success: boolean; data?: D
         doc,
         doc.ai_jobs || [],
         (doc.notes as any[])?.[0]?.id || null,
-        (doc.questions as any[])?.[0]?.id || null
+        (doc.questions as any[])?.[0]?.id || null,
+        (doc.conversations as any[])?.[0]?.updated_at || null
       )
     )
 
