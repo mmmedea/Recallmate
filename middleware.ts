@@ -1,23 +1,9 @@
 import { NextResponse } from 'next/server';
 import type { NextRequest } from 'next/server';
 import { updateSession } from './utils/supabase/middleware';
-import { Ratelimit } from '@upstash/ratelimit';
-import { Redis } from '@upstash/redis';
-
-// Initialize Redis and RateLimiter only if credentials exist
-let ratelimit: Ratelimit | null = null;
-if (process.env.UPSTASH_REDIS_REST_URL && process.env.UPSTASH_REDIS_REST_TOKEN) {
-  const redis = new Redis({
-    url: process.env.UPSTASH_REDIS_REST_URL,
-    token: process.env.UPSTASH_REDIS_REST_TOKEN,
-  });
-
-  ratelimit = new Ratelimit({
-    redis: redis,
-    limiter: Ratelimit.slidingWindow(10, '10 s'),
-    analytics: true,
-  });
-}
+// Upstash Redis is not Edge Runtime compatible in Next.js 14 middleware due to missing 'edge' export.
+// We removed base rate limiting from the Edge middleware to fix Vercel deployment.
+// Rate limiting is instead handled at the Server Action / Route Handler level (which run in Node.js runtime).
 
 export async function middleware(request: NextRequest) {
   // 1. Refresh Supabase Auth Session
@@ -26,28 +12,8 @@ export async function middleware(request: NextRequest) {
   // 2. Rate Limiting for specific API routes
   const { pathname } = request.nextUrl;
   if (pathname.startsWith('/api/chat') || pathname.startsWith('/api/extract-text') || pathname.startsWith('/api/generate-content')) {
-    
     // NOTE: Premium status checks are now handled strictly on the server via `requireEntitlement()`
-    // We apply base rate limiting here, and the Server Action will enforce stricter limits.
-
-    if (ratelimit) {
-      const ip = request.ip ?? '127.0.0.1';
-      const { success, limit, reset, remaining } = await ratelimit.limit(ip);
-
-      if (!success) {
-        return NextResponse.json(
-          { error: 'Too many requests. Please wait a moment.' },
-          { 
-            status: 429,
-            headers: {
-              'X-RateLimit-Limit': limit.toString(),
-              'X-RateLimit-Remaining': remaining.toString(),
-              'X-RateLimit-Reset': reset.toString(),
-            }
-          }
-        );
-      }
-    }
+    // Server Actions and API routes enforce stricter limits using Node.js runtime.
   }
 
   return supabaseResponse;
