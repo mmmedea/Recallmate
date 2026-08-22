@@ -137,7 +137,16 @@ function DocumentCard({ doc }: { doc: DocumentLifecycleSummary }) {
             </span>
           </div>
           
-          <ArrowRight className="h-4 w-4 text-slate-400 group-hover:text-indigo-500 transition-colors" />
+          <div className="flex items-center space-x-2">
+            <Link 
+              href={`/documents/${document.id}/review`}
+              onClick={(e) => e.stopPropagation()}
+              className="text-xs font-semibold text-indigo-600 hover:text-indigo-800 bg-indigo-50 px-3 py-1.5 rounded-md"
+            >
+              Review Due
+            </Link>
+            <ArrowRight className="h-4 w-4 text-slate-400 group-hover:text-indigo-500 transition-colors" />
+          </div>
         </div>
       </div>
     </Link>

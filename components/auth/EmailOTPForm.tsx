@@ -1,6 +1,6 @@
 "use client";
 
-import { useState, useCallback, useRef } from "react";
+import { useState, useCallback, useRef, useEffect } from "react";
 import { useRouter } from "next/navigation";
 import { Loader2, Mail } from "lucide-react";
 import { createClient } from "@/utils/supabase/client";
@@ -18,6 +18,7 @@ import { v4 as uuidv4 } from "uuid";
 interface EmailOTPFormProps {
   intent: OTPIntent;
   privacyAgreed?: boolean; // required true for signup
+  redirectTo?: string;
 }
 
 type FormStage = "email" | "otp";
@@ -33,7 +34,7 @@ const OTP_ERROR_MESSAGES: Record<string, string> = {
   error: "Something went wrong. Please try again.",
 };
 
-export function EmailOTPForm({ intent, privacyAgreed = true }: EmailOTPFormProps) {
+export function EmailOTPForm({ intent, privacyAgreed = true, redirectTo = "/upload" }: EmailOTPFormProps) {
   const router = useRouter();
   const supabase = createClient();
 
@@ -95,6 +96,15 @@ export function EmailOTPForm({ intent, privacyAgreed = true }: EmailOTPFormProps
 
         const options: Record<string, unknown> = {};
         if (captchaToken) options.captchaToken = captchaToken;
+        if (intent === "signup") {
+          if (!privacyAgreed) {
+            setErrorKey("error");
+            setOTPState("error");
+            setIsLoading(false);
+            return;
+          }
+          options.data = { privacy_agreed: true };
+        }
 
         const { error } = await supabase.auth.signInWithOtp({
           email: email.trim().toLowerCase(),
@@ -104,7 +114,7 @@ export function EmailOTPForm({ intent, privacyAgreed = true }: EmailOTPFormProps
             //   create an account. Sign In and Sign Up are semantically distinct.
             // signup → shouldCreateUser: true — create the account on first OTP.
             shouldCreateUser: intent === "signup",
-            ...(captchaToken ? { captchaToken } : {}),
+            ...options,
           },
         });
 
@@ -178,7 +188,7 @@ export function EmailOTPForm({ intent, privacyAgreed = true }: EmailOTPFormProps
         setOTPState("verified");
         // Force router refresh so the server layout picks up the new session
         router.refresh();
-        router.push("/upload");
+        router.push(redirectTo);
       } catch {
         setErrorKey("network");
         setOTPState("error");

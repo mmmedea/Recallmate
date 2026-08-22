@@ -85,3 +85,5 @@ export async function handleExtractText(supabase: any, job: any) {
     // Phase 6.4: Orchestrate follow-on generations based on user preferences.
     await orchestrateGeneration(supabase, document.user_id, document.id);
 }
+
+// Updated for Phase 6.4.1 auto_generate preference
