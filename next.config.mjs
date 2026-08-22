@@ -8,7 +8,7 @@ const nextConfig = {
     ignoreBuildErrors: true,
   },
   experimental: {
-    serverComponentsExternalPackages: ['officeparser'],
+    serverComponentsExternalPackages: ['officeparser', 'puppeteer-core'],
     serverActions: {
       bodySizeLimit: '50mb',
     },
