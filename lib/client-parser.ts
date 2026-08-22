@@ -42,9 +42,19 @@ export const compressImage = (file: File | Blob): Promise<Blob> => {
 
 export const compressPdfToImage = async (buffer: ArrayBuffer, pdfjsLib: any): Promise<Blob> => {
   if (!pdfjsLib) {
-    const pdfjsModule = await import("pdfjs-dist");
-    pdfjsLib = pdfjsModule.default || pdfjsModule;
-    pdfjsLib.GlobalWorkerOptions.workerSrc = "/pdf.worker.min.js";
+    if ((window as any).pdfjsLib) {
+      pdfjsLib = (window as any).pdfjsLib;
+    } else {
+      await new Promise<void>((resolve, reject) => {
+        const script = document.createElement("script");
+        script.src = "https://cdnjs.cloudflare.com/ajax/libs/pdf.js/3.11.174/pdf.min.js";
+        script.onload = () => resolve();
+        script.onerror = () => reject(new Error("Failed to load PDF.js from CDN"));
+        document.head.appendChild(script);
+      });
+      pdfjsLib = (window as any).pdfjsLib;
+      pdfjsLib.GlobalWorkerOptions.workerSrc = "https://cdnjs.cloudflare.com/ajax/libs/pdf.js/3.11.174/pdf.worker.min.js";
+    }
   }
 
   const loadingTask = pdfjsLib.getDocument({ data: new Uint8Array(buffer), isEvalSupported: false });
@@ -166,9 +176,20 @@ export const processFileClientSide = async (rawFile: File): Promise<string> => {
       }
       else if (ext === ".pdf") {
         if (!pdfjsLib) {
-          const pdfjsModule = await import("pdfjs-dist");
-          pdfjsLib = pdfjsModule.default || pdfjsModule;
-          pdfjsLib.GlobalWorkerOptions.workerSrc = "/pdf.worker.min.js";
+          if ((window as any).pdfjsLib) {
+            pdfjsLib = (window as any).pdfjsLib;
+          } else {
+            // Load pdf.js dynamically from CDN to avoid bundling 32MB into the lambda
+            await new Promise<void>((resolve, reject) => {
+              const script = document.createElement("script");
+              script.src = "https://cdnjs.cloudflare.com/ajax/libs/pdf.js/3.11.174/pdf.min.js";
+              script.onload = () => resolve();
+              script.onerror = () => reject(new Error("Failed to load PDF.js from CDN"));
+              document.head.appendChild(script);
+            });
+            pdfjsLib = (window as any).pdfjsLib;
+            pdfjsLib.GlobalWorkerOptions.workerSrc = "https://cdnjs.cloudflare.com/ajax/libs/pdf.js/3.11.174/pdf.worker.min.js";
+          }
         }
         
         const uint8Array = new Uint8Array(arrayBuffer!);

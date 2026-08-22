@@ -8,16 +8,10 @@ const nextConfig = {
     ignoreBuildErrors: true,
   },
   experimental: {
+    serverComponentsExternalPackages: ['puppeteer-core'],
     serverActions: {
       bodySizeLimit: '50mb',
     },
-    outputFileTracingExcludes: {
-      "**/*": [
-        "node_modules/pdfjs-dist/**/*",
-        "node_modules/mathjs/**/*",
-        "node_modules/@swc/core-win32-x64-msvc/**/*"
-      ]
-    }
   },
   
   // Your existing security headers
