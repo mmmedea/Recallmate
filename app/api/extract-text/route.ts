@@ -1,7 +1,7 @@
 import { NextRequest, NextResponse } from "next/server";
 import pdfParse from "pdf-parse";
 import mammoth from "mammoth";
-import officeParser from "officeparser";
+import { processPptxServerSide } from "@/lib/server-parser";
 
 export const runtime = "nodejs";
 
@@ -93,9 +93,8 @@ export async function POST(req: NextRequest) {
     // 5. Handle PowerPoint presentations (.pptx, .ppt)
     else if (fileName.endsWith(".pptx") || fileName.endsWith(".ppt")) {
       try {
-        const ast = await officeParser.parseOffice(buffer) as any;
-        const textOutput = await ast.to('text');
-        extractedText = textOutput.value || textOutput;
+        const chunks = await processPptxServerSide(buffer);
+        extractedText = chunks.map(c => c.content).join("\n\n");
       } catch (pptErr) {
         extractedText = `[Presentation File: ${file.name}]`;
       }
