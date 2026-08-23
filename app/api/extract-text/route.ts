@@ -1,6 +1,7 @@
 import { NextRequest, NextResponse } from "next/server";
+import pdfParse from "pdf-parse";
 import mammoth from "mammoth";
-import { processPptxServerSide } from "@/lib/server-parser";
+import officeParser from "officeparser";
 
 export const runtime = "nodejs";
 
@@ -67,11 +68,16 @@ export async function POST(req: NextRequest) {
 
     // 3. Handle PDF files
     if (fileName.endsWith(".pdf")) {
-      return NextResponse.json(
-        { error: "Server-side PDF parsing is unsupported to save lambda size. PDFs must be parsed on the client." },
-        { status: 400 }
-      );
-    }
+      try {
+        const parsedPdf = await pdfParse(buffer);
+        extractedText = parsedPdf.text;
+      } catch (pdfErr) {
+        return NextResponse.json(
+          { error: "Failed to parse PDF text. Ensure it is a valid, text-based PDF." },
+          { status: 400 }
+        );
+      }
+    } 
     // 4. Handle Word documents (.docx, .doc)
     else if (fileName.endsWith(".docx") || fileName.endsWith(".doc")) {
       try {
@@ -87,8 +93,9 @@ export async function POST(req: NextRequest) {
     // 5. Handle PowerPoint presentations (.pptx, .ppt)
     else if (fileName.endsWith(".pptx") || fileName.endsWith(".ppt")) {
       try {
-        const chunks = await processPptxServerSide(buffer);
-        extractedText = chunks.map(c => c.content).join("\n\n");
+        const ast = await officeParser.parseOffice(buffer) as any;
+        const textOutput = await ast.to('text');
+        extractedText = textOutput.value || textOutput;
       } catch (pptErr) {
         extractedText = `[Presentation File: ${file.name}]`;
       }
