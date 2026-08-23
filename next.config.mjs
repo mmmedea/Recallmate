@@ -8,7 +8,6 @@ const nextConfig = {
     ignoreBuildErrors: true,
   },
   experimental: {
-    serverComponentsExternalPackages: ['puppeteer-core'],
     serverActions: {
       bodySizeLimit: '50mb',
     },

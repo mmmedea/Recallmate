@@ -12,8 +12,8 @@ export async function POST(req: NextRequest) {
       return NextResponse.json({ error: "Missing documentIds" }, { status: 400 });
     }
 
-    if (format !== 'pdf' && format !== 'docx') {
-      return NextResponse.json({ error: "Format must be pdf or docx" }, { status: 400 });
+    if (format !== 'docx') {
+      return NextResponse.json({ error: "PDF generation is temporarily disabled while we upgrade our rendering infrastructure. Please use DOCX." }, { status: 400 });
     }
 
     // 1. Authenticate user
