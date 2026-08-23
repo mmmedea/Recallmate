@@ -59,13 +59,14 @@ export class ReviewerGenerator {
       .eq('prompt_version', promptVersion)
       .maybeSingle();
 
-    if (cachedDoc) {
-      console.log(`[ReviewerGenerator] Using cached ReviewerDocument ${cachedDoc.id}`);
-      return {
-        reviewerDocument: cachedDoc.content as unknown as GeneratedReviewerDocument,
-        idempotencyHash
-      };
-    }
+      if (cachedDoc) {
+        console.log(`[ReviewerGenerator] Using cached ReviewerDocument ${cachedDoc.id}`);
+        return {
+          reviewerDocument: cachedDoc.content as unknown as GeneratedReviewerDocument,
+          documentId: cachedDoc.id,
+          idempotencyHash
+        };
+      }
 
     // 4. Construct context
     const contextContent = authorizedChunks.map(chunk => 
@@ -105,16 +106,21 @@ RULES:
     reviewerDoc = this.repairProvenance(reviewerDoc, validChunkIds);
 
     // 9. Cache valid document
-    await this.supabase.from('reviewer_documents').insert({
+    const { data, error } = await this.supabase.from('reviewer_documents').insert({
       user_id: userId,
       document_ids: sortedDocumentIds,
       content: reviewerDoc as any,
       source_hash: sourceVersion,
       prompt_version: promptVersion
-    });
+    }).select('id').single();
+
+    if (error) {
+       console.error("Failed to insert reviewer_documents", error);
+    }
 
     return {
       reviewerDocument: reviewerDoc,
+      documentId: data?.id,
       idempotencyHash
     };
   }
