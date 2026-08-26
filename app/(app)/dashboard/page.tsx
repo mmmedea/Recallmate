@@ -1,7 +1,7 @@
 import { redirect } from "next/navigation";
-import { createServerSupabase } from "@/lib/supabase/server";
-import { getRecentDocuments } from "@/lib/actions/document";
-import { DocumentLifecycleSummary } from "@/lib/types/document";
+import { createClient } from "@/utils/supabase/server";
+import { getRecentDocuments } from "@/app/actions/document-actions";
+import { DocumentLifecycleSummary } from "@/app/actions/document-lifecycle";
 import { 
   FileText, BrainCircuit, HelpCircle, ArrowRight, Clock, AlertCircle, 
   CheckCircle2, FileSearch, UploadCloud, Brain, Target, Flame 
@@ -15,7 +15,7 @@ export const metadata = {
 };
 
 export default async function DashboardPage() {
-  const supabase = createServerSupabase();
+  const supabase = createClient();
   const { data: { session } } = await supabase.auth.getSession();
 
   if (!session) {
