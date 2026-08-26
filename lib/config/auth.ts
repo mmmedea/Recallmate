@@ -1,4 +1,4 @@
-export type OAuthProviderId = "google" | "github" | "facebook" | "apple";
+export type OAuthProviderId = "google" | "github" | "facebook";
 
 export type OAuthProviderConfig = {
   id: OAuthProviderId;
@@ -26,11 +26,7 @@ export const OAUTH_PROVIDERS: OAuthProviderConfig[] = [
     enabled: process.env.NEXT_PUBLIC_AUTH_FACEBOOK_ENABLED === "true",
     icon: "facebook",
   },
-  {
-    id: "apple",
-    label: "Continue with Apple",
-    enabled: process.env.NEXT_PUBLIC_AUTH_APPLE_ENABLED !== "false",
-    icon: "apple",
-  },
+  
 ];
+
 
