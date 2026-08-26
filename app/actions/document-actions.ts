@@ -62,27 +62,30 @@ export async function confirmDocumentUpload(documentId: string, idempotencyKey: 
        throw new SecurityError(`Document is currently in ${document.status} state`, 400)
     }
 
-    // Verify file exists in storage
-    const { data: fileStat, error: statError } = await supabase
+    // Verify file exists and get size without downloading the entire file into Vercel memory
+    const pathParts = document.storage_path.split('/');
+    const fileName = pathParts.pop();
+    const folderPath = pathParts.join('/');
+    
+    const { data: files, error: listError } = await supabase
       .storage
       .from('study_materials')
-      .info(document.storage_path) // assuming info() or list() works, wait, download might be better to check magic bytes, but this is a start
+      .list(folderPath, {
+        search: fileName
+      });
 
-    // Download a small chunk for magic byte validation (first 4100 bytes is usually enough for most signatures)
-    const { data: fileData, error: downloadError } = await supabase
-      .storage
-      .from('study_materials')
-      .download(document.storage_path)
-
-    if (downloadError || !fileData) {
-      throw new SecurityError('Uploaded file not found in storage', 404)
+    if (listError || !files || files.length === 0) {
+      throw new SecurityError('Uploaded file not found in storage', 404);
+    }
+    
+    const uploadedFile = files.find(f => f.name === fileName);
+    if (!uploadedFile) {
+      throw new SecurityError('Uploaded file not found in storage', 404);
     }
 
-    // File validation logic (Magic bytes & actual size)
-    const buffer = await fileData.arrayBuffer()
-    const size = buffer.byteLength
-    if (size === 0) throw new SecurityError('File is empty', 400)
-    if (size > 10 * 1024 * 1024) throw new SecurityError('File exceeds 10MB limit', 400) // 10MB for example
+    const size = uploadedFile.metadata?.size || 0;
+    if (size === 0) throw new SecurityError('File is empty', 400);
+    if (size > 10 * 1024 * 1024) throw new SecurityError('File exceeds 10MB limit', 400);
 
     // Execute atomic confirmation via RPC
     const { data: jobId, error: rpcError } = await supabase
