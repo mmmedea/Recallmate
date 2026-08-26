@@ -1,4 +1,4 @@
-import { Home, LayoutDashboard, Upload, FileText, BrainCircuit, Sparkles, Settings, HelpCircle } from "lucide-react";
+import { Home, LayoutDashboard, Upload, FileText, BrainCircuit, Sparkles, Settings, HelpCircle, CalendarDays } from "lucide-react";
 import type { LucideIcon } from "lucide-react";
 
 export interface NavItem {
@@ -33,6 +33,13 @@ export const navigationConfig: {
       label: "Upload",
       href: "/upload",
       icon: Upload,
+      requiresAuth: true,
+      mobileVisible: true,
+    },
+    {
+      label: "Calendar",
+      href: "/calendar",
+      icon: CalendarDays,
       requiresAuth: true,
       mobileVisible: true,
     },
