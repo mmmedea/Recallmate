@@ -1,4 +1,4 @@
-import { Home, Upload, FileText, BrainCircuit, Sparkles, Settings, HelpCircle } from "lucide-react";
+import { Home, LayoutDashboard, Upload, FileText, BrainCircuit, Sparkles, Settings, HelpCircle } from "lucide-react";
 import type { LucideIcon } from "lucide-react";
 
 export interface NavItem {
@@ -15,6 +15,13 @@ export const navigationConfig: {
   footer: NavItem[];
 } = {
   main: [
+    {
+      label: "Dashboard",
+      href: "/dashboard",
+      icon: LayoutDashboard,
+      requiresAuth: true,
+      mobileVisible: true,
+    },
     {
       label: "Home",
       href: "/",
@@ -54,7 +61,7 @@ export const navigationConfig: {
     },
     {
       label: "Settings",
-      href: "#settings",
+      href: "/settings",
       icon: Settings,
       requiresAuth: true,
       mobileVisible: true,
@@ -68,3 +75,4 @@ export const navigationConfig: {
     },
   ],
 };
+

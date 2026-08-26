@@ -10,7 +10,7 @@ interface OAuthButtonsProps {
   redirectTo?: string;
 }
 
-export function OAuthButtons({ redirectTo = "/upload" }: OAuthButtonsProps) {
+export function OAuthButtons({ redirectTo = "/dashboard" }: OAuthButtonsProps) {
   const [loadingProvider, setLoadingProvider] = useState<OAuthProviderId | null>(null);
   const [errorProvider, setErrorProvider] = useState<OAuthProviderId | null>(null);
   const supabase = createClient();
@@ -109,5 +109,6 @@ export function OAuthButtons({ redirectTo = "/upload" }: OAuthButtonsProps) {
     </div>
   );
 }
+
 
 

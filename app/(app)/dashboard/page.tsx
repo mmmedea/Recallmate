@@ -15,7 +15,12 @@ import type { DocumentLifecycleSummary } from "@/app/actions/document-lifecycle"
 
 export const dynamic = "force-dynamic";
 
+import { createClient } from "@/utils/supabase/server";
+
 export default async function DashboardPage() {
+  const supabase = await createClient();
+  const { data: { user } } = await supabase.auth.getUser();
+  const name = user?.user_metadata?.full_name || user?.email?.split('@')[0] || "Student";
   const { data: documents, success, error } = await getRecentDocuments();
 
   if (!success) {
@@ -32,7 +37,9 @@ export default async function DashboardPage() {
     <div className="mx-auto max-w-5xl py-12 px-4">
       <div className="mb-8 flex items-center justify-between">
         <div>
-          <h1 className="text-3xl font-bold text-slate-900 dark:text-white">Your Library</h1>
+          <h1 className="text-3xl font-bold text-slate-900 dark:text-white motion-safe:animate-in motion-safe:fade-in motion-safe:slide-in-from-left-4 duration-500">
+  Welcome back, <span className="bg-gradient-to-r from-indigo-600 to-violet-500 bg-clip-text text-transparent">{name}</span>!
+</h1>
           <p className="mt-2 text-slate-600 dark:text-slate-400">
             Manage your study materials and generated content.
           </p>
@@ -202,3 +209,4 @@ function StatusBadge({
 
   return null;
 }
+
