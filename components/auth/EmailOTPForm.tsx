@@ -32,6 +32,7 @@ const OTP_ERROR_MESSAGES: Record<string, string> = {
   email_delivery: "We couldn't send the email. Please check the address and try again.",
   network: "Connection error. Please check your network and try again.",
   error: "Something went wrong. Please try again.",
+  use_google: "It looks like you have a Gmail address. Please click 'Continue with Google' above!",
 };
 
 export function EmailOTPForm({ intent, privacyAgreed = true, redirectTo = "/dashboard" }: EmailOTPFormProps) {
@@ -47,6 +48,21 @@ export function EmailOTPForm({ intent, privacyAgreed = true, redirectTo = "/dash
   const [errorKey, setErrorKey] = useState<string | null>(null);
   const [captchaToken, setCaptchaToken] = useState<string | null>(null);
   const [captchaRequired, setCaptchaRequired] = useState(false);
+
+  // Focus management
+  const emailInputRef = useRef<HTMLInputElement>(null);
+
+  // Mount effect to check if captcha is required
+  useEffect(() => {
+    // Wait for the window object
+    if (typeof window !== "undefined") {
+      // Very basic check - if it's production, we probably want captcha
+      setCaptchaRequired(
+        process.env.NEXT_PUBLIC_TURNSTILE_SITE_KEY !== undefined &&
+        process.env.NODE_ENV === "production"
+      );
+    }
+  }, []);
 
   // Rehydrate stage from sessionStorage if a flow is already active
   const hasHydrated = useRef(false);
@@ -71,18 +87,24 @@ export function EmailOTPForm({ intent, privacyAgreed = true, redirectTo = "/dash
     return `${user[0]}${"•".repeat(Math.max(1, user.length - 1))}@${domain}`;
   };
 
-  // INVARIANT: If CAPTCHA is required and no valid token is available,
-  // the auth request must not be sent.
-  const canSubmitWithCaptcha = useCallback(() => {
-    if (!captchaEnabled) return true;
+  const canSubmitWithCaptcha = () => {
     if (!captchaRequired) return true;
     return !!captchaToken;
-  }, [captchaEnabled, captchaRequired, captchaToken]);
+  };
 
   const handleSendOTP = useCallback(
     async (e?: React.FormEvent) => {
       e?.preventDefault();
-      if (!email.trim()) return;
+      
+      const trimmedEmail = email.trim().toLowerCase();
+      if (!trimmedEmail) return;
+      
+      if (trimmedEmail.endsWith("@gmail.com")) {
+        setErrorKey("use_google");
+        setOTPState("error");
+        return;
+      }
+      
       if (!canSubmitWithCaptcha()) {
         setErrorKey("captcha_required");
         setOTPState("captcha_required");
@@ -107,7 +129,7 @@ export function EmailOTPForm({ intent, privacyAgreed = true, redirectTo = "/dash
         }
 
         const { error } = await supabase.auth.signInWithOtp({
-          email: email.trim().toLowerCase(),
+          email: trimmedEmail,
           options: {
             // INTENT BOUNDARY:
             // signin → shouldCreateUser: false — a new email must NOT silently
