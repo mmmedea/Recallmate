@@ -8,6 +8,7 @@ import {
 } from "lucide-react";
 import Link from "next/link";
 import { Button } from "@/components/ui/button";
+import ThemeToggle from "@/components/ThemeToggle";
 
 export const metadata = {
   title: "Dashboard | RecallMate",
@@ -37,6 +38,7 @@ export default async function DashboardPage() {
           </p>
         </div>
         <div className="flex items-center gap-3">
+          <ThemeToggle />
           <Link href="/upload">
             <Button className="bg-indigo-600 hover:bg-indigo-700 text-white shadow-sm transition-all">
               <UploadCloud className="mr-2 h-4 w-4" />

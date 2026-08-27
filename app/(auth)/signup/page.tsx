@@ -24,6 +24,8 @@ export default function SignupPage({
 }) {
   const [privacyAgreed, setPrivacyAgreed] = useState(false);
   const [username, setUsername] = useState("");
+  const [password, setPassword] = useState("");
+  const [confirmPassword, setConfirmPassword] = useState("");
 
   let next = "/dashboard";
   if (
@@ -49,7 +51,7 @@ export default function SignupPage({
 
         <div className={"space-y-6 transition-opacity duration-200 " + (!privacyAgreed ? "opacity-50 pointer-events-none grayscale-[0.5]" : "")}>
           {/* Google OAuth */}
-          <OAuthButtons redirectTo={next} />
+          <OAuthButtons redirectTo="/onboarding?next=/dashboard" />
 
           {/* Divider */}
           <div className="relative">
@@ -64,7 +66,7 @@ export default function SignupPage({
           </div>
 
           {/* Email OTP */}
-          <EmailOTPForm intent="signup" privacyAgreed={privacyAgreed} redirectTo={next} username={username} onUsernameChange={setUsername} />
+          <EmailOTPForm intent="signup" privacyAgreed={privacyAgreed} redirectTo={next} username={username} onUsernameChange={setUsername} password={password} onPasswordChange={setPassword} confirmPassword={confirmPassword} onConfirmPasswordChange={setConfirmPassword} />
         </div>
 
         {/* Privacy acknowledgement */}

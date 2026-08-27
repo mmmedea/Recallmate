@@ -1,0 +1,12 @@
+'use client'
+import { useState } from 'react'
+import { useRouter } from 'next/navigation'
+import { createClient } from '@/utils/supabase/client'
+import { Button } from '@/components/ui/button'
+import { Input } from '@/components/ui/input'
+
+export default function OnboardingPage() {
+  const [username, setUsername] = useState(''); const [password, setPassword] = useState(''); const [confirm, setConfirm] = useState(''); const [error, setError] = useState(''); const [saving, setSaving] = useState(false); const router = useRouter(); const supabase = createClient()
+  const submit = async (event: React.FormEvent) => { event.preventDefault(); setError(''); if (!/^[A-Za-z0-9_]{3,30}$/.test(username)) return setError('Username must be 3–30 letters, numbers, or underscores.'); if (password.length < 8 || !/[^A-Za-z0-9]/.test(password)) return setError('Password needs 8+ characters and one special symbol.'); if (password !== confirm) return setError('Passwords do not match.'); setSaving(true); const { error } = await supabase.auth.updateUser({ password, data: { username } }); if (error) { setError(error.message); setSaving(false); return } router.push('/dashboard'); router.refresh() }
+  return <main className="flex min-h-[70vh] items-center justify-center"><form onSubmit={submit} className="w-full max-w-md space-y-5 rounded-3xl border border-slate-200 bg-white p-8 shadow-xl dark:border-slate-800 dark:bg-slate-900"><div><p className="text-sm font-semibold text-indigo-600">One last step</p><h1 className="mt-1 text-2xl font-bold dark:text-white">Create your RecallMate profile</h1><p className="mt-2 text-sm text-slate-500">Your Google email is verified. Choose your RecallMate username and password to continue.</p></div><Input value={username} onChange={e => setUsername(e.target.value)} placeholder="Username" autoComplete="username" required /><Input type="password" value={password} onChange={e => setPassword(e.target.value)} placeholder="Password (8+ chars, 1 special symbol)" autoComplete="new-password" required /><Input type="password" value={confirm} onChange={e => setConfirm(e.target.value)} placeholder="Confirm password" autoComplete="new-password" required />{error && <p className="text-sm text-rose-600">{error}</p>}<Button disabled={saving} className="w-full bg-indigo-600 text-white hover:bg-indigo-700">{saving ? 'Saving…' : 'Create account & continue'}</Button></form></main>
+}
