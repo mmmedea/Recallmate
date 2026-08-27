@@ -22,7 +22,7 @@ export default async function DashboardPage() {
     redirect("/login");
   }
 
-  const name = session.user.user_metadata?.full_name || session.user.email?.split('@')[0] || 'Student';
+  const name = session.user.user_metadata?.username || session.user.user_metadata?.full_name || session.user.email?.split('@')[0] || 'Student';
   const { data: documents, success, error } = await getRecentDocuments();
 
   return (

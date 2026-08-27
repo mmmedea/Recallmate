@@ -23,6 +23,7 @@ export default function SignupPage({
   searchParams: { next?: string };
 }) {
   const [privacyAgreed, setPrivacyAgreed] = useState(false);
+  const [username, setUsername] = useState("");
 
   let next = "/dashboard";
   if (
@@ -63,7 +64,7 @@ export default function SignupPage({
           </div>
 
           {/* Email OTP */}
-          <EmailOTPForm intent="signup" privacyAgreed={privacyAgreed} redirectTo={next} />
+          <EmailOTPForm intent="signup" privacyAgreed={privacyAgreed} redirectTo={next} username={username} onUsernameChange={setUsername} />
         </div>
 
         {/* Privacy acknowledgement */}
