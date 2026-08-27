@@ -339,6 +339,7 @@ export function EmailOTPForm({ intent, privacyAgreed = true, redirectTo = "/dash
         <p className="text-sm font-semibold text-slate-900 dark:text-white">
           {maskedEmail}
         </p>
+        <p className="text-xs text-slate-500 dark:text-slate-400">Check your inbox and spam folder. You can resend a verification code after 60 seconds.</p>
       </div>
 
       <div className="space-y-3">
