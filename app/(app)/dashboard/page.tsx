@@ -9,6 +9,7 @@ import {
 import Link from "next/link";
 import { Button } from "@/components/ui/button";
 import ThemeToggle from "@/components/ThemeToggle";
+import MedeaWelcomeCard from "@/components/dashboard/MedeaWelcomeCard";
 
 export const metadata = {
   title: "Dashboard | RecallMate",
@@ -151,6 +152,8 @@ export default async function DashboardPage() {
           </div>
         </div>
       </div>
+
+      <MedeaWelcomeCard />
 
       {/* Recent Documents */}
       <div className="mb-6">

@@ -160,6 +160,11 @@ export function EmailOTPForm({ intent, privacyAgreed = true, redirectTo = "/dash
             setErrorKey("rate_limited");
             setOTPState("rate_limited");
           } else {
+            const message = error.message?.toLowerCase() || "";
+            if (intent === "signin" && (message.includes("not found") || message.includes("signups not allowed") || message.includes("user does not exist"))) {
+              router.push("/signup");
+              return;
+            }
             setErrorKey("email_delivery");
             setOTPState("error");
           }
