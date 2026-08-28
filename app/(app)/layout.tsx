@@ -26,7 +26,8 @@ export default async function AppLayout({
     data: { user },
   } = await supabase.auth.getUser();
   const username = user?.user_metadata?.username;
-  if (!username || typeof username !== "string" || username.trim().length < 3) {
+  const accountCompleted = user?.user_metadata?.recallmate_account_completed === true;
+  if (!username || typeof username !== "string" || username.trim().length < 3 || !accountCompleted) {
     redirect("/onboarding?next=/dashboard");
   }
 

@@ -148,6 +148,7 @@ export function EmailOTPForm({
         email: normalizedEmail,
         options: {
           shouldCreateUser: true,
+          emailRedirectTo: `${window.location.origin}/auth/callback?next=${encodeURIComponent(destination)}`,
           data: { privacy_agreed: true, username: username.trim(), recallmate_account_completed: false },
           ...(captchaToken ? { captchaToken } : {}),
         },
@@ -175,7 +176,7 @@ export function EmailOTPForm({
     } finally {
       setIsLoading(false);
     }
-  }, [captchaEnabled, captchaToken, confirmPassword, email, intent, otpFlowContext?.email, password, privacyAgreed, setOTPFlowContext, setOTPState, supabase, username]);
+  }, [captchaEnabled, captchaToken, confirmPassword, destination, email, intent, otpFlowContext?.email, password, privacyAgreed, setOTPFlowContext, setOTPState, supabase, username]);
 
   const verifyCode = useCallback(async (code: string) => {
     if (code.length !== 6 || isLoading) return;
@@ -246,7 +247,7 @@ export function EmailOTPForm({
   };
   const maskedEmail = maskEmail(otpFlowContext?.email ?? email);
   return <form onSubmit={event => { event.preventDefault(); void verifyCode(otpValue); }} className="space-y-6" noValidate>
-    <div className="space-y-1 text-center"><p className="text-sm text-slate-600 dark:text-slate-400">Enter the verification code sent to</p><p className="text-sm font-semibold text-slate-900 dark:text-white">{maskedEmail}</p><p className="text-xs text-slate-500 dark:text-slate-400">Check your Gmail inbox first. Delivery can take a moment; resend becomes available after one minute.</p></div>
+    <div className="space-y-1 text-center"><p className="text-sm text-slate-600 dark:text-slate-400">Enter the verification code sent to</p><p className="text-sm font-semibold text-slate-900 dark:text-white">{maskedEmail}</p><p className="text-xs text-slate-500 dark:text-slate-400">Check your Gmail inbox first. Enter the six-digit code, or use the secure verification link if your email displays one. Resend becomes available after one minute.</p></div>
     <div className="space-y-3"><OTPInput value={otpValue} onChange={value => { setOtpValue(value); if (value.length === 6) void verifyCode(value); }} disabled={isLoading} hasError={Boolean(currentError)} aria-describedby={currentError ? errorId : undefined} />{currentError && <p id={errorId} role="alert" aria-live="assertive" className="text-center text-sm text-rose-600 dark:text-rose-400">{currentError}</p>}</div>
     <Button type="submit" className="h-11 w-full bg-indigo-600 font-semibold hover:bg-indigo-700" disabled={isLoading || otpValue.length !== 6}>{isLoading ? <Loader2 className="h-4 w-4 animate-spin" /> : "Verify code & continue"}</Button>
     <div className="flex items-center justify-between text-sm"><ResendButton onResend={handleResend} disabled={isLoading} /><button type="button" onClick={changeEmail} className="rounded text-slate-500 transition-colors hover:text-indigo-600 dark:text-slate-400">Change email</button></div>
