@@ -79,10 +79,18 @@ describe('Signup Page Component', () => {
     expect(checkbox.checked).toBe(false);
   });
 
-  it('rejects submission if privacy is unchecked', () => {
+  it('allows details first, then requires legal consent on submit', async () => {
+    authMocks.signInWithOtp.mockClear();
     render(<SignupPage searchParams={{}} />);
-    expect(screen.getByText('Please agree to the legal terms to create your account.')).toBeDefined();
-    expect((screen.getByRole('button', { name: /Create account & send code/i }) as HTMLButtonElement).disabled).toBe(true);
+    fireEvent.change(screen.getByLabelText('Username'), { target: { value: 'student_18' } });
+    fireEvent.change(screen.getByLabelText('Email'), { target: { value: 'student@gmail.com' } });
+    fireEvent.change(screen.getByLabelText(/^Password$/), { target: { value: 'Strong!Pass1' } });
+    fireEvent.change(screen.getByLabelText('Confirm password'), { target: { value: 'Strong!Pass1' } });
+    const button = screen.getByRole('button', { name: /Create account & send code/i }) as HTMLButtonElement;
+    expect(button.disabled).toBe(false);
+    fireEvent.click(button);
+    expect(await screen.findByText('Please agree to the Privacy Policy and Terms of Service.')).toBeDefined();
+    expect(authMocks.signInWithOtp).not.toHaveBeenCalled();
   });
 
   it('safe next redirect survives OAuth', () => {

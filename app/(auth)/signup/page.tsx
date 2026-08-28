@@ -49,7 +49,7 @@ export default function SignupPage({
           </p>
         </div>
 
-        <div className={"space-y-6 transition-opacity duration-200 " + (!privacyAgreed ? "opacity-50 pointer-events-none grayscale-[0.5]" : "")}>
+        <div className="space-y-6">
           {/* Google OAuth */}
           <OAuthButtons redirectTo={next} />
 
@@ -71,15 +71,6 @@ export default function SignupPage({
 
         {/* Privacy acknowledgement */}
         <div className="flex flex-col items-center gap-3 mt-4">
-          {!privacyAgreed && (
-            <p
-              role="note"
-              className="text-xs text-rose-500 dark:text-rose-400 text-center font-medium transition-all"
-            >
-              Please agree to the legal terms to create your account.
-            </p>
-          )}
-          
           <div className="flex items-start gap-3 bg-slate-50 dark:bg-slate-900/50 p-4 rounded-xl border border-slate-200 dark:border-slate-800 w-full">
             <input
               id="privacy-checkbox"
