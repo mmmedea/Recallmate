@@ -10,17 +10,18 @@ export async function getUserBootstrap(userId: string): Promise<AppBootstrap> {
   const supabase = await createClient();
 
   // Fetch user profile and credits in parallel
-  const [creditsResult, profileResult] = await Promise.all([
+  const [entitlementsResult, profileResult] = await Promise.all([
     supabase
-      .from("user_credits")
-      .select("credits_remaining, is_premium")
+      .from("user_entitlements")
+      .select("credits_remaining, tier")
       .eq("user_id", userId)
       .single(),
     supabase.auth.getUser(),
   ]);
 
-  const credits = creditsResult.data?.credits_remaining ?? 0;
-  const isPremium = creditsResult.data?.is_premium ?? false;
+  const credits = entitlementsResult.data?.credits_remaining ?? 0;
+  const tier = entitlementsResult.data?.tier ?? "free";
+  const isPremium = tier === "premium" || tier === "pro";
 
   const email = profileResult.data?.user?.email ?? null;
 

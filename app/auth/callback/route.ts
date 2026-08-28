@@ -1,31 +1,37 @@
-import { NextResponse } from 'next/server'
-import { createClient } from '@/utils/supabase/server'
+import { NextResponse } from "next/server";
+import { createClient } from "@/utils/supabase/server";
+
+function safeInternalPath(value: string | null) {
+  return value?.startsWith("/") && !value.startsWith("//") ? value : "/dashboard";
+}
 
 export async function GET(request: Request) {
-  const { searchParams, origin } = new URL(request.url)
-  const code = searchParams.get('code')
-  // if "next" is in param, use it as the redirect URL
-  const next = searchParams.get('next') ?? '/dashboard'
+  const url = new URL(request.url);
+  const code = url.searchParams.get("code");
+  const destination = safeInternalPath(url.searchParams.get("next"));
 
-  if (code) {
-    const supabase = await createClient()
-    const { error } = await supabase.auth.exchangeCodeForSession(code)
-    
-    if (!error) {
-      const forwardedHost = request.headers.get('x-forwarded-host') // original origin before load balancer
-      const isLocalEnv = process.env.NODE_ENV === 'development'
-      
-      if (isLocalEnv) {
-        // we can be sure that there is no load balancer in between, so no need to watch for X-Forwarded-Host
-        return NextResponse.redirect(`${origin}${next}`)
-      } else if (forwardedHost) {
-        return NextResponse.redirect(`https://${forwardedHost}${next}`)
-      } else {
-        return NextResponse.redirect(`${origin}${next}`)
-      }
-    }
+  if (!code) {
+    return NextResponse.redirect(new URL("/auth/auth-code-error", url.origin));
   }
 
-  // return the user to an error page with some instructions
-  return NextResponse.redirect(`${origin}/auth/auth-code-error`)
+  const supabase = await createClient();
+  const { error } = await supabase.auth.exchangeCodeForSession(code);
+  if (error) {
+    return NextResponse.redirect(new URL("/auth/auth-code-error", url.origin));
+  }
+
+  const {
+    data: { user },
+  } = await supabase.auth.getUser();
+  const username = user?.user_metadata?.username;
+
+  // Google can authenticate an identity, but it cannot bypass creation of the
+  // student's RecallMate profile. New social users must finish onboarding.
+  if (!username || typeof username !== "string" || username.trim().length < 3) {
+    const onboarding = new URL("/onboarding", url.origin);
+    onboarding.searchParams.set("next", destination);
+    return NextResponse.redirect(onboarding);
+  }
+
+  return NextResponse.redirect(new URL(destination, url.origin));
 }

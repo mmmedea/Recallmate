@@ -51,7 +51,7 @@ export default function SignupPage({
 
         <div className={"space-y-6 transition-opacity duration-200 " + (!privacyAgreed ? "opacity-50 pointer-events-none grayscale-[0.5]" : "")}>
           {/* Google OAuth */}
-          <OAuthButtons redirectTo="/onboarding?next=/dashboard" />
+          <OAuthButtons redirectTo={next} />
 
           {/* Divider */}
           <div className="relative">

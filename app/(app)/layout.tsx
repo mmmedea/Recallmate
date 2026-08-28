@@ -22,6 +22,14 @@ export default async function AppLayout({
     redirect("/");
   }
 
+  const {
+    data: { user },
+  } = await supabase.auth.getUser();
+  const username = user?.user_metadata?.username;
+  if (!username || typeof username !== "string" || username.trim().length < 3) {
+    redirect("/onboarding?next=/dashboard");
+  }
+
   const userId = data.claims.sub as string;
 
   // Bootstrap loads after authentication is confirmed.
