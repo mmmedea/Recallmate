@@ -19,7 +19,7 @@ export default async function AppLayout({
   const { data, error } = await supabase.auth.getClaims();
 
   if (!data?.claims || error) {
-    redirect("/");
+    redirect("/login?next=/dashboard");
   }
 
   const {

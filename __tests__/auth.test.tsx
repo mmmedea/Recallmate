@@ -82,6 +82,7 @@ describe('Signup Page Component', () => {
   it('rejects submission if privacy is unchecked', () => {
     render(<SignupPage searchParams={{}} />);
     expect(screen.getByText('Please agree to the legal terms to create your account.')).toBeDefined();
+    expect((screen.getByRole('button', { name: /Create account & send code/i }) as HTMLButtonElement).disabled).toBe(true);
   });
 
   it('safe next redirect survives OAuth', () => {
