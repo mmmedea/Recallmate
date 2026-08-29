@@ -186,9 +186,15 @@ describe('Login Page Component', () => {
 
     await vi.waitFor(() => {
       expect(authMocks.signInWithOtp).toHaveBeenCalledWith(
-        expect.objectContaining({ email: 'student@gmail.com' })
+        expect.objectContaining({
+          email: 'student@gmail.com',
+          options: expect.objectContaining({ shouldCreateUser: true }),
+        })
       );
     });
+
+    const request = authMocks.signInWithOtp.mock.calls[0][0];
+    expect(request.options).not.toHaveProperty('emailRedirectTo');
   });
 });
 
