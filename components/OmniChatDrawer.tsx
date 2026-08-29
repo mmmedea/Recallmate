@@ -192,7 +192,10 @@ export default function OmniChatDrawer() {
         }),
       });
 
-      const data = await res.json();
+      const raw = await res.text();
+      let data: { content?: string; error?: string } = {};
+      try { data = raw ? JSON.parse(raw) : {}; }
+      catch { data = { error: res.ok ? "Medea returned an unreadable response." : `Medea is temporarily unavailable (${res.status}).` }; }
 
       if (!res.ok) {
         throw new Error(data.error || "Failed to reach Medea.");
@@ -313,7 +316,7 @@ export default function OmniChatDrawer() {
 
       {/* Slide-Over Drawer Overlay */}
       {isOpen && (
-        <div className="fixed inset-0 h-[100dvh] z-[9999] flex justify-end bg-black/50 backdrop-blur-sm animate-in fade-in duration-200">
+        <div onClick={() => setIsOpen(false)} className="fixed inset-0 h-[100dvh] z-[9999] flex justify-end bg-black/50 backdrop-blur-sm animate-in fade-in duration-200">
           <div
             onClick={(e) => e.stopPropagation()}
             className="relative w-full sm:w-[450px] md:w-[500px] h-[100dvh] max-h-[100dvh] bg-white dark:bg-slate-900 shadow-2xl flex flex-col border-l border-slate-200 dark:border-slate-800 animate-in slide-in-from-right duration-300"
@@ -345,10 +348,23 @@ export default function OmniChatDrawer() {
 
               <button
                 onClick={() => setIsOpen(false)}
+                aria-label="Close Medea AI"
                 className="p-2 rounded-full text-slate-400 hover:text-slate-700 dark:hover:text-white hover:bg-slate-100 dark:hover:bg-slate-800 transition-colors"
               >
                 <X className="w-5 h-5" />
               </button>
+            </div>
+
+            <div className="grid grid-cols-3 gap-1 border-b border-slate-200 bg-white px-3 py-2 dark:border-slate-800 dark:bg-slate-900" role="group" aria-label="Medea teaching mode">
+              {([
+                { key: "tutor", label: "Tutor", icon: BookOpen },
+                { key: "socratic", label: "Socratic", icon: Brain },
+                { key: "dictionary", label: "Dictionary", icon: HelpCircle },
+              ] as const).map((item) => (
+                <button type="button" key={item.key} aria-pressed={mode === item.key} onClick={() => setMode(item.key)} className={`inline-flex min-h-10 items-center justify-center gap-1.5 rounded-lg px-2 text-xs font-bold transition ${mode === item.key ? "bg-indigo-600 text-white shadow" : "text-slate-500 hover:bg-slate-100 hover:text-slate-900 dark:hover:bg-slate-800 dark:hover:text-white"}`}>
+                  <item.icon className="h-3.5 w-3.5" />{item.label}
+                </button>
+              ))}
             </div>
 
             {/* Active Context Provenance Bar */}
@@ -510,6 +526,7 @@ export default function OmniChatDrawer() {
               </button>
 
               <textarea
+                aria-label="Ask Medea a question"
                 value={input}
                 onChange={(e) => {
                   setInput(e.target.value);
@@ -542,6 +559,7 @@ export default function OmniChatDrawer() {
               ) : (
                 <button
                   type="submit"
+                  aria-label="Send question to Medea"
                   disabled={!input.trim() || uploading}
                   className="px-4 py-3 rounded-xl bg-indigo-600 hover:bg-indigo-700 disabled:opacity-40 text-white font-bold shadow-md transition-all flex items-center justify-center"
                 >

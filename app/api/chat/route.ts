@@ -14,6 +14,7 @@ import {
   MEDEA_GENERAL_SYSTEM_PROMPT,
   parseMedeaChatRequest,
 } from "@/lib/ai/chat-request";
+import { generateMedeaReply } from "@/lib/ai/medea-service";
 
 export const runtime = "nodejs";
 export const preferredRegion = "iad1";
@@ -57,12 +58,12 @@ export async function POST(req: NextRequest) {
 
   if (chatRequest.kind === "general") {
     try {
-      const response = await ProviderAdapter.generate({
-        operation: "chat",
-        systemInstruction: MEDEA_GENERAL_SYSTEM_PROMPT,
+      const content = await generateMedeaReply({
+        system: MEDEA_GENERAL_SYSTEM_PROMPT,
         prompt: buildMedeaGeneralPrompt(chatRequest),
+        userId: user.id,
       });
-      return NextResponse.json({ content: response.text });
+      return NextResponse.json({ content });
     } catch (error) {
       console.error("Medea general chat error:", error);
       return NextResponse.json(
