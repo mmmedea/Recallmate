@@ -57,7 +57,7 @@ export default function OmniChatDrawer() {
       id: "init",
       role: "assistant",
       content:
-        "Hello! I'm **Medea**! I'm your Assistant AI Tutor. Ask me anything about your uploaded study notes, technical definitions, or concepts!",
+        "Hello! I'm **Medea**, your friendly AI tutor. Ask me about math, science, definitions, general knowledge, or your uploaded study materials—I'll explain it clearly and help you reason through it.",
       timestamp: new Date().toLocaleTimeString([], { hour: "2-digit", minute: "2-digit" }),
     },
   ]);

@@ -9,16 +9,14 @@ import { ProviderAdapter } from "@/lib/ai/provider";
 import { buildBoundedMemoryPrompt, ChatMessage } from "@/lib/ai/memory";
 import { rateLimitAdapter } from "@/lib/ai/ratelimit";
 import { createUIMessageStreamResponse } from "ai";
+import {
+  buildMedeaGeneralPrompt,
+  MEDEA_GENERAL_SYSTEM_PROMPT,
+  parseMedeaChatRequest,
+} from "@/lib/ai/chat-request";
 
 export const runtime = "nodejs";
 export const preferredRegion = "iad1";
-
-// Phase 7: Strict Request Contract
-const ChatRequestSchema = z.object({
-  documentId: z.string().uuid(),
-  message: z.string().trim().min(1).max(2000),
-  requestId: z.string().uuid() // Client-generated idempotency key
-}).strict();
 
 export async function POST(req: NextRequest) {
   const supabase = await createClient();
@@ -44,15 +42,37 @@ export async function POST(req: NextRequest) {
     return NextResponse.json({ error: "Invalid JSON body" }, { status: 400 });
   }
 
-  const parseResult = ChatRequestSchema.safeParse(body);
-  if (!parseResult.success) {
+  let chatRequest;
+  try {
+    chatRequest = parseMedeaChatRequest(body);
+  } catch (error) {
     return NextResponse.json(
-      { error: "Invalid request payload", details: parseResult.error.issues },
+      {
+        error: "Invalid request payload",
+        details: error instanceof z.ZodError ? error.issues : undefined,
+      },
       { status: 400 }
     );
   }
 
-  const { documentId, message, requestId } = parseResult.data;
+  if (chatRequest.kind === "general") {
+    try {
+      const response = await ProviderAdapter.generate({
+        operation: "chat",
+        systemInstruction: MEDEA_GENERAL_SYSTEM_PROMPT,
+        prompt: buildMedeaGeneralPrompt(chatRequest),
+      });
+      return NextResponse.json({ content: response.text });
+    } catch (error) {
+      console.error("Medea general chat error:", error);
+      return NextResponse.json(
+        { error: "Medea couldn't generate an answer right now. Please try again." },
+        { status: 500 }
+      );
+    }
+  }
+
+  const { documentId, message, requestId } = chatRequest;
 
   const serviceClient = createServiceClient<any>(
     process.env.NEXT_PUBLIC_SUPABASE_URL!,
