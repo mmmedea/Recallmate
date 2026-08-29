@@ -76,7 +76,7 @@ export const navigationConfig: {
     },
     {
       label: "Help",
-      href: "#help",
+      href: "/help",
       icon: HelpCircle,
       requiresAuth: true,
       mobileVisible: false,
