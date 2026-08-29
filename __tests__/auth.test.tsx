@@ -195,6 +195,8 @@ describe('Login Page Component', () => {
 
     const request = authMocks.signInWithOtp.mock.calls[0][0];
     expect(request.options).not.toHaveProperty('emailRedirectTo');
+    expect(await screen.findByText(/six-digit RecallMate code/i)).toBeDefined();
+    expect(await screen.findByText(/check your Spam or Junk folder/i)).toBeDefined();
   });
 });
 

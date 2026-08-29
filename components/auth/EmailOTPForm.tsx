@@ -246,7 +246,14 @@ export function EmailOTPForm({
   };
   const maskedEmail = maskEmail(otpFlowContext?.email ?? email);
   return <form onSubmit={event => { event.preventDefault(); void verifyCode(otpValue); }} className="space-y-6" noValidate>
-    <div className="space-y-1 text-center"><p className="text-sm text-slate-600 dark:text-slate-400">Enter the verification code sent to</p><p className="text-sm font-semibold text-slate-900 dark:text-white">{maskedEmail}</p><p className="text-xs text-slate-500 dark:text-slate-400">Check your inbox for your six-digit RecallMate code. Resend becomes available after one minute.</p></div>
+    <div className="space-y-2 text-center">
+      <p className="text-sm text-slate-600 dark:text-slate-400">Enter the verification code sent to</p>
+      <p className="text-sm font-semibold text-slate-900 dark:text-white">{maskedEmail}</p>
+      <p className="text-xs text-slate-500 dark:text-slate-400">Check your inbox for your six-digit RecallMate code. Resend becomes available after one minute.</p>
+      <p className="rounded-xl border border-amber-300/70 bg-amber-50 px-3 py-2 text-xs font-medium leading-relaxed text-amber-900 dark:border-amber-400/25 dark:bg-amber-400/10 dark:text-amber-200">
+        No code yet? Check your Spam or Junk folder. If you find it there, mark it as not spam so future RecallMate codes reach your inbox.
+      </p>
+    </div>
     <div className="space-y-3"><OTPInput value={otpValue} onChange={value => { setOtpValue(value); if (value.length === 6) void verifyCode(value); }} disabled={isLoading} hasError={Boolean(currentError)} aria-describedby={currentError ? errorId : undefined} />{currentError && <p id={errorId} role="alert" aria-live="assertive" className="text-center text-sm text-rose-600 dark:text-rose-400">{currentError}</p>}</div>
     <Button type="submit" className="h-11 w-full bg-indigo-600 font-semibold hover:bg-indigo-700" disabled={isLoading || otpValue.length !== 6}>{isLoading ? <Loader2 className="h-4 w-4 animate-spin" /> : "Verify code & continue"}</Button>
     <div className="flex items-center justify-between text-sm"><ResendButton onResend={handleResend} disabled={isLoading} /><button type="button" onClick={changeEmail} className="rounded text-slate-500 transition-colors hover:text-indigo-600 dark:text-slate-400">Change email</button></div>
