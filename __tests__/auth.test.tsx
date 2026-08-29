@@ -14,6 +14,7 @@ import { OAuthButtons } from '@/components/auth/OAuthButtons';
 import { EmailOTPForm } from '@/components/auth/EmailOTPForm';
 import SignupPage from '@/app/(auth)/signup/page';
 import { OAUTH_PROVIDERS } from '@/lib/config/auth';
+import { useOTPStore } from '@/lib/store';
 
 const authMocks = vi.hoisted(() => ({
   signInWithOAuth: vi.fn().mockResolvedValue({ data: {}, error: null }),
@@ -22,6 +23,10 @@ const authMocks = vi.hoisted(() => ({
   verifyOtp: vi.fn().mockResolvedValue({ data: {}, error: null }),
   updateUser: vi.fn().mockResolvedValue({ data: {}, error: null }),
 }));
+
+beforeEach(() => {
+  useOTPStore.setState({ otpState: 'idle', otpFlowContext: null });
+});
 
 // Mock Next.js router & navigation
 vi.mock('next/navigation', () => ({
@@ -195,8 +200,45 @@ describe('Login Page Component', () => {
 
     const request = authMocks.signInWithOtp.mock.calls[0][0];
     expect(request.options).not.toHaveProperty('emailRedirectTo');
-    expect(await screen.findByText(/six-digit RecallMate code/i)).toBeDefined();
+    expect(await screen.findByText(/8-digit RecallMate code/i)).toBeDefined();
     expect(await screen.findByText(/check your Spam or Junk folder/i)).toBeDefined();
+  });
+
+  it('accepts a pasted eight-digit OTP and verifies the exact code', async () => {
+    render(
+      <EmailOTPForm
+        intent="signup"
+        privacyAgreed
+        username="student_18"
+        password="Strong!Pass1"
+        confirmPassword="Strong!Pass1"
+      />
+    );
+    fireEvent.change(screen.getByLabelText('Email'), { target: { value: 'student@gmail.com' } });
+    fireEvent.click(screen.getByRole('button', { name: /Create account & send code/i }));
+
+    const firstDigit = await screen.findByLabelText('Digit 1 of 8');
+    fireEvent.paste(firstDigit, {
+      clipboardData: { getData: () => '42668550' },
+    });
+
+    await vi.waitFor(() => {
+      expect(authMocks.verifyOtp).toHaveBeenCalledWith({
+        email: 'student@gmail.com',
+        token: '42668550',
+        type: 'email',
+      });
+    });
+  });
+
+  it('lets users show and hide their sign-in password', () => {
+    render(<EmailOTPForm intent="signin" />);
+    const password = screen.getByLabelText('Password') as HTMLInputElement;
+    expect(password.type).toBe('password');
+    fireEvent.click(screen.getByRole('button', { name: 'Show password' }));
+    expect(password.type).toBe('text');
+    fireEvent.click(screen.getByRole('button', { name: 'Hide password' }));
+    expect(password.type).toBe('password');
   });
 });
 

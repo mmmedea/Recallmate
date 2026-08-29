@@ -7,6 +7,7 @@ import { createClient } from "@/utils/supabase/client";
 import ThemeToggle from "@/components/ThemeToggle";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
+import { PasswordInput } from "@/components/ui/password-input";
 import { Checkbox } from "@/components/ui/checkbox";
 
 type Profile = {
@@ -206,8 +207,8 @@ export default function SettingsPage() {
           <div className="space-y-3">
             <h3 className="flex items-center gap-2 font-bold dark:text-white"><KeyRound className="h-4 w-4" />Change password</h3>
             <p className="text-xs text-slate-500">Use 8+ characters with at least one special symbol.</p>
-            <Input type="password" autoComplete="new-password" value={newPassword} onChange={(event) => setNewPassword(event.target.value)} placeholder="New strong password" />
-            <Input type="password" autoComplete="new-password" value={confirmPassword} onChange={(event) => setConfirmPassword(event.target.value)} placeholder="Confirm password" />
+            <PasswordInput aria-label="New password" autoComplete="new-password" value={newPassword} onChange={(event) => setNewPassword(event.target.value)} placeholder="New strong password" />
+            <PasswordInput aria-label="Confirm new password" autoComplete="new-password" value={confirmPassword} onChange={(event) => setConfirmPassword(event.target.value)} placeholder="Confirm password" />
             <Button variant="outline" onClick={changePassword} disabled={busy !== null}>{busy === "password" ? "Changing…" : "Change password"}</Button>
           </div>
         </div>
