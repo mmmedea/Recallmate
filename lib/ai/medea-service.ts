@@ -5,6 +5,7 @@ const MEDEA_GATEWAY_MODEL = "google/gemini-3.7-flash";
 export type MedeaGenerationRequest = {
   system: string;
   prompt: string;
+  question?: string;
   userId: string;
 };
 
@@ -21,9 +22,20 @@ export function solveSafeArithmetic(prompt: string) {
   }
 }
 
-export async function generateMedeaReply({ system, prompt, userId }: MedeaGenerationRequest) {
-  const deterministic = solveSafeArithmetic(prompt);
+export async function generateMedeaReply(request: MedeaGenerationRequest) {
+  const { system, prompt, userId } = request;
+  const deterministic = solveSafeArithmetic(request.question || prompt);
   if (deterministic) return deterministic;
+
+  if (process.env.GEMINI_API_KEY) {
+    try {
+      const { ProviderAdapter } = await import("./provider");
+      const direct = await ProviderAdapter.generate({ operation: "chat", systemInstruction: system, prompt });
+      if (direct.text.trim()) return direct.text;
+    } catch (directError) {
+      console.warn("Medea direct Gemini request failed; trying AI Gateway.", directError);
+    }
+  }
 
   try {
     const result = await generateText({
@@ -37,10 +49,6 @@ export async function generateMedeaReply({ system, prompt, userId }: MedeaGenera
     if (!result.text.trim()) throw new Error("Medea returned an empty response");
     return result.text;
   } catch (gatewayError) {
-    if (!process.env.GEMINI_API_KEY) throw gatewayError;
-    const { ProviderAdapter } = await import("./provider");
-    const fallback = await ProviderAdapter.generate({ operation: "chat", systemInstruction: system, prompt });
-    if (!fallback.text.trim()) throw gatewayError;
-    return fallback.text;
+    throw gatewayError;
   }
 }
