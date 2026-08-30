@@ -4,7 +4,7 @@ const { generateText, providerGenerate } = vi.hoisted(() => ({ generateText: vi.
 vi.mock("ai", () => ({ generateText }));
 vi.mock("@/lib/ai/provider", () => ({ ProviderAdapter: { generate: providerGenerate } }));
 
-import { generateMedeaReply, solveSafeArithmetic } from "@/lib/ai/medea-service";
+import { generateMedeaReply, shouldGroundWithGoogleSearch, solveSafeArithmetic } from "@/lib/ai/medea-service";
 
 describe("Medea service", () => {
   beforeEach(() => {
@@ -63,6 +63,22 @@ describe("Medea service", () => {
 
     expect(result).toContain("curved spacetime");
     expect(providerGenerate).toHaveBeenCalledWith(expect.objectContaining({ operation: "chat" }));
+    expect(providerGenerate).not.toHaveBeenCalledWith(expect.objectContaining({ tools: expect.anything() }));
+    expect(generateText).not.toHaveBeenCalled();
+  });
+
+  it("uses Google Search for current questions and retries plain Gemini if grounding is rate limited", async () => {
+    process.env.GEMINI_API_KEY = "test-key";
+    providerGenerate
+      .mockRejectedValueOnce(new Error("429 search quota exceeded"))
+      .mockResolvedValueOnce({ text: "Here is the best available answer.", usage: { inputTokens: 5, outputTokens: 7, totalTokens: 12 } });
+
+    const result = await generateMedeaReply({ system: "Be accurate", prompt: "What is the latest science news?", question: "What is the latest science news?", userId: "student-1" });
+
+    expect(shouldGroundWithGoogleSearch("What is the latest science news?")).toBe(true);
+    expect(result).toContain("best available answer");
+    expect(providerGenerate).toHaveBeenNthCalledWith(1, expect.objectContaining({ tools: [{ type: "google_search" }] }));
+    expect(providerGenerate).toHaveBeenNthCalledWith(2, expect.not.objectContaining({ tools: expect.anything() }));
     expect(generateText).not.toHaveBeenCalled();
   });
 });

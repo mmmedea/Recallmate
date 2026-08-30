@@ -1,4 +1,4 @@
-import { LayoutDashboard, Upload, FileText, BrainCircuit, Sparkles, Settings, HelpCircle, CalendarDays, BookOpen, BarChart3 } from "lucide-react";
+import { LayoutDashboard, Upload, FileText, Sparkles, Settings, HelpCircle, CalendarDays, BookOpen, BarChart3 } from "lucide-react";
 import type { LucideIcon } from "lucide-react";
 
 export interface NavItem {
@@ -30,7 +30,7 @@ export const navigationConfig: {
       mobileVisible: true,
     },
     {
-      label: "Upload",
+      label: "Upload & Quiz",
       href: "/upload",
       icon: Upload,
       requiresAuth: true,
@@ -48,13 +48,6 @@ export const navigationConfig: {
       label: "Notes",
       href: "/notes",
       icon: FileText,
-      requiresAuth: true,
-      mobileVisible: true,
-    },
-    {
-      label: "Quizzes",
-      href: "/quiz",
-      icon: BrainCircuit,
       requiresAuth: true,
       mobileVisible: true,
     },

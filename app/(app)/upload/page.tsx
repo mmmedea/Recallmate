@@ -1,8 +1,8 @@
 "use client";
 
-import { useState } from "react";
+import { useEffect, useState } from "react";
 import { useRouter } from "next/navigation";
-import { Loader2, ArrowLeft, AlertCircle } from "lucide-react";
+import { Loader2, ArrowLeft, AlertCircle, Layers3, Sparkles, UploadCloud } from "lucide-react";
 import Link from "next/link";
 import FileUploader from "@/components/FileUploader";
 import { createClient } from "@/utils/supabase/client";
@@ -10,15 +10,19 @@ import {
   createDocumentUploadSession, 
   confirmDocumentUpload 
 } from "@/app/actions/document-actions";
-import { useAppStore } from "@/lib/store";
+import ManualFlashcardBuilder from "@/components/study/ManualFlashcardBuilder";
 
 export default function UploadPage() {
   const [isUploading, setIsUploading] = useState(false);
   const [uploadStatus, setUploadStatus] = useState("");
   const [error, setError] = useState("");
+  const [mode, setMode] = useState<"upload" | "flashcards">("upload");
   const router = useRouter();
   const supabase = createClient();
-  const { isPremium } = useAppStore();
+
+  useEffect(() => {
+    if (new URLSearchParams(window.location.search).get("mode") === "flashcards") setMode("flashcards");
+  }, []);
 
   const processFile = async (file: File) => {
     setError("");
@@ -72,7 +76,7 @@ export default function UploadPage() {
   };
 
   return (
-    <div className="mx-auto max-w-3xl py-12 px-4 transition-colors duration-200">
+    <div className="mx-auto max-w-5xl px-4 py-8 transition-colors duration-200 sm:py-12">
       <div className="mb-8 flex items-center justify-between">
         <Link 
           href="/dashboard"
@@ -84,14 +88,20 @@ export default function UploadPage() {
       </div>
 
       <div className="space-y-6">
-        <div>
-          <h1 className="text-3xl font-bold text-slate-900 dark:text-white">Upload Study Material</h1>
+        <div className="rounded-3xl border border-indigo-200/70 bg-gradient-to-br from-white via-indigo-50 to-violet-100 p-6 dark:border-indigo-500/20 dark:from-slate-900 dark:via-indigo-950/40 dark:to-violet-950/40 sm:p-8">
+          <p className="text-sm font-black uppercase tracking-[0.2em] text-indigo-600">Study creator</p>
+          <h1 className="mt-2 text-3xl font-black text-slate-900 dark:text-white sm:text-4xl">Upload, quiz, or build flashcards</h1>
           <p className="mt-2 text-slate-600 dark:text-slate-300">
-            Upload your lecture notes, textbook chapters, or clinical guidelines to generate AI-powered study materials.
+            Use one workspace to turn a file into AI notes and quizzes, or create your own tap-to-flip flashcard deck.
           </p>
         </div>
 
-        {error && (
+        <div role="tablist" aria-label="Study creation method" className="grid grid-cols-2 gap-2 rounded-2xl border border-slate-200 bg-white p-2 shadow-sm dark:border-slate-800 dark:bg-slate-900">
+          <button role="tab" aria-selected={mode === "upload"} onClick={() => setMode("upload")} className={`inline-flex min-h-12 items-center justify-center gap-2 rounded-xl px-3 text-sm font-black transition ${mode === "upload" ? "bg-indigo-600 text-white shadow-lg" : "text-slate-600 hover:bg-slate-100 dark:text-slate-300 dark:hover:bg-slate-800"}`}><UploadCloud className="h-4 w-4" />Upload & AI quiz</button>
+          <button role="tab" aria-selected={mode === "flashcards"} onClick={() => setMode("flashcards")} className={`inline-flex min-h-12 items-center justify-center gap-2 rounded-xl px-3 text-sm font-black transition ${mode === "flashcards" ? "bg-indigo-600 text-white shadow-lg" : "text-slate-600 hover:bg-slate-100 dark:text-slate-300 dark:hover:bg-slate-800"}`}><Layers3 className="h-4 w-4" />Create flashcards</button>
+        </div>
+
+        {mode === "upload" && error && (
           <div className="rounded-xl border border-red-200 bg-red-50 p-4 dark:border-red-900/50 dark:bg-red-900/20" role="alert">
             <div className="flex items-start">
               <AlertCircle className="mt-0.5 h-5 w-5 text-red-600 dark:text-red-400" />
@@ -104,18 +114,18 @@ export default function UploadPage() {
         )}
 
         {/* Live region for accessibility announcements */}
-        <div aria-live="polite" className="sr-only">
+        {mode === "upload" && <div aria-live="polite" className="sr-only">
           {isUploading ? uploadStatus : ""}
-        </div>
+        </div>}
 
-        {isUploading ? (
+        {mode === "flashcards" ? <ManualFlashcardBuilder /> : isUploading ? (
           <div className="flex flex-col items-center justify-center py-16 rounded-2xl border-2 border-dashed border-slate-200 dark:border-slate-800 bg-slate-50 dark:bg-slate-900/50">
             <Loader2 className="h-10 w-10 motion-safe:animate-spin text-indigo-600 dark:text-indigo-400 mb-4" />
             <h3 className="text-lg font-medium text-slate-900 dark:text-white" aria-live="off">{uploadStatus}</h3>
             <p className="text-sm text-slate-500 dark:text-slate-400 mt-2">Please keep this tab open</p>
           </div>
         ) : (
-          <FileUploader onFileSelected={processFile} />
+          <div className="space-y-4"><div className="flex items-center gap-2 text-sm font-bold text-indigo-600"><Sparkles className="h-4 w-4" />Medea will generate organized notes and a quiz after upload.</div><FileUploader onFileSelected={processFile} /></div>
         )}
       </div>
     </div>

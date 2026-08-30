@@ -4,7 +4,6 @@ import { useMemo, useState, useTransition } from 'react'
 import { CalendarDays, CalendarPlus, Check, ChevronLeft, ChevronRight, Download, List, Plus, RefreshCw, Trash2, X } from 'lucide-react'
 import type { CalendarEvent, CalendarEventInput } from '@/app/actions/calendar-actions'
 import { deleteCalendarEvent, getCalendarEvents, saveCalendarEvent, toggleCalendarEventCompletion } from '@/app/actions/calendar-actions'
-import { createClient } from '@/utils/supabase/client'
 
 type View = 'month' | 'year' | 'agenda'
 
@@ -25,6 +24,7 @@ export default function YearCalendar({ initialEvents, initialYear, loadError }: 
   const [selected, setSelected] = useState<CalendarEvent | null>(null)
   const [form, setForm] = useState<CalendarEventInput | null>(null)
   const [syncing, setSyncing] = useState(false)
+  const [syncError, setSyncError] = useState('')
   const [isPending, startTransition] = useTransition()
   const eventsByDate = useMemo(() => events.reduce<Record<string, CalendarEvent[]>>((acc, event) => { (acc[event.starts_at.slice(0, 10)] ??= []).push(event); return acc }, {}), [events])
   const sortedEvents = useMemo(() => [...events].sort((a, b) => a.starts_at.localeCompare(b.starts_at)), [events])
@@ -74,11 +74,16 @@ export default function YearCalendar({ initialEvents, initialYear, loadError }: 
 
   const syncGoogle = async () => {
     setSyncing(true)
-    const callback = new URL('/auth/callback', window.location.origin)
-    callback.searchParams.set('integration', 'google-calendar')
-    callback.searchParams.set('next', '/calendar')
-    const { error } = await createClient().auth.signInWithOAuth({ provider: 'google', options: { redirectTo: callback.toString(), scopes: 'openid email profile https://www.googleapis.com/auth/calendar.events', queryParams: { access_type: 'offline', prompt: 'consent', include_granted_scopes: 'true' } } })
-    if (error) { setSyncing(false); alert(`Google Calendar could not connect: ${error.message}`) }
+    setSyncError('')
+    try {
+      const response = await fetch('/api/integrations/google-calendar/connect')
+      const data = await response.json() as { url?: string; error?: string }
+      if (!response.ok || !data.url) throw new Error(data.error || 'Google Calendar could not connect.')
+      window.location.assign(data.url)
+    } catch (error) {
+      setSyncError(error instanceof Error ? error.message : 'Google Calendar could not connect.')
+      setSyncing(false)
+    }
   }
 
   return <div className="space-y-5 pb-24 sm:space-y-6">
@@ -91,6 +96,7 @@ export default function YearCalendar({ initialEvents, initialYear, loadError }: 
 
     {syncResult === 'connected' && <div role="status" className="rounded-2xl border border-emerald-300 bg-emerald-50 px-4 py-3 text-sm font-semibold text-emerald-900 dark:border-emerald-500/30 dark:bg-emerald-500/10 dark:text-emerald-200">Google Calendar connected. {syncedCount ?? '0'} RecallMate events synchronized.</div>}
     {syncResult === 'error' && <div role="alert" className="rounded-2xl border border-rose-300 bg-rose-50 px-4 py-3 text-sm font-semibold text-rose-900 dark:border-rose-500/30 dark:bg-rose-500/10 dark:text-rose-200">Google Calendar sync failed. Confirm Calendar permission and try again.</div>}
+    {syncError && <div role="alert" className="rounded-2xl border border-amber-300 bg-amber-50 px-4 py-3 text-sm font-semibold text-amber-950 dark:border-amber-500/30 dark:bg-amber-500/10 dark:text-amber-100">{syncError}</div>}
     {loadError && <div role="status" className="rounded-2xl border border-amber-300 bg-amber-50 px-4 py-3 text-sm font-medium text-amber-900 dark:border-amber-500/30 dark:bg-amber-500/10 dark:text-amber-200">{loadError}</div>}
 
     <div className="sticky top-16 z-20 flex flex-col gap-3 rounded-2xl border border-slate-200 bg-white/95 p-2 shadow-lg shadow-slate-900/5 backdrop-blur dark:border-slate-800 dark:bg-slate-950/90 sm:flex-row sm:items-center sm:justify-between">
