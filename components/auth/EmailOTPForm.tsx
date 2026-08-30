@@ -76,6 +76,7 @@ export function EmailOTPForm({
   const [errorKey, setErrorKey] = useState<string | null>(null);
   const [captchaToken, setCaptchaToken] = useState<string | null>(null);
   const hasHydrated = useRef(false);
+  const verificationInFlight = useRef(false);
   const captchaEnabled =
     process.env.NEXT_PUBLIC_AUTH_CAPTCHA_UI_ENABLED === "true" &&
     Boolean(process.env.NEXT_PUBLIC_TURNSTILE_SITE_KEY);
@@ -180,13 +181,15 @@ export function EmailOTPForm({
   }, [captchaEnabled, captchaToken, confirmPassword, email, intent, otpFlowContext?.email, password, privacyAgreed, setOTPFlowContext, setOTPState, supabase, username]);
 
   const verifyCode = useCallback(async (code: string) => {
-    if (code.length !== AUTH_OTP_LENGTH || isLoading) return;
+    const normalizedCode = code.replace(/\D/g, "").slice(0, AUTH_OTP_LENGTH);
+    if (normalizedCode.length !== AUTH_OTP_LENGTH || verificationInFlight.current) return;
     const normalizedEmail = otpFlowContext?.email ?? email.trim().toLowerCase();
     try {
+      verificationInFlight.current = true;
       setIsLoading(true);
       setErrorKey(null);
       setOTPState("verifying");
-      const { error } = await supabase.auth.verifyOtp({ email: normalizedEmail, token: code, type: "email" });
+      const { error } = await supabase.auth.verifyOtp({ email: normalizedEmail, token: normalizedCode, type: "email" });
       if (error) {
         const message = error.message.toLowerCase();
         const key = message.includes("invalid")
@@ -215,9 +218,10 @@ export function EmailOTPForm({
       setOTPState("error");
       setOtpValue("");
     } finally {
+      verificationInFlight.current = false;
       setIsLoading(false);
     }
-  }, [destination, email, isLoading, otpFlowContext?.email, password, router, setOTPFlowContext, setOTPState, supabase, username]);
+  }, [destination, email, otpFlowContext?.email, password, router, setOTPFlowContext, setOTPState, supabase, username]);
 
   const handleResend = useCallback(async () => {
     setOtpValue("");
@@ -257,7 +261,8 @@ export function EmailOTPForm({
     <div className="space-y-2 text-center">
       <p className="text-sm text-slate-600 dark:text-slate-400">Enter the verification code sent to</p>
       <p className="text-sm font-semibold text-slate-900 dark:text-white">{maskedEmail}</p>
-      <p className="text-xs text-slate-500 dark:text-slate-400">Check your inbox for your {AUTH_OTP_LENGTH}-digit RecallMate code. Use only the newest code if you requested more than one. Resend becomes available after one minute.</p>
+      <p className="text-xs text-slate-500 dark:text-slate-400">Check your inbox for your {AUTH_OTP_LENGTH}-digit RecallMate code. Paste or type only the newest code if you requested more than one. Resend becomes available after one minute.</p>
+      <p className="text-xs font-medium text-slate-600 dark:text-slate-300">The verification email is automated. Please do not reply to it.</p>
       <p className="rounded-xl border border-amber-300/70 bg-amber-50 px-3 py-2 text-xs font-medium leading-relaxed text-amber-900 dark:border-amber-400/25 dark:bg-amber-400/10 dark:text-amber-200">
         No code yet? Check your Spam or Junk folder. If you find it there, mark it as not spam so future RecallMate codes reach your inbox.
       </p>

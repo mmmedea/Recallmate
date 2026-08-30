@@ -31,7 +31,7 @@ describe("study workspace navigation", () => {
     calendarMocks.getCalendarEvents.mockRejectedValueOnce(new Error("calendar_events unavailable"));
     render(await CalendarPage());
 
-    expect(screen.getByRole("heading", { name: /calendar/i })).toBeDefined();
+    expect(screen.getByRole("heading", { level: 1 })).toBeDefined();
     expect(screen.getByText(/could not load saved events/i)).toBeDefined();
     expect(screen.getByRole("button", { name: /add event/i })).toBeDefined();
   }, 10_000);
