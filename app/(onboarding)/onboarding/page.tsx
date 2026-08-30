@@ -46,6 +46,28 @@ export default function OnboardingPage() {
     if (password !== confirmPassword) return setError("Passwords do not match.");
 
     setSaving(true);
+    try {
+      const availabilityResponse = await fetch("/api/auth/check-availability", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ email, username: normalizedUsername }),
+      });
+      const availability = await availabilityResponse.json() as { usernameExists?: boolean; error?: string };
+      if (!availabilityResponse.ok) {
+        setError(availability.error || "Username availability could not be checked. Please try again.");
+        setSaving(false);
+        return;
+      }
+      if (availability.usernameExists) {
+        setError("That username already exists. Choose a different username.");
+        setSaving(false);
+        return;
+      }
+    } catch {
+      setError("Username availability could not be checked. Please try again.");
+      setSaving(false);
+      return;
+    }
     const { error: updateError } = await supabase.auth.updateUser({
       password,
       data: { username: normalizedUsername, recallmate_account_completed: true },

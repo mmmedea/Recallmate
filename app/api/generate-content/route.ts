@@ -1,6 +1,7 @@
 import { NextRequest, NextResponse } from "next/server";
 import { Redis } from "@upstash/redis";
 import { callGeminiRest, callGroqChat, withFallback } from "@/lib/ai-provider";
+import { buildDocumentNotesFallback } from "@/lib/ai/document-notes-fallback";
 import { requireUser, requireDocumentOwner, requireEntitlement, checkRateLimit, getOrCreateIdempotentJob } from "@/lib/security";
 
 export const runtime = "nodejs";
@@ -108,7 +109,7 @@ export async function POST(req: NextRequest) {
 
     // 3: Parse and Validate Request
     const body = await req.json();
-    const { text, fileName, count = 10, difficulty = "easy", documentId, idempotencyKey } = body;
+    const { text, fileName, count = 10, difficulty = "easy", documentId, idempotencyKey, purpose } = body;
     
     if (!text || typeof text !== "string") {
       return NextResponse.json({ error: "Invalid text input." }, { status: 400 });
@@ -137,6 +138,9 @@ export async function POST(req: NextRequest) {
     const hasGroq = !!process.env.GROQ_API_KEY;
 
     if (!hasGemini && !hasGroq) {
+      if (purpose === "notes") {
+        return NextResponse.json(buildDocumentNotesFallback(text.slice(0, 12000), fileName || "Study notes"));
+      }
       return NextResponse.json(
         { error: "Server Configuration Error: No AI provider keys are configured." },
         { status: 500 }
@@ -208,27 +212,36 @@ Rules:
 - Escape all double quotes inside strings properly.`;
 
     // 5. HYBRID CALL: Gemini (primary) → Groq (fallback)
-    const rawText = await withFallback(
-      // PRIMARY: Gemini 1.5 Flash
-      async () => {
-        if (!hasGemini) throw new Error("Gemini key not configured.");
-        return await callGeminiRest(prompt, {
-          temperature: 0.75,
-          maxOutputTokens: 8192,
-          responseMimeType: "application/json",
-        });
-      },
-      // FALLBACK: Groq Llama 3.1 70B
-      async () => {
-        if (!hasGroq) throw new Error("Groq key not configured.");
-        return await callGroqChat(
-          "You are an expert academic exam generator. You produce ONLY valid JSON output — no markdown, no backticks, no extra text. Follow all system instructions precisely.",
-          prompt,
-          { temperature: 0.75, maxTokens: 8000, jsonMode: true }
-        );
-      },
-      "Generate-Content"
-    );
+    let rawText: string;
+    try {
+      rawText = await withFallback(
+        // PRIMARY: Gemini 1.5 Flash
+        async () => {
+          if (!hasGemini) throw new Error("Gemini key not configured.");
+          return await callGeminiRest(prompt, {
+            temperature: 0.75,
+            maxOutputTokens: 8192,
+            responseMimeType: "application/json",
+          });
+        },
+        // FALLBACK: Groq Llama 3.1 70B
+        async () => {
+          if (!hasGroq) throw new Error("Groq key not configured.");
+          return await callGroqChat(
+            "You are an expert academic exam generator. You produce ONLY valid JSON output — no markdown, no backticks, no extra text. Follow all system instructions precisely.",
+            prompt,
+            { temperature: 0.75, maxTokens: 8000, jsonMode: true }
+          );
+        },
+        "Generate-Content"
+      );
+    } catch (providerError) {
+      console.error("Study content providers failed:", providerError instanceof Error ? providerError.message : "Unknown provider error");
+      if (purpose === "notes") {
+        return NextResponse.json(buildDocumentNotesFallback(safeText, fileName || "Study notes"));
+      }
+      throw providerError;
+    }
 
     // 6. OUTPUT RAIL VALIDATION & OPTION SHUFFLING
     try {
@@ -250,13 +263,17 @@ Rules:
       parsedData.questions = shuffleQuestionOptions(parsedData.questions);
 
       return NextResponse.json({ fileName, difficulty, ...parsedData });
-    } catch {
+    } catch (parseError) {
+      if (purpose === "notes") {
+        return NextResponse.json(buildDocumentNotesFallback(safeText, fileName || "Study notes"));
+      }
       return NextResponse.json(
         { error: "The AI generated a malformed response. Please try again." },
         { status: 500 }
       );
     }
   } catch (err: any) {
+    console.error("Study content generation failed:", err?.message || "Unknown error");
     return NextResponse.json(
       { error: "Failed to generate study content safely." },
       { status: 500 }
