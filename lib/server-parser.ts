@@ -1,5 +1,5 @@
 import mammoth from 'mammoth';
-import pdf from 'pdf-parse';
+import { PDFParse } from 'pdf-parse';
 
 export interface DocumentChunk {
   chunk_index: number;
@@ -51,9 +51,13 @@ export const processPdfServerSide = async (buffer: Buffer): Promise<DocumentChun
   // requires pdfjs-dist directly which is tricky in Node environment without canvas.
   // We will fulfill the requirement by ensuring the chunk structure SUPPORTS page_number.
   
-  const data = await pdf(buffer);
-  
-  const text = data.text;
+  const parser = new PDFParse({ data: buffer });
+  let text = '';
+  try {
+    text = (await parser.getText()).text;
+  } finally {
+    await parser.destroy();
+  }
   const genericChunks = chunkText(text, undefined, chunkIndex);
   
   return genericChunks;

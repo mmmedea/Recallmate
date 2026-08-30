@@ -18,13 +18,23 @@ vi.mock("next/navigation", () => ({
   useRouter: () => routerMocks,
 }));
 
+vi.mock("idb-keyval", () => ({
+  get: vi.fn().mockResolvedValue(null),
+  set: vi.fn().mockResolvedValue(undefined),
+  del: vi.fn().mockResolvedValue(undefined),
+}));
+
 import CalendarPage from "@/app/(app)/calendar/page";
 import NotesPage from "@/app/(app)/notes/page";
+import TopicsPage from "@/app/(app)/topics/page";
+import { useAppStore } from "@/lib/store";
 
 describe("study workspace navigation", () => {
   beforeEach(() => {
     vi.clearAllMocks();
     sessionStorage.clear();
+    localStorage.clear();
+    useAppStore.setState({ chatDrawerOpen: false });
   });
 
   it("renders the calendar workspace even when event storage is temporarily unavailable", async () => {
@@ -36,19 +46,27 @@ describe("study workspace navigation", () => {
     expect(screen.getByRole("button", { name: /add event/i })).toBeDefined();
   }, 10_000);
 
-  it("keeps Notes open with a useful empty state instead of silently redirecting", async () => {
+  it("keeps Notes open with editable notes and reviewer maker tools", async () => {
     render(<NotesPage />);
 
     await waitFor(() => expect(routerMocks.push).not.toHaveBeenCalled());
-    expect(screen.getByRole("heading", { name: /study notes/i })).toBeDefined();
-    fireEvent.click(screen.getByRole("button", { name: /upload study material/i }));
-    expect(routerMocks.push).toHaveBeenCalledWith("/upload");
+    expect(screen.getByRole("heading", { name: /study notes & reviewer maker/i })).toBeDefined();
+    expect(screen.getByRole("tab", { name: /editable notes/i })).toBeDefined();
+    expect(screen.getByRole("button", { name: /upload a lesson to generate editable notes/i })).toBeDefined();
+    expect(screen.queryByRole("button", { name: /explore study tools/i })).toBeNull();
   });
 
-  it("offers reviewer PDF creation from Study Notes", async () => {
+  it("opens reviewer creation inside Study Notes", async () => {
     render(<NotesPage />);
-    expect(await screen.findByRole("button", { name: /create reviewer pdf/i })).toBeDefined();
-    fireEvent.click(screen.getByRole("button", { name: /create reviewer pdf/i }));
-    expect(routerMocks.push).toHaveBeenCalledWith("/upload?mode=reviewer");
+    fireEvent.click(screen.getByRole("tab", { name: /reviewer maker/i }));
+    expect(await screen.findByRole("heading", { name: /detailed two-column reviewer/i })).toBeDefined();
+    expect(screen.getByRole("button", { name: /choose lesson file/i })).toBeDefined();
+    expect(screen.queryByRole("button", { name: /download pdf/i })).toBeNull();
+  });
+
+  it("opens the Medea chat drawer from the Ask Medea topic card", () => {
+    render(<TopicsPage />);
+    fireEvent.click(screen.getByRole("button", { name: /ask medea/i }));
+    expect(useAppStore.getState().chatDrawerOpen).toBe(true);
   });
 });

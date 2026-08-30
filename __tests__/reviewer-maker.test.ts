@@ -1,7 +1,7 @@
 import { describe, expect, it } from "vitest";
 import JSZip from "jszip";
 import { shouldExcludeReviewerSection } from "@/lib/reviewer/source-filter";
-import { extractPptxReviewerSections } from "@/lib/reviewer/browser-reviewer";
+import { buildReviewerDocxBlob, extractPptxReviewerSections } from "@/lib/reviewer/browser-reviewer";
 
 describe("reviewer source filtering", () => {
   it("removes only administrative and closing slides", () => {
@@ -27,5 +27,22 @@ describe("reviewer source filtering", () => {
     expect(sections[0].title).toBe("Routine Urinalysis");
     expect(sections[0].text).toContain("every source detail");
     expect(sections[0].images[0]).toMatch(/^data:image\/png;base64,/);
+  });
+
+  it("creates a real two-column Word reviewer with running page fields", async () => {
+    const file = new File(["lesson"], "Hematology.pptx", { type: "application/vnd.openxmlformats-officedocument.presentationml.presentation" });
+    const blob = await buildReviewerDocxBlob(file, [{ title: "Red Blood Cells", text: "Normal range: preserve every sourced figure.\nNOTE: Review the exception.", images: [] }], { name: "Rose", accent: "E11D48", tint: "FFE4E6" });
+    const archive = await JSZip.loadAsync(await blob.arrayBuffer());
+    const documentXml = await archive.file("word/document.xml")!.async("string");
+    const footerXml = await archive.file("word/footer1.xml")!.async("string");
+    const stylesXml = await archive.file("word/styles.xml")!.async("string");
+
+    expect(documentXml).toMatch(/<w:cols[^>]*w:num="2"/);
+    expect(documentXml).toContain("Red Blood Cells".toUpperCase());
+    expect(documentXml).toContain("preserve every sourced figure");
+    expect(stylesXml).toContain('w:color w:val="000000"');
+    expect(documentXml).toContain('w:fill="FFE4E6"');
+    expect(footerXml).toContain("PAGE");
+    expect(footerXml).toContain("NUMPAGES");
   });
 });

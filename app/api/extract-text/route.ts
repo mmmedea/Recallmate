@@ -1,5 +1,5 @@
 import { NextRequest, NextResponse } from "next/server";
-import pdfParse from "pdf-parse";
+import { PDFParse } from "pdf-parse";
 import mammoth from "mammoth";
 import officeParser from "officeparser";
 
@@ -69,8 +69,12 @@ export async function POST(req: NextRequest) {
     // 3. Handle PDF files
     if (fileName.endsWith(".pdf")) {
       try {
-        const parsedPdf = await pdfParse(buffer);
-        extractedText = parsedPdf.text;
+        const parser = new PDFParse({ data: buffer });
+        try {
+          extractedText = (await parser.getText()).text;
+        } finally {
+          await parser.destroy();
+        }
       } catch (pdfErr) {
         return NextResponse.json(
           { error: "Failed to parse PDF text. Ensure it is a valid, text-based PDF." },
