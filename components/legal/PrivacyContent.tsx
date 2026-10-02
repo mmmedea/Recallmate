@@ -1,47 +1,76 @@
+import { LegalSection } from "@/components/legal/LegalSection";
+import { RECALLMATE_CONTACT_EMAIL } from "@/lib/legal-contact";
+
+const linkClass = "underline underline-offset-4 hover:text-indigo-600 dark:hover:text-indigo-300";
+
 export function PrivacyContent() {
   return (
-    <div className="prose prose-slate dark:prose-invert max-w-none text-sm">
-      <p className="text-sm text-slate-500 dark:text-slate-400 mb-6">
-        Effective Date: {new Date().toLocaleDateString('en-US', { month: 'long', day: 'numeric', year: 'numeric' })}
-      </p>
-
+    <div className="space-y-10 text-sm leading-relaxed">
       <p>
-        At RecallMate, your privacy and data security are our top priorities. This Privacy Policy outlines what data we collect, how it is processed, and how we keep it secure when you use our AI study tutor.
+        RecallMate is an AI-assisted study service. This policy describes the information processed when you use the app and the choices available to you. It should be read together with the Terms of Service.
       </p>
 
-      <h3 className="text-base font-semibold mt-6 mb-2">1. What Data RecallMate Collects</h3>
-      <p>We collect the following types of information when you use our service:</p>
-      <ul className="list-disc pl-5 space-y-1 mb-4">
-        <li><strong>Authentication & Session Data:</strong> Your email address and basic profile information if you sign in using OAuth providers (Google, GitHub, Facebook) or via Email OTP. We use Supabase for secure authentication.</li>
-        <li><strong>Uploaded Study Materials:</strong> Documents, images, and text you upload for analysis.</li>
-        <li><strong>AI Processing Data:</strong> Generated quizzes, summaries, notes, and chat histories with Medea AI.</li>
-        <li><strong>Usage & Billing Data:</strong> Interaction metrics, credits consumed, and payment status (handled securely via our payment providers).</li>
-      </ul>
+      <LegalSection heading="1. Information we process">
+        <ul className="list-disc space-y-2 pl-6">
+          <li><strong>Account and profile information:</strong> email address, username, profile details, and authentication or security records.</li>
+          <li><strong>Study materials and study activity:</strong> files you upload, extracted text, notes, quizzes, reviewers, questions and answers in Medea chats, and learning or review progress.</li>
+          <li><strong>Service and support information:</strong> feature usage, credit or entitlement records, settings, and messages you submit through support or feedback features.</li>
+          <li><strong>Optional calendar information:</strong> if you connect Google Calendar, the app processes the information needed to create or synchronize RecallMate study events.</li>
+        </ul>
+        <p>
+          Authentication cookies and browser storage support sign-in, security, preferences, and some local study features. Cookie preferences are saved in your browser. The current app build does not load a third-party analytics or advertising tracker.
+        </p>
+      </LegalSection>
 
-      <h3 className="text-base font-semibold mt-6 mb-2">2. How We Use Your Uploaded Study Materials</h3>
-      <p>
-        The materials you upload are used strictly to generate study aids, quizzes, and to allow Medea AI to answer your questions. We do not use your personal study materials to train our foundational AI models, nor do we sell your documents to third parties.
-      </p>
+      <LegalSection heading="2. How we use information">
+        <ul className="list-disc space-y-2 pl-6">
+          <li>To authenticate you, provide study features, process uploaded materials, and generate requested study content.</li>
+          <li>To maintain account settings, learning progress, credits and entitlements.</li>
+          <li>To protect the service, prevent abuse, troubleshoot errors, and respond to support requests.</li>
+          <li>To provide optional integrations that you choose to connect.</li>
+        </ul>
+        <p>RecallMate does not sell your personal information or uploaded study materials.</p>
+      </LegalSection>
 
-      <h3 className="text-base font-semibold mt-6 mb-2">3. AI Processing</h3>
-      <p>
-        RecallMate integrates with external AI providers (such as Google Gemini) to process your documents and generate predictive exam questions. When your data is sent to these APIs, it is transmitted securely and is subject to strict data processing agreements that prohibit them from using your personal data to train their models.
-      </p>
+      <LegalSection heading="3. AI processing and service providers">
+        <p>
+          When you request an AI feature, the relevant prompt and source material may be sent to the AI provider used for that feature. The app is configured to use providers including Google Gemini, Anthropic (Claude), DeepSeek, and Groq; the provider depends on the feature and its configuration. These providers process information to return the requested result under their own terms and retention practices.
+        </p>
+        <p>
+          RecallMate also uses service providers for hosting, authentication, database and file storage, email delivery, and optional integrations. These include Supabase and Vercel; support email delivery may use Resend when configured. Google receives the information required for a Calendar integration you authorize. We do not control each provider&apos;s separate retention schedule.
+        </p>
+        <p>Please avoid uploading highly sensitive personal information unless it is necessary for your study use.</p>
+      </LegalSection>
 
-      <h3 className="text-base font-semibold mt-6 mb-2">4. Data Retention and Deletion</h3>
-      <p>
-        You retain ownership of the materials you upload. You may delete your uploaded documents, quizzes, and account at any time through your dashboard. Once deleted, your data is permanently removed from our active databases.
-      </p>
+      <LegalSection heading="4. Storage, security, and retention">
+        <p>
+          Account and study information is stored with the service providers used to operate RecallMate. Access controls and authentication are used to protect account data and uploaded files, but no online service can guarantee absolute security.
+        </p>
+        <p>
+          We retain information while it is needed to provide the service, maintain your account, protect the app, resolve disputes, or meet legal obligations. You can delete individual study materials in the app and request account deletion through Settings. Deletion is initiated by the app; backup, security-log, and provider copies may remain for a limited period under the applicable systems&apos; retention schedules. AI providers may separately retain information under their own policies.
+        </p>
+      </LegalSection>
 
-      <h3 className="text-base font-semibold mt-6 mb-2">5. Cookies and Tracking</h3>
-      <p>
-        We use essential cookies to maintain your active session and secure your account. Optional analytics and marketing cookies are only used if you explicitly consent to them via our Cookie Preferences manager.
-      </p>
+      <LegalSection heading="5. Your choices and privacy rights">
+        <p>
+          You can manage profile details, delete study materials, disconnect optional integrations where available, and request account deletion in the app. Depending on applicable law, you may also have rights to access or correct personal data, object to or restrict certain processing, request erasure or blocking, or lodge a complaint. For a request, contact us using the address below. We may need to verify your identity before responding.
+        </p>
+        <p>
+          For information about data-subject rights under the Philippine Data Privacy Act, see the <a className={linkClass} href="https://privacy.gov.ph/data-subject-rights/" rel="noreferrer" target="_blank">National Privacy Commission&apos;s rights overview</a>.
+        </p>
+      </LegalSection>
 
-      <h3 className="text-base font-semibold mt-6 mb-2">6. Contact Information</h3>
-      <p>
-        If you have any questions or concerns regarding this Privacy Policy or your data, please contact us at <strong>privacy@recallmate.example.com</strong>.
-      </p>
+      <LegalSection heading="6. Children and students">
+        <p>
+          RecallMate is intended for study use. If you are under 18, use the service with permission from a parent or legal guardian. A parent or guardian who has a privacy request may contact us on the student&apos;s behalf.
+        </p>
+      </LegalSection>
+
+      <LegalSection heading="7. Changes and contact">
+        <p>
+          We may update this policy as the service changes. We will update the date at the top when we revise it. Questions or privacy requests can be sent to <a className={linkClass} href={`mailto:${RECALLMATE_CONTACT_EMAIL}`}>{RECALLMATE_CONTACT_EMAIL}</a>.
+        </p>
+      </LegalSection>
     </div>
   );
 }
