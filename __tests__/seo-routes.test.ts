@@ -36,7 +36,6 @@ describe("public crawler metadata", () => {
   it("lists only the selected public pages on the production origin", () => {
     expect(sitemap().map(({ url }) => url)).toEqual([
       `${RECALLMATE_PRODUCTION_ORIGIN}/`,
-      `${RECALLMATE_PRODUCTION_ORIGIN}/login`,
       `${RECALLMATE_PRODUCTION_ORIGIN}/privacy`,
       `${RECALLMATE_PRODUCTION_ORIGIN}/terms`,
     ]);

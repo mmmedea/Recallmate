@@ -10,13 +10,16 @@ describe("public legal content", () => {
 
     expect(screen.getByRole("heading", { name: /information we process/i })).toBeTruthy();
     expect(screen.getByText(/Google Gemini, Anthropic \(Claude\), DeepSeek, and Groq/i)).toBeTruthy();
-    expect(screen.getByText(/current app build does not load a third-party analytics or advertising tracker/i)).toBeTruthy();
+    expect(screen.getByText(/do not currently use third-party analytics or advertising trackers/i)).toBeTruthy();
+    expect(screen.queryByText(/current app build does not load a third-party analytics or advertising tracker/i)).toBeNull();
     expect(screen.getByRole("link", { name: /National Privacy Commission/i }).getAttribute("href")).toBe(
       "https://privacy.gov.ph/data-subject-rights/",
     );
-    expect(screen.getByRole("link", { name: "recallmate.verify@gmail.com" }).getAttribute("href")).toBe(
-      "mailto:recallmate.verify@gmail.com",
-    );
+    const contactLinks = screen.getAllByRole("link", { name: "recallmate.verify@gmail.com" });
+    expect(contactLinks.length).toBeGreaterThanOrEqual(1);
+    contactLinks.forEach((link) => expect(link.getAttribute("href")).toBe("mailto:recallmate.verify@gmail.com"));
+    expect(screen.getByText(/Account deletion removes your account and associated study records/i)).toBeTruthy();
+    expect(screen.getByText(/Uploaded files can take additional time to be fully removed/i)).toBeTruthy();
     expect(screen.queryByText(/within 30 days/i)).toBeNull();
   });
 

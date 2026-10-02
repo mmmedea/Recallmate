@@ -18,7 +18,7 @@ export function PrivacyContent() {
           <li><strong>Optional calendar information:</strong> if you connect Google Calendar, the app processes the information needed to create or synchronize RecallMate study events.</li>
         </ul>
         <p>
-          Authentication cookies and browser storage support sign-in, security, preferences, and some local study features. Cookie preferences are saved in your browser. The current app build does not load a third-party analytics or advertising tracker.
+          We use only the cookies and local storage needed to sign you in, keep your account secure, and remember your preferences. We do not currently use third-party analytics or advertising trackers.
         </p>
       </LegalSection>
 
@@ -47,7 +47,7 @@ export function PrivacyContent() {
           Account and study information is stored with the service providers used to operate RecallMate. Access controls and authentication are used to protect account data and uploaded files, but no online service can guarantee absolute security.
         </p>
         <p>
-          We retain information while it is needed to provide the service, maintain your account, protect the app, resolve disputes, or meet legal obligations. You can delete individual study materials in the app and request account deletion through Settings. Deletion is initiated by the app; backup, security-log, and provider copies may remain for a limited period under the applicable systems&apos; retention schedules. AI providers may separately retain information under their own policies.
+          We retain information while it is needed to provide the service, maintain your account, protect the app, resolve disputes, or meet legal obligations. You can delete individual study materials in the app and delete your account in Settings. Account deletion removes your account and associated study records. Uploaded files can take additional time to be fully removed, and you can email <a className={linkClass} href={`mailto:${RECALLMATE_CONTACT_EMAIL}`}>{RECALLMATE_CONTACT_EMAIL}</a> to confirm deletion. Backup, security-log, and provider copies may remain for a limited period under the applicable systems&apos; retention schedules. AI providers may separately retain information under their own policies.
         </p>
       </LegalSection>
 

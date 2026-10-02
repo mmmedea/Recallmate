@@ -3,7 +3,6 @@ import { RECALLMATE_PRODUCTION_ORIGIN } from "@/lib/app-origin";
 
 const publicRoutes = [
   { path: "/", changeFrequency: "weekly", priority: 1 },
-  { path: "/login", changeFrequency: "yearly", priority: 0.3 },
   { path: "/privacy", changeFrequency: "yearly", priority: 0.3 },
   { path: "/terms", changeFrequency: "yearly", priority: 0.3 },
 ] as const;
