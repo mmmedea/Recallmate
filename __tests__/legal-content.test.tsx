@@ -9,7 +9,7 @@ describe("public legal content", () => {
     render(<PrivacyContent />);
 
     expect(screen.getByRole("heading", { name: /information we process/i })).toBeTruthy();
-    expect(screen.getByText(/Google Gemini, Anthropic \(Claude\), DeepSeek, and Groq/i)).toBeTruthy();
+    expect(screen.getByText(/Google Gemini, Anthropic \(Claude\), and DeepSeek/i)).toBeTruthy();
     expect(screen.getByText(/do not currently use third-party analytics or advertising trackers/i)).toBeTruthy();
     expect(screen.queryByText(/current app build does not load a third-party analytics or advertising tracker/i)).toBeNull();
     expect(screen.getByRole("link", { name: /National Privacy Commission/i }).getAttribute("href")).toBe(

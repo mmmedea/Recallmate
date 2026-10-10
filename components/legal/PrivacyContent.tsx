@@ -34,10 +34,10 @@ export function PrivacyContent() {
 
       <LegalSection heading="3. AI processing and service providers">
         <p>
-          When you request an AI feature, the relevant prompt and source material may be sent to the AI provider used for that feature. The app is configured to use providers including Google Gemini, Anthropic (Claude), DeepSeek, and Groq; the provider depends on the feature and its configuration. These providers process information to return the requested result under their own terms and retention practices.
+          When you request an AI feature, the relevant prompt and source material may be sent to the AI provider used for that feature. The app is configured to use providers including Google Gemini, Anthropic (Claude), and DeepSeek; the provider depends on the feature and its configuration. These providers process information to return the requested result under their own terms and retention practices.
         </p>
         <p>
-          RecallMate also uses service providers for hosting, authentication, database and file storage, email delivery, and optional integrations. These include Supabase and Vercel; support email delivery may use Resend when configured. Google receives the information required for a Calendar integration you authorize. We do not control each provider&apos;s separate retention schedule.
+          RecallMate also uses service providers for hosting, authentication, database and file storage, email delivery, and optional integrations. These include Supabase and Vercel. Google receives the information required for a Calendar integration you authorize. We do not control each provider&apos;s separate retention schedule.
         </p>
         <p>Please avoid uploading highly sensitive personal information unless it is necessary for your study use.</p>
       </LegalSection>
