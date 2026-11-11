@@ -24,7 +24,7 @@ export default function SignupPage({
 }) {
   const [privacyAgreed, setPrivacyAgreed] = useState(false);
 
-  let next = "/upload";
+  let next = "/dashboard";
   if (
     searchParams.next &&
     searchParams.next.startsWith("/") &&
@@ -46,81 +46,7 @@ export default function SignupPage({
           </p>
         </div>
 
-        {/* Privacy acknowledgement — explicit, unchecked by default */}
-        <div className="flex items-start gap-3 bg-slate-50 dark:bg-slate-900/50 p-4 rounded-xl border border-slate-200 dark:border-slate-800">
-          <input
-            id="privacy-checkbox"
-            type="checkbox"
-            checked={privacyAgreed}
-            onChange={(e) => setPrivacyAgreed(e.target.checked)}
-            className="mt-1 h-4 w-4 rounded border-slate-300 dark:border-slate-700 text-indigo-600 focus:ring-indigo-500 focus:ring-offset-0 cursor-pointer shrink-0"
-            aria-required="true"
-          />
-          <div className="text-sm text-slate-600 dark:text-slate-400 leading-relaxed select-none">
-            <label htmlFor="privacy-checkbox" className="cursor-pointer">
-              I have read and agree to the{" "}
-            </label>
-            <Dialog>
-              <DialogTrigger asChild>
-                <button
-                  type="button"
-                  className="font-medium text-indigo-600 dark:text-indigo-400 hover:underline"
-                >
-                  Privacy Policy
-                </button>
-              </DialogTrigger>
-              <DialogContent className="max-w-2xl max-h-[85vh] flex flex-col" onClick={(e) => e.stopPropagation()}>
-                <DialogHeader>
-                  <DialogTitle>Privacy Policy</DialogTitle>
-                </DialogHeader>
-                <div className="flex-1 overflow-y-auto pr-2 min-h-0">
-                  <PrivacyContent />
-                </div>
-                <div className="flex justify-end pt-4 border-t mt-auto">
-                  <DialogClose asChild>
-                    <Button variant="outline">Close</Button>
-                  </DialogClose>
-                </div>
-              </DialogContent>
-            </Dialog>
-            {" "}and{" "}
-            <Dialog>
-              <DialogTrigger asChild>
-                <button
-                  type="button"
-                  className="font-medium text-indigo-600 dark:text-indigo-400 hover:underline"
-                >
-                  Terms of Service
-                </button>
-              </DialogTrigger>
-              <DialogContent className="max-w-2xl max-h-[85vh] flex flex-col" onClick={(e) => e.stopPropagation()}>
-                <DialogHeader>
-                  <DialogTitle>Terms of Service</DialogTitle>
-                </DialogHeader>
-                <div className="flex-1 overflow-y-auto pr-2 min-h-0">
-                  <TermsContent />
-                </div>
-                <div className="flex justify-end pt-4 border-t mt-auto">
-                  <DialogClose asChild>
-                    <Button variant="outline">Close</Button>
-                  </DialogClose>
-                </div>
-              </DialogContent>
-            </Dialog>
-            .
-          </div>
-        </div>
-
-        {!privacyAgreed && (
-          <p
-            role="note"
-            className="text-xs text-rose-500 dark:text-rose-400 text-center font-medium"
-          >
-            Please agree to the legal terms to create your account.
-          </p>
-        )}
-
-        <div className={`space-y-6 transition-opacity duration-200 ${!privacyAgreed ? "opacity-50 pointer-events-none grayscale-[0.5]" : ""}`}>
+        <div className={space-y-6 transition-opacity duration-200 }>
           {/* Google OAuth */}
           <OAuthButtons redirectTo={next} />
 
@@ -140,8 +66,84 @@ export default function SignupPage({
           <EmailOTPForm intent="signup" privacyAgreed={privacyAgreed} redirectTo={next} />
         </div>
 
+        {/* Privacy acknowledgement */}
+        <div className="flex flex-col items-center gap-3 mt-4">
+          {!privacyAgreed && (
+            <p
+              role="note"
+              className="text-xs text-rose-500 dark:text-rose-400 text-center font-medium transition-all"
+            >
+              Please agree to the legal terms to create your account.
+            </p>
+          )}
+          
+          <div className="flex items-start gap-3 bg-slate-50 dark:bg-slate-900/50 p-4 rounded-xl border border-slate-200 dark:border-slate-800 w-full">
+            <input
+              id="privacy-checkbox"
+              type="checkbox"
+              checked={privacyAgreed}
+              onChange={(e) => setPrivacyAgreed(e.target.checked)}
+              className="mt-1 h-4 w-4 rounded border-slate-300 dark:border-slate-700 text-indigo-600 focus:ring-indigo-500 focus:ring-offset-0 cursor-pointer shrink-0"
+              aria-required="true"
+            />
+            <div className="text-sm text-slate-600 dark:text-slate-400 leading-relaxed select-none">
+              <label htmlFor="privacy-checkbox" className="cursor-pointer">
+                I have read and agree to the{" "}
+              </label>
+              <Dialog>
+                <DialogTrigger asChild>
+                  <button
+                    type="button"
+                    className="font-medium text-indigo-600 dark:text-indigo-400 hover:underline"
+                  >
+                    Privacy Policy
+                  </button>
+                </DialogTrigger>
+                <DialogContent className="max-w-2xl max-h-[85vh] flex flex-col" onClick={(e) => e.stopPropagation()}>
+                  <DialogHeader>
+                    <DialogTitle>Privacy Policy</DialogTitle>
+                  </DialogHeader>
+                  <div className="flex-1 overflow-y-auto pr-2 min-h-0">
+                    <PrivacyContent />
+                  </div>
+                  <div className="flex justify-end pt-4 border-t mt-auto">
+                    <DialogClose asChild>
+                      <Button variant="outline">Close</Button>
+                    </DialogClose>
+                  </div>
+                </DialogContent>
+              </Dialog>
+              {" "}and{" "}
+              <Dialog>
+                <DialogTrigger asChild>
+                  <button
+                    type="button"
+                    className="font-medium text-indigo-600 dark:text-indigo-400 hover:underline"
+                  >
+                    Terms of Service
+                  </button>
+                </DialogTrigger>
+                <DialogContent className="max-w-2xl max-h-[85vh] flex flex-col" onClick={(e) => e.stopPropagation()}>
+                  <DialogHeader>
+                    <DialogTitle>Terms of Service</DialogTitle>
+                  </DialogHeader>
+                  <div className="flex-1 overflow-y-auto pr-2 min-h-0">
+                    <TermsContent />
+                  </div>
+                  <div className="flex justify-end pt-4 border-t mt-auto">
+                    <DialogClose asChild>
+                      <Button variant="outline">Close</Button>
+                    </DialogClose>
+                  </div>
+                </DialogContent>
+              </Dialog>
+              .
+            </div>
+          </div>
+        </div>
+
         {/* Sign in link */}
-        <p className="text-center text-sm text-slate-500 dark:text-slate-400">
+        <p className="text-center text-sm text-slate-500 dark:text-slate-400 pt-2">
           Already have an account?{" "}
           <Link
             href="/login"
