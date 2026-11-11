@@ -5,18 +5,18 @@ import { checkRateLimit } from '@/lib/security'
 
 export const runtime = 'nodejs'
 
-async function collectUserFiles(admin: ReturnType<typeof createAdminClient>, bucket: string, prefix: string): Promise<string[]> {
+async function collectUserFiles(storage: ReturnType<typeof createAdminClient>['storage'], bucket: string, prefix: string): Promise<string[]> {
   const files: string[] = []
   const pageSize = 100
   for (let offset = 0; ; offset += pageSize) {
-    const { data, error } = await admin.storage.from(bucket).list(prefix, { limit: pageSize, offset, sortBy: { column: 'name', order: 'asc' } })
+    const { data, error } = await storage.from(bucket).list(prefix, { limit: pageSize, offset, sortBy: { column: 'name', order: 'asc' } })
     if (error) throw new Error(`Storage listing failed for ${bucket}`)
     if (!data?.length) break
 
     for (const entry of data) {
       const path = prefix ? `${prefix}/${entry.name}` : entry.name
       if (entry.id) files.push(path)
-      else files.push(...await collectUserFiles(admin, bucket, path))
+      else files.push(...await collectUserFiles(storage, bucket, path))
     }
     if (data.length < pageSize) break
   }
@@ -51,7 +51,7 @@ export async function DELETE() {
     // Remove all user-owned files from the application's private storage folders.
     // Only paths rooted at this authenticated user's UUID are ever considered.
     for (const bucket of ['study_materials', 'reviewers']) {
-      const paths = await collectUserFiles(admin, bucket, user.id)
+      const paths = await collectUserFiles(admin.storage, bucket, user.id)
       for (let index = 0; index < paths.length; index += 100) {
         const { error } = await admin.storage.from(bucket).remove(paths.slice(index, index + 100))
         if (error) throw new Error(`Storage cleanup failed for ${bucket}`)
