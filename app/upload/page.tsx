@@ -114,7 +114,9 @@ export default function UploadPage() {
   const { isPremium } = useAppStore();
 
   const maxLimit = isPremium ? 50 : 30;
-  const MAX_AI_CHARS = 15000; 
+  
+  // SPEED OPTIMIZATION: Reduced from 15000 to 8000 to guarantee it processes before Vercel times out.
+  const MAX_AI_CHARS = 8000; 
 
   useEffect(() => {
     const rawContent = sessionStorage.getItem("recallmate-content");
@@ -374,13 +376,14 @@ export default function UploadPage() {
         textToSend = "User generated session content based on previous upload.";
       }
 
+      // Final guarantee the payload is small enough for Vercel to process quickly
       if (textToSend.length > MAX_AI_CHARS) {
         textToSend = textToSend.substring(0, MAX_AI_CHARS) + "\n\n[Note: Content truncated for speed.]";
       }
 
       const controller = new AbortController();
-      // FIX: Increased from 22 seconds to 60 seconds to give the AI plenty of time to type the quiz
-      const timeoutId = setTimeout(() => controller.abort(), 60000); 
+      // Increased to 90 seconds to ensure the frontend never prematurely kills the request
+      const timeoutId = setTimeout(() => controller.abort(), 90000); 
 
       try {
         const genRes = await fetch("/api/generate-content", {
@@ -398,12 +401,19 @@ export default function UploadPage() {
 
         clearTimeout(timeoutId);
 
-        const genData = await genRes.json();
-
+        // VERCEL TIMEOUT FIX: Check for 504 Gateway Timeout specifically before parsing JSON
         if (!genRes.ok) {
-          throw new Error(genData.error || "Failed to generate study content.");
+          if (genRes.status === 504) {
+            throw new Error("Vercel Timeout (504): The AI is taking longer than Vercel's 10-second server limit to write the quiz. Please reduce the number of questions.");
+          }
+          
+          let errText = await genRes.text();
+          let errData;
+          try { errData = JSON.parse(errText); } catch(e) {}
+          throw new Error(errData?.error || `Server Error ${genRes.status}: Failed to generate study content.`);
         }
 
+        const genData = await genRes.json();
         sessionStorage.setItem("recallmate-content", JSON.stringify(genData));
         
         if (studyMode === "quiz") {
