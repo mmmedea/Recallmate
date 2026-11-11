@@ -71,14 +71,9 @@ export default function UploadPage() {
         let originalName = rawFile.name || "upload";
         let tempFileName = originalName.toLowerCase();
         
-        // Attempt to extract the extension
         let extMatch = tempFileName.match(/\.[0-9a-z]+$/i);
         let ext = extMatch ? extMatch[0] : "";
 
-        // ==========================================
-        // 🔴 ANDROID/DRIVE FIX: Restore Missing Extensions
-        // Mobile file pickers often hide the extension. We MUST rebuild it using the hidden MIME type.
-        // ==========================================
         const mime = (rawFile.type || "").toLowerCase();
         if (!ext || !['.txt','.md','.csv','.doc','.docx','.pdf','.pptx','.jpg','.jpeg','.png','.webp','.mp4','.mp3'].includes(ext)) {
           if (mime.includes("pdf")) ext = ".pdf";
@@ -88,12 +83,11 @@ export default function UploadPage() {
           else if (mime.includes("csv")) ext = ".csv";
           else if (mime.includes("image/jpeg")) ext = ".jpg";
           else if (mime.includes("image/png")) ext = ".png";
-          else ext = ".bin"; // Genuinely unknown file
+          else ext = ".bin"; 
           
           tempFileName = `upload${ext}`;
         }
 
-        // Now that the extension is fixed, save the proper names
         fileNames.push(originalName);
         const fileName = tempFileName;
         const safeFileName = `file_${Date.now()}${ext}`;
@@ -101,12 +95,8 @@ export default function UploadPage() {
         let extractedTextForFile = "";
         let clientSideFailed = false;
 
-        // Decouple from the buggy OS File object immediately
         const arrayBuffer = await readFileSafely(rawFile);
 
-        // ==========================================
-        // 1. CLIENT-SIDE EXTRACTION
-        // ==========================================
         try {
           if (ext === ".txt" || ext === ".md" || ext === ".csv") {
             const textDecoder = new TextDecoder("utf-8");
@@ -179,19 +169,12 @@ export default function UploadPage() {
             }
             
             pdf.destroy();
-
-            if (pdf.numPages > 50) {
-              extractedTextForFile += "\n[System Note: The PDF was truncated to the first 50 pages to optimize AI memory and processing speed.]\n";
-            }
           }
         } catch (clientErr) {
           console.error("Client browser failed to read file, routing to server backend...", clientErr);
           clientSideFailed = true; 
         }
 
-        // ==========================================
-        // 2. SERVER-SIDE FALLBACK (NUCLEAR SAFARI FIX)
-        // ==========================================
         if (
           clientSideFailed || 
           (![".txt", ".md", ".csv", ".doc", ".docx", ".pdf", ".pptx"].includes(ext))
@@ -201,7 +184,6 @@ export default function UploadPage() {
             throw new Error(`"${originalName}" is too large. Server extraction limit is 4.5MB.`);
           }
 
-          // Assign correct MIME type dynamically based on the verified extension
           let safeMime = "application/octet-stream";
           if (ext === ".jpg" || ext === ".jpeg") safeMime = "image/jpeg";
           else if (ext === ".png") safeMime = "image/png";
@@ -212,7 +194,6 @@ export default function UploadPage() {
           else if (ext === ".pptx") safeMime = "application/vnd.openxmlformats-officedocument.presentationml.presentation";
           else if (ext === ".docx") safeMime = "application/vnd.openxmlformats-officedocument.wordprocessingml.document";
 
-          // Construct pristine Blob with hardcoded MIME type to prevent network crashes
           const pristineBlob = new Blob([arrayBuffer], { type: safeMime });
           const form = new FormData();
           form.append("file", pristineBlob, safeFileName);
@@ -264,31 +245,61 @@ export default function UploadPage() {
         textToSend = "User generated session content based on previous upload.";
       }
 
-      const genRes = await fetch("/api/generate-content", {
-        method: "POST",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({
-          text: textToSend,
-          fileName: fileName || "Study Material",
-          count: questionCount,
-          difficulty: selectedDifficulty,
-          isPremium: isPremium
-        })
-      });
-
-      const genData = await genRes.json();
-
-      if (!genRes.ok) {
-        throw new Error(genData.error || "Failed to generate study content.");
+      // =========================================================================
+      // CRITICAL SPEED FIX 1: Truncate massive text to prevent 10s Vercel Timeout
+      // =========================================================================
+      const MAX_CHARS = 15000; // Roughly 2,500 words. Fast enough to beat the 10s clock.
+      if (textToSend.length > MAX_CHARS) {
+        console.warn(`Truncating text from ${textToSend.length} to ${MAX_CHARS} characters to prevent server timeout.`);
+        textToSend = textToSend.substring(0, MAX_CHARS) + "\n\n[System Note: Content truncated to ensure fast AI processing and prevent server timeouts.]";
       }
 
-      sessionStorage.setItem("recallmate-content", JSON.stringify(genData));
-      
-      if (studyMode === "quiz") {
-        router.push("/quiz");
-      } else {
-        router.push("/notes");
+      // =========================================================================
+      // CRITICAL SPEED FIX 2: Prevent Infinite Spinning with a Timeout Controller
+      // =========================================================================
+      const controller = new AbortController();
+      // If the server doesn't respond in 25 seconds, we kill it so it doesn't spin forever.
+      const timeoutId = setTimeout(() => controller.abort(), 25000);
+
+      try {
+        const genRes = await fetch("/api/generate-content", {
+          method: "POST",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({
+            text: textToSend,
+            fileName: fileName || "Study Material",
+            count: questionCount,
+            difficulty: selectedDifficulty,
+            isPremium: isPremium
+          }),
+          signal: controller.signal
+        });
+
+        clearTimeout(timeoutId); // Success, clear the timeout
+
+        const genData = await genRes.json();
+
+        if (!genRes.ok) {
+          throw new Error(genData.error || "Failed to generate study content.");
+        }
+
+        sessionStorage.setItem("recallmate-content", JSON.stringify(genData));
+        
+        if (studyMode === "quiz") {
+          router.push("/quiz");
+        } else {
+          router.push("/notes");
+        }
+
+      } catch (fetchErr: any) {
+        clearTimeout(timeoutId);
+        // If the 25 seconds ran out, this catches the AbortError
+        if (fetchErr.name === 'AbortError') {
+          throw new Error("The AI took too long to respond. Try reducing the number of questions or uploading a shorter file.");
+        }
+        throw fetchErr; // Re-throw other errors to be caught by the outer block
       }
+
     } catch (err) {
       setError(err instanceof Error ? err.message : "Something went wrong.");
       setStatus("idle");
