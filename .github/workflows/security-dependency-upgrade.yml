@@ -1,4 +1,4 @@
-name: Security dependency upgrade and validation (lifecycle type fixes)
+name: Security validation
 
 on:
   workflow_dispatch:
@@ -7,62 +7,61 @@ on:
       - main
 
 permissions:
-  contents: write
+  contents: read
 
 concurrency:
-  group: security-dependency-upgrade
-  cancel-in-progress: false
+  group: security-validation-${{ github.event.pull_request.number || github.ref }}
+  cancel-in-progress: true
 
 jobs:
-  upgrade-and-verify:
+  validate:
     runs-on: ubuntu-latest
-    timeout-minutes: 20
+    timeout-minutes: 30
     steps:
-      - name: Check out security branch
-        uses: actions/checkout@v4
-        with:
-          ref: security/hardening-review
+      - name: Check out pull request
+        uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262 # v4
 
       - name: Set up Node.js
-        uses: actions/setup-node@v4
+        uses: actions/setup-node@49933ea5288caeca8642d1e84afbd3f7d6820020 # v4
         with:
           node-version: 22
           cache: npm
 
-      - name: Upgrade Next.js to patched maintenance release
-        run: npm install --save-exact next@15.5.28 eslint-config-next@15.5.28
+      - name: Install locked dependencies
+        run: npm ci
 
-      - name: Commit refreshed dependency lockfile
-        run: |
-          git config user.name "github-actions[bot]"
-          git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
-          git add package.json package-lock.json
-          if ! git diff --cached --quiet; then
-            git commit -m "security: upgrade Next.js to patched 15.5.28"
-            git fetch origin security/hardening-review
-            git rebase origin/security/hardening-review
-            git push origin HEAD:security/hardening-review
-          fi
-
-      - name: Build with type and lint checks enabled
+      - name: Build with type and lint checks
         run: npm run build
 
       - name: Run automated tests
         run: npm run test:run
 
       - name: Report dependency vulnerabilities
+        if: always()
         continue-on-error: true
         run: |
           npm audit --json > /tmp/full-audit.json || true
           npm audit --omit=dev --json > /tmp/production-audit.json || true
           node - <<'NODE'
-          const fs = require('fs');
+          const fs = require('node:fs');
           for (const [label, file] of [['all', '/tmp/full-audit.json'], ['production', '/tmp/production-audit.json']]) {
-            const report = JSON.parse(fs.readFileSync(file, 'utf8'));
+            let report = {};
+            try {
+              report = JSON.parse(fs.readFileSync(file, 'utf8'));
+            } catch {
+              console.log(label + ': audit report unavailable');
+              continue;
+            }
             console.log(label + ' totals:', JSON.stringify(report.metadata?.vulnerabilities || {}));
             for (const [name, item] of Object.entries(report.vulnerabilities || {})) {
               if (['high', 'critical'].includes(item.severity)) {
-                console.log(JSON.stringify({ name, severity: item.severity, direct: item.isDirect, range: item.range, fixAvailable: item.fixAvailable }));
+                console.log(JSON.stringify({
+                  name,
+                  severity: item.severity,
+                  direct: item.isDirect,
+                  range: item.range,
+                  fixAvailable: item.fixAvailable
+                }));
               }
             }
           }
