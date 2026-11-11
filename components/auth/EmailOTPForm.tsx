@@ -35,8 +35,12 @@ const AUTH_ERRORS: Record<string, string> = {
   captcha_required: "Please complete the security check to continue.",
   captcha_failed: "Security verification failed. Please try again.",
   email_delivery: "We couldn't send the email. Check the address and try again.",
+  email_invalid: "Enter a valid email address, including Gmail addresses such as name@gmail.com.",
+  account_exists: "An account already uses this email. Sign in instead, or reset your password.",
+  email_unconfirmed: "This account has not been verified yet. Finish email verification before signing in.",
+  service_unavailable: "RecallMate sign-in is temporarily unavailable. Please try again shortly.",
   network: "Connection error. Check your connection and try again.",
-  invalid_credentials: "The email or password is incorrect. If you do not have an account yet, create one first.",
+  invalid_credentials: "We couldn't find a matching RecallMate account, or the password is incorrect. If you haven't signed up yet, create an account first.",
   username_required: "Choose a username using 3–30 letters, numbers, or underscores.",
   weak_password: "Use at least 8 characters and include one special symbol.",
   password_mismatch: "The passwords do not match.",
@@ -103,14 +107,27 @@ export function EmailOTPForm({
     if (!normalizedEmail || !signInPassword) return;
     setIsLoading(true);
     setErrorKey(null);
-    const { error } = await supabase.auth.signInWithPassword({ email: normalizedEmail, password: signInPassword });
-    if (error) {
-      setErrorKey(error.message.toLowerCase().includes("invalid login credentials") ? "invalid_credentials" : "error");
+    try {
+      const { error } = await supabase.auth.signInWithPassword({ email: normalizedEmail, password: signInPassword });
+      if (error) {
+        const message = error.message.toLowerCase();
+        const key = message.includes("invalid login credentials") || message.includes("user not found")
+          ? "invalid_credentials"
+          : message.includes("email not confirmed")
+            ? "email_unconfirmed"
+            : message.includes("rate")
+              ? "rate_limited"
+              : "service_unavailable";
+        setErrorKey(key);
+        return;
+      }
+      router.replace(destination);
+      router.refresh();
+    } catch {
+      setErrorKey("network");
+    } finally {
       setIsLoading(false);
-      return;
     }
-    router.replace(destination);
-    router.refresh();
   }, [destination, email, router, signInPassword, supabase]);
 
   const handleSendOTP = useCallback(async (event?: React.FormEvent) => {
@@ -136,7 +153,14 @@ export function EmailOTPForm({
         },
       });
       if (error) {
-        const key = error.message.toLowerCase().includes("rate") ? "rate_limited" : "email_delivery";
+        const message = error.message.toLowerCase();
+        const key = message.includes("already") || message.includes("registered") || message.includes("exists")
+          ? "account_exists"
+          : message.includes("invalid") && message.includes("email")
+            ? "email_invalid"
+            : message.includes("rate")
+              ? "rate_limited"
+              : "email_delivery";
         setErrorKey(key);
         setOTPState(key === "rate_limited" ? "rate_limited" : "error");
         return;
@@ -208,12 +232,12 @@ export function EmailOTPForm({
   if (stage === "credentials") {
     return <form onSubmit={handleSendOTP} className="space-y-4" noValidate>
       <div className="space-y-1.5"><Label htmlFor="username-input">Username</Label><Input id="username-input" value={username} onChange={event => onUsernameChange?.(event.target.value)} placeholder="your_username" autoComplete="username" disabled={isLoading} required /></div>
-      <div className="space-y-1.5"><Label htmlFor="signup-email">Email</Label><Input id="signup-email" type="email" value={email} onChange={event => setEmail(event.target.value)} placeholder="you@example.com" autoComplete="email" disabled={isLoading} required /></div>
+      <div className="space-y-1.5"><Label htmlFor="signup-email">Email</Label><Input id="signup-email" type="email" value={email} onChange={event => setEmail(event.target.value)} placeholder="you@gmail.com" autoComplete="email" disabled={isLoading} required /><p className="text-xs text-slate-500 dark:text-slate-400">Gmail and other valid email addresses are supported.</p></div>
       <div className="space-y-1.5"><Label htmlFor="password-input">Password</Label><Input id="password-input" type="password" value={password} onChange={event => onPasswordChange?.(event.target.value)} placeholder="8+ characters and 1 special symbol" autoComplete="new-password" disabled={isLoading} required /></div>
       <div className="space-y-1.5"><Label htmlFor="confirm-password-input">Confirm password</Label><Input id="confirm-password-input" type="password" value={confirmPassword} onChange={event => onConfirmPasswordChange?.(event.target.value)} autoComplete="new-password" disabled={isLoading} required /></div>
       {captchaEnabled && <TurnstileCaptcha onVerify={setCaptchaToken} onExpire={() => setCaptchaToken(null)} onError={() => { setCaptchaToken(null); setErrorKey("captcha_failed"); }} />}
       {currentError && <p id={errorId} role="alert" className="text-sm text-rose-600 dark:text-rose-400">{currentError}</p>}
-      <Button type="submit" className="h-11 w-full bg-indigo-600 font-semibold hover:bg-indigo-700" disabled={isLoading || !email.trim() || !privacyAgreed}>{isLoading ? <Loader2 className="h-4 w-4 animate-spin" /> : <><Mail className="h-4 w-4" />Create account & send code</>}</Button>
+      <Button type="submit" className="h-11 w-full bg-indigo-600 font-semibold hover:bg-indigo-700" disabled={isLoading || !email.trim()}>{isLoading ? <Loader2 className="h-4 w-4 animate-spin" /> : <><Mail className="h-4 w-4" />Create account & send code</>}</Button>
     </form>;
   }
 
@@ -222,7 +246,7 @@ export function EmailOTPForm({
   };
   const maskedEmail = maskEmail(otpFlowContext?.email ?? email);
   return <form onSubmit={event => { event.preventDefault(); void verifyCode(otpValue); }} className="space-y-6" noValidate>
-    <div className="space-y-1 text-center"><p className="text-sm text-slate-600 dark:text-slate-400">Enter the verification code sent to</p><p className="text-sm font-semibold text-slate-900 dark:text-white">{maskedEmail}</p><p className="text-xs text-slate-500 dark:text-slate-400">Check your inbox and spam folder. Resend becomes available after one minute.</p></div>
+    <div className="space-y-1 text-center"><p className="text-sm text-slate-600 dark:text-slate-400">Enter the verification code sent to</p><p className="text-sm font-semibold text-slate-900 dark:text-white">{maskedEmail}</p><p className="text-xs text-slate-500 dark:text-slate-400">Check your Gmail inbox first. Delivery can take a moment; resend becomes available after one minute.</p></div>
     <div className="space-y-3"><OTPInput value={otpValue} onChange={value => { setOtpValue(value); if (value.length === 6) void verifyCode(value); }} disabled={isLoading} hasError={Boolean(currentError)} aria-describedby={currentError ? errorId : undefined} />{currentError && <p id={errorId} role="alert" aria-live="assertive" className="text-center text-sm text-rose-600 dark:text-rose-400">{currentError}</p>}</div>
     <Button type="submit" className="h-11 w-full bg-indigo-600 font-semibold hover:bg-indigo-700" disabled={isLoading || otpValue.length !== 6}>{isLoading ? <Loader2 className="h-4 w-4 animate-spin" /> : "Verify code & continue"}</Button>
     <div className="flex items-center justify-between text-sm"><ResendButton onResend={handleResend} disabled={isLoading} /><button type="button" onClick={changeEmail} className="rounded text-slate-500 transition-colors hover:text-indigo-600 dark:text-slate-400">Change email</button></div>
