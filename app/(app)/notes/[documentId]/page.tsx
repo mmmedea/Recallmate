@@ -4,8 +4,8 @@ import { redirect } from 'next/navigation'
 import { ArrowLeft } from 'lucide-react'
 import Link from 'next/link'
 
-export default async function NotesPage({ params }: { params: { documentId: string } }) {
-  const { documentId } = params
+export default async function NotesPage({ params }: { params: Promise<{ documentId: string }> }) {
+  const { documentId } = await params
 
   const { success, data, error } = await getNotesViewModel(documentId)
 
