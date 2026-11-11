@@ -2,8 +2,25 @@
 
 import { useState, useEffect, useRef } from "react";
 import { createPortal } from "react-dom";
-import { Sparkles, X, Send, Bot, User, BookOpen, Brain, RefreshCw, ChevronRight } from "lucide-react";
+import {
+  Sparkles,
+  X,
+  Send,
+  Bot,
+  User,
+  BookOpen,
+  Brain,
+  RefreshCw,
+  Paperclip,
+  Crown,
+  FileText,
+  Youtube,
+  Zap,
+  HelpCircle,
+  CheckCircle2,
+} from "lucide-react";
 import MathRenderer from "./MathRenderer";
+import { useAppStore } from "@/lib/store";
 
 interface Message {
   id: string;
@@ -18,11 +35,19 @@ export default function OmniChatDrawer() {
   const [mode, setMode] = useState<"tutor" | "dictionary" | "socratic">("tutor");
   const [input, setInput] = useState("");
   const [loading, setLoading] = useState(false);
+  const [uploading, setUploading] = useState(false);
+  const [youtubeOpen, setYoutubeOpen] = useState(false);
+  const [youtubeUrl, setYoutubeUrl] = useState("");
+
+  const { isPremium, activeChatContext, addChatContext } = useAppStore();
+  const fileInputRef = useRef<HTMLInputElement>(null);
+
   const [messages, setMessages] = useState<Message[]>([
     {
       id: "init",
       role: "assistant",
-      content: "Hello! I'm **Medea**! I'm your Assistant AI Tutor. Ask me anything about your uploaded study notes, technical definitions, or concepts!",
+      content:
+        "Hello! I'm **Medea**! I'm your Assistant AI Tutor. Ask me anything about your uploaded study notes, technical definitions, or concepts!",
       timestamp: new Date().toLocaleTimeString([], { hour: "2-digit", minute: "2-digit" }),
     },
   ]);
@@ -41,17 +66,17 @@ export default function OmniChatDrawer() {
 
   if (!mounted) return null;
 
-  const handleSend = async (e?: React.FormEvent) => {
+  const handleSend = async (e?: React.FormEvent, customText?: string) => {
     if (e) e.preventDefault();
-    if (!input.trim() || loading) return;
+    const textToSend = (customText || input).trim();
+    if (!textToSend || loading) return;
 
-    const userText = input.trim();
     setInput("");
 
     const userMsg: Message = {
       id: Date.now().toString(),
       role: "user",
-      content: userText,
+      content: textToSend,
       timestamp: new Date().toLocaleTimeString([], { hour: "2-digit", minute: "2-digit" }),
     };
 
@@ -59,16 +84,22 @@ export default function OmniChatDrawer() {
     setLoading(true);
 
     try {
-      // Get active study context from sessionStorage
+      // Build context string from activeChatContext + sessionStorage
       let docContext = "";
-      const raw = sessionStorage.getItem("recallmate-content");
-      if (raw) {
-        try {
-          const parsed = JSON.parse(raw);
-          docContext = `File: ${parsed.fileName || ""}\nSummary: ${parsed.summary || ""}\nNotes: ${
-            Array.isArray(parsed.notes) ? parsed.notes.join("; ") : ""
-          }`;
-        } catch (e) {}
+      if (activeChatContext.length > 0) {
+        docContext = activeChatContext
+          .map((ctx) => `[${ctx.source_type.toUpperCase()}: ${ctx.source_name}]\n${ctx.extracted_text.slice(0, 4000)}`)
+          .join("\n\n");
+      } else {
+        const raw = sessionStorage.getItem("recallmate-content");
+        if (raw) {
+          try {
+            const parsed = JSON.parse(raw);
+            docContext = `File: ${parsed.fileName || ""}\nSummary: ${parsed.summary || ""}\nNotes: ${
+              Array.isArray(parsed.notes) ? parsed.notes.join("; ") : ""
+            }`;
+          } catch (e) {}
+        }
       }
 
       const res = await fetch("/api/chat", {
@@ -113,6 +144,71 @@ export default function OmniChatDrawer() {
     }
   };
 
+  const handleFileUpload = async (e: React.ChangeEvent<HTMLInputElement>) => {
+    const file = e.target.files?.[0];
+    if (!file) return;
+
+    setUploading(true);
+    const formData = new FormData();
+    formData.append("file", file);
+
+    try {
+      const res = await fetch("/api/extract-text", {
+        method: "POST",
+        body: formData,
+      });
+
+      const data = await res.json();
+      if (!res.ok) throw new Error(data.error || "Failed to parse document.");
+
+      addChatContext({
+        source_type: "document",
+        source_name: file.name,
+        extracted_text: data.text,
+      });
+
+      const noticeMsg = `📁 Ingested document: **${file.name}**. Initiate Predictive Exam sequence!`;
+      handleSend(undefined, noticeMsg);
+    } catch (err: any) {
+      alert(`File upload failed: ${err.message}`);
+    } finally {
+      setUploading(false);
+    }
+  };
+
+  const handleYoutubeSubmit = async (e: React.FormEvent) => {
+    e.preventDefault();
+    if (!youtubeUrl.trim()) return;
+
+    setUploading(true);
+    setYoutubeOpen(false);
+
+    try {
+      const res = await fetch("/api/transcribe", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ url: youtubeUrl }),
+      });
+
+      const data = await res.json();
+      if (!res.ok) throw new Error(data.error || "Failed to transcribe video.");
+
+      addChatContext({
+        source_type: "youtube_link",
+        source_name: "YouTube Lecture Video",
+        extracted_text: data.transcript,
+      });
+
+      const noticeMsg = `🎥 Ingested YouTube video. Initiate Predictive Exam sequence!`;
+      setYoutubeUrl("");
+      handleSend(undefined, noticeMsg);
+    } catch (err: any) {
+      alert(`YouTube transcription failed: ${err.message}`);
+    } finally {
+      setUploading(false);
+    }
+  };
+
   const drawerContent = (
     <>
       {/* Floating Trigger Button (Bottom Right) */}
@@ -144,9 +240,15 @@ export default function OmniChatDrawer() {
                 <div>
                   <h2 className="font-black text-slate-900 dark:text-white text-base flex items-center gap-1.5">
                     Medea – AI Tutor
-                    <span className="px-2 py-0.5 text-[10px] font-bold uppercase tracking-wider text-emerald-600 bg-emerald-100 dark:bg-emerald-950 dark:text-emerald-400 rounded-full">
-                      Online
-                    </span>
+                    {isPremium ? (
+                      <span className="px-2 py-0.5 text-[10px] font-black uppercase tracking-wider text-slate-950 bg-gradient-to-r from-amber-400 to-yellow-500 rounded-full flex items-center gap-1">
+                        <Crown className="w-3 h-3 fill-slate-950" /> Unlimited
+                      </span>
+                    ) : (
+                      <span className="px-2 py-0.5 text-[10px] font-bold uppercase tracking-wider text-emerald-600 bg-emerald-100 dark:bg-emerald-950 dark:text-emerald-400 rounded-full">
+                        Online
+                      </span>
+                    )}
                   </h2>
                   <p className="text-xs text-slate-500 dark:text-slate-400">
                     Interactive Tutor & Study Assistant
@@ -186,6 +288,23 @@ export default function OmniChatDrawer() {
                 <BookOpen className="w-3.5 h-3.5" /> Dictionary Mode
               </button>
             </div>
+
+            {/* Active Context Provenance Bar */}
+            {activeChatContext.length > 0 && (
+              <div className="px-4 py-2 bg-indigo-50/70 dark:bg-indigo-950/40 border-b border-indigo-100 dark:border-indigo-900/40 flex items-center gap-2 overflow-x-auto text-[11px]">
+                <span className="font-bold text-indigo-700 dark:text-indigo-300 flex items-center gap-1">
+                  <FileText className="w-3 h-3" /> Material:
+                </span>
+                {activeChatContext.map((item) => (
+                  <span
+                    key={item.id}
+                    className="px-2 py-0.5 rounded-md bg-indigo-100 dark:bg-indigo-900/80 text-indigo-800 dark:text-indigo-200 font-semibold truncate max-w-[140px]"
+                  >
+                    {item.source_name}
+                  </span>
+                ))}
+              </div>
+            )}
 
             {/* Messages Thread */}
             <div className="flex-1 overflow-y-auto p-4 space-y-4">
@@ -227,14 +346,14 @@ export default function OmniChatDrawer() {
                 </div>
               ))}
 
-              {loading && (
+              {(loading || uploading) && (
                 <div className="flex gap-3 justify-start animate-pulse">
                   <div className="w-8 h-8 rounded-xl bg-indigo-100 dark:bg-indigo-950 text-indigo-600 dark:text-indigo-400 flex items-center justify-center">
                     <Bot className="w-4 h-4" />
                   </div>
                   <div className="bg-slate-100 dark:bg-slate-800 rounded-2xl p-4 text-xs font-semibold text-slate-500 dark:text-slate-400 flex items-center gap-2">
                     <RefreshCw className="w-3.5 h-3.5 animate-spin" />
-                    Medea is synthesizing an easy-to-understand response...
+                    {uploading ? "Ingesting document & extracting text..." : "Medea is synthesizing an easy-to-understand response..."}
                   </div>
                 </div>
               )}
@@ -242,52 +361,125 @@ export default function OmniChatDrawer() {
               <div ref={messagesEndRef} />
             </div>
 
-            {/* Quick Recommendation Chips */}
+            {/* Quick Recommendation Chips (3-Tier Difficulty Linked) */}
             <div className="px-4 py-2 bg-slate-50 dark:bg-slate-950 border-t border-slate-200 dark:border-slate-800">
               <p className="text-[10px] font-bold uppercase tracking-wider text-slate-400 mb-1.5 flex items-center gap-1">
-                <Sparkles className="w-3 h-3 text-indigo-500" /> Recommended Questions
+                <Sparkles className="w-3 h-3 text-indigo-500" /> Recommended Action Prompts
               </p>
               <div className="flex gap-1.5 overflow-x-auto pb-1 text-xs">
                 {[
-                  "Explain key concepts like I'm 5",
-                  "Give me a real-world example",
-                  "What should I review next?",
-                  "Test me on this topic",
-                ].map((q, idx) => (
+                  { text: "Explain like I'm 5", level: "Easy" },
+                  { text: "Give me a real-world example", level: "Easy" },
+                  { text: "Give me a practice problem", level: "Medium" },
+                  { text: "Predictive AI Exam", level: "Medium" },
+                  { text: "Mastery Challenge", level: "Hard" },
+                ].map((item, idx) => (
                   <button
                     key={idx}
-                    disabled={loading}
+                    disabled={loading || uploading}
                     onClick={() => {
-                      setInput(q);
+                      handleSend(undefined, item.text);
                     }}
-                    className="px-2.5 py-1 rounded-lg bg-indigo-50 dark:bg-indigo-950/60 hover:bg-indigo-100 dark:hover:bg-indigo-900 border border-indigo-200/60 dark:border-indigo-800/60 text-indigo-600 dark:text-indigo-300 font-semibold whitespace-nowrap transition-colors"
+                    className="px-2.5 py-1 rounded-lg bg-indigo-50 dark:bg-indigo-950/60 hover:bg-indigo-100 dark:hover:bg-indigo-900 border border-indigo-200/60 dark:border-indigo-800/60 text-indigo-600 dark:text-indigo-300 font-semibold whitespace-nowrap transition-colors flex items-center gap-1"
                   >
-                    {q}
+                    <span>{item.text}</span>
+                    <span className="text-[9px] px-1 py-0.2 bg-indigo-200/50 dark:bg-indigo-800/50 rounded font-bold uppercase">
+                      {item.level}
+                    </span>
                   </button>
                 ))}
               </div>
             </div>
 
-            {/* Input Form */}
+            {/* In-Chat Form + File Attachment Button */}
             <form
-              onSubmit={handleSend}
-              className="p-4 border-t border-slate-200 dark:border-slate-800 bg-white dark:bg-slate-900 flex gap-2"
+              onSubmit={(e) => handleSend(e)}
+              className="p-4 border-t border-slate-200 dark:border-slate-800 bg-white dark:bg-slate-900 flex gap-2 items-center"
             >
+              {/* File Upload Trigger */}
+              <input
+                type="file"
+                ref={fileInputRef}
+                onChange={handleFileUpload}
+                accept=".pdf,.docx,.txt,.md,image/*"
+                className="hidden"
+              />
+              <button
+                type="button"
+                onClick={() => fileInputRef.current?.click()}
+                disabled={loading || uploading}
+                title="Upload PDF, DOCX, image, or text file (50MB limit)"
+                className="p-3 rounded-xl bg-slate-100 dark:bg-slate-800 hover:bg-slate-200 dark:hover:bg-slate-700 text-slate-600 dark:text-slate-300 transition-colors"
+              >
+                <Paperclip className="w-4 h-4" />
+              </button>
+
+              {/* YouTube Modal Trigger */}
+              <button
+                type="button"
+                onClick={() => setYoutubeOpen(true)}
+                disabled={loading || uploading}
+                title="Paste YouTube link to ingest lecture audio transcript"
+                className="p-3 rounded-xl bg-rose-50 dark:bg-rose-950/60 hover:bg-rose-100 dark:hover:bg-rose-900 text-rose-600 dark:text-rose-300 transition-colors"
+              >
+                <Youtube className="w-4 h-4" />
+              </button>
+
               <input
                 type="text"
                 value={input}
                 onChange={(e) => setInput(e.target.value)}
                 placeholder="Ask Medea a question..."
-                disabled={loading}
+                disabled={loading || uploading}
                 className="flex-1 px-4 py-3 rounded-xl bg-slate-100 dark:bg-slate-800 border border-slate-200 dark:border-slate-700 text-slate-900 dark:text-white placeholder-slate-400 focus:outline-none focus:ring-2 focus:ring-indigo-500 font-medium text-sm transition-colors"
               />
+
               <button
                 type="submit"
-                disabled={!input.trim() || loading}
+                disabled={!input.trim() || loading || uploading}
                 className="px-4 py-3 rounded-xl bg-indigo-600 hover:bg-indigo-700 disabled:opacity-40 text-white font-bold shadow-md transition-all flex items-center justify-center"
               >
                 <Send className="w-4 h-4" />
               </button>
+            </form>
+          </div>
+        </div>
+      )}
+
+      {/* YouTube URL Modal */}
+      {youtubeOpen && (
+        <div className="fixed inset-0 z-[10000] flex items-center justify-center bg-black/60 backdrop-blur-sm p-4 animate-in fade-in duration-200">
+          <div className="w-full max-w-md rounded-2xl bg-white dark:bg-slate-900 p-6 shadow-2xl border border-slate-200 dark:border-slate-800 space-y-4">
+            <h3 className="text-lg font-black text-slate-900 dark:text-white flex items-center gap-2">
+              <Youtube className="w-5 h-5 text-rose-500" /> Ingest YouTube Lecture
+            </h3>
+            <p className="text-xs text-slate-500 dark:text-slate-400">
+              Paste a YouTube video URL to automatically extract its transcript and sync into Medea's study context.
+            </p>
+            <form onSubmit={handleYoutubeSubmit} className="space-y-3">
+              <input
+                type="url"
+                value={youtubeUrl}
+                onChange={(e) => setYoutubeUrl(e.target.value)}
+                placeholder="https://www.youtube.com/watch?v=..."
+                required
+                className="w-full px-4 py-3 rounded-xl bg-slate-100 dark:bg-slate-800 border border-slate-200 dark:border-slate-700 text-slate-900 dark:text-white placeholder-slate-400 text-sm focus:outline-none focus:ring-2 focus:ring-indigo-500 font-medium"
+              />
+              <div className="flex gap-2 justify-end">
+                <button
+                  type="button"
+                  onClick={() => setYoutubeOpen(false)}
+                  className="px-4 py-2 rounded-xl bg-slate-100 dark:bg-slate-800 text-slate-700 dark:text-slate-300 font-bold text-xs"
+                >
+                  Cancel
+                </button>
+                <button
+                  type="submit"
+                  className="px-4 py-2 rounded-xl bg-rose-600 text-white font-bold text-xs hover:bg-rose-700"
+                >
+                  Transcribe & Ingest
+                </button>
+              </div>
             </form>
           </div>
         </div>

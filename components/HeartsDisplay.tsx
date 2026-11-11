@@ -1,7 +1,7 @@
 "use client";
 
 import { useEffect, useState } from "react";
-import { Heart, Plus } from "lucide-react";
+import { Heart, Plus, Crown } from "lucide-react";
 import { useAppStore } from "@/lib/store";
 import { MAX_HEARTS, HEART_REGEN_MINUTES } from "@/lib/constants";
 import FeynmanRechargeModal from "./FeynmanRechargeModal";
@@ -31,9 +31,9 @@ export default function HeartsDisplay() {
 
   if (isPremium) {
     return (
-      <div className="flex items-center gap-1.5 rounded-full bg-gradient-to-r from-amber-400 to-orange-500 px-3 py-1.5 text-sm font-semibold text-white shadow-sm">
-        <Heart className="h-4 w-4 fill-white" />
-        <span>Unlimited</span>
+      <div className="flex items-center gap-1.5 rounded-full bg-gradient-to-r from-amber-400 via-amber-500 to-yellow-600 px-3.5 py-1.5 text-xs font-black uppercase tracking-wider text-slate-950 shadow-md border border-amber-300">
+        <Crown className="h-4 w-4 fill-slate-950 text-slate-950" />
+        <span>Unlimited ♾️</span>
       </div>
     );
   }
