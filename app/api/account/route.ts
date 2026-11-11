@@ -5,7 +5,19 @@ import { checkRateLimit } from '@/lib/security'
 
 export const runtime = 'nodejs'
 
-async function collectUserFiles(storage: ReturnType<typeof createAdminClient>['storage'], bucket: string, prefix: string): Promise<string[]> {
+type StorageListingClient = {
+  from: (bucket: string) => {
+    list: (
+      prefix: string,
+      options: { limit: number; offset: number; sortBy: { column: string; order: 'asc' | 'desc' } }
+    ) => Promise<{
+      data: Array<{ name: string; id: string | null }> | null
+      error: unknown
+    }>
+  }
+}
+
+async function collectUserFiles(storage: StorageListingClient, bucket: string, prefix: string): Promise<string[]> {
   const files: string[] = []
   const pageSize = 100
   for (let offset = 0; ; offset += pageSize) {
