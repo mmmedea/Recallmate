@@ -1,4 +1,4 @@
-name: Security dependency upgrade and validation (latest)
+name: Security dependency upgrade and validation (lifecycle type fixes)
 
 on:
   workflow_dispatch:
