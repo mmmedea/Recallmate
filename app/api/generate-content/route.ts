@@ -3,20 +3,30 @@ import { GoogleGenerativeAI } from "@google/generative-ai";
 
 export const runtime = "nodejs";
 
-const genAI = new GoogleGenerativeAI(process.env.GEMINI_API_KEY || "");
+const apiKey = process.env.GEMINI_API_KEY || "";
+const genAI = new GoogleGenerativeAI(apiKey);
 
-// Array of model fallback candidate strings
+// Model fallback candidate list
 const CANDIDATE_MODELS = [
   "gemini-2.5-flash",
-  "gemini-2.0-flash",
-  "gemini-1.5-flash-latest",
+  "gemini-1.5-flash",
   "gemini-2.5-pro",
   "gemini-pro"
 ];
 
 export async function POST(req: NextRequest) {
   try {
-    const { text, fileName } = await req.json();
+    // 1. Guard check for missing API Key
+    if (!apiKey) {
+      console.error("SERVER ERROR: GEMINI_API_KEY environment variable is missing.");
+      return NextResponse.json(
+        { error: "Server Configuration Error: GEMINI_API_KEY is not set in Vercel." },
+        { status: 500 }
+      );
+    }
+
+    const body = await req.json();
+    const { text, fileName } = body;
 
     if (!text || text.trim().length < 20) {
       return NextResponse.json(
@@ -25,13 +35,13 @@ export async function POST(req: NextRequest) {
       );
     }
 
-    const prompt = `You are an expert study assistant reviewing material from "${fileName}".
+    const prompt = `You are an expert study assistant reviewing material from "${fileName || "Uploaded File"}".
 Extracted File Content:
-"""${text.slice(0, 20000)}"""
+"""${text.slice(0, 18000)}"""
 
 Instructions:
-1. Focus STRICTLY on the facts and information presented in the uploaded file text above. Do NOT include outside knowledge or unreferenced facts.
-2. Return ONLY a single raw JSON object (NO markdown backticks, NO \`\`\`json fences).
+1. Focus STRICTLY on the facts presented in the uploaded file text above. Do NOT include outside knowledge or unreferenced facts.
+2. Return ONLY a single raw JSON object matching the exact structure below (no markdown formatting, no code fences).
 
 JSON Structure required:
 {
@@ -51,7 +61,7 @@ JSON Structure required:
         "correctAnswer": "A",
         "explanation": "Detailed explanation of why this answer is correct based on the file.",
         "sourceCitation": "Exact sentence or paragraph quoted from the file",
-        "pageNumber": "Page 1 or Section 1.2"
+        "pageNumber": "Page 1 or Section 1"
       }
     ],
     "medium": [],
@@ -61,36 +71,56 @@ JSON Structure required:
 
 Rules:
 - Provide 4 multiple-choice questions for each difficulty level (easy, medium, hard).
-- Provide options labeled A, B, C, and D.
-- Include the exact quote/source text and estimated page/section from the uploaded file for "sourceCitation" and "pageNumber".`;
+- Options must be labeled A, B, C, and D.
+- Include exact quote/source text and page/section number for "sourceCitation" and "pageNumber".`;
 
     let rawText = "";
     let lastError: any = null;
 
-    // Loop through model candidates until one succeeds
+    // 2. Fallback loop across available models
     for (const modelName of CANDIDATE_MODELS) {
       try {
+        console.log(`Attempting generation with model: ${modelName}`);
         const model = genAI.getGenerativeModel({ model: modelName });
         const result = await model.generateContent(prompt);
         const response = await result.response;
         rawText = response.text();
-        if (rawText) break; // Successfully fetched response!
+        if (rawText && rawText.length > 0) {
+          console.log(`Successfully generated content using model: ${modelName}`);
+          break;
+        }
       } catch (err: any) {
-        console.warn(`Model ${modelName} failed or returned 404, trying next...`, err?.message);
+        console.warn(`Model candidate ${modelName} failed:`, err?.message || err);
         lastError = err;
       }
     }
 
     if (!rawText) {
-      throw lastError || new Error("All model candidates failed.");
+      console.error("All Gemini model candidates failed. Last error:", lastError);
+      return NextResponse.json(
+        { error: "AI service failed to generate content. Please check model permissions." },
+        { status: 500 }
+      );
     }
 
-    const cleaned = rawText.replace(/^```json\s*/i, "").replace(/```$/i, "").trim();
-    const data = JSON.parse(cleaned);
+    // 3. Robust JSON Extraction Cleaning
+    const jsonMatch = rawText.match(/\{[\s\S]*\}/);
+    const cleanedJsonString = jsonMatch ? jsonMatch[0] : rawText.trim();
+
+    let data;
+    try {
+      data = JSON.parse(cleanedJsonString);
+    } catch (parseErr) {
+      console.error("JSON Parsing Failed. Raw text received from AI:", rawText);
+      return NextResponse.json(
+        { error: "Failed to parse structured study content from AI response." },
+        { status: 500 }
+      );
+    }
 
     return NextResponse.json({ fileName, ...data });
   } catch (err: any) {
-    console.error("Gemini Generation Error:", err);
+    console.error("Unhandled Error in /api/generate-content:", err?.stack || err);
     return NextResponse.json(
       { error: "Failed to generate study content. Please try again." },
       { status: 500 }
