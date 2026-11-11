@@ -6,12 +6,15 @@ import crypto from 'crypto';
 
 export async function POST(req: NextRequest) {
   try {
-    const { reviewerDocument, format, user_id, idempotencyHash } = await req.json();
+    const payloadString = await req.text();
+    const signature = req.headers.get('x-worker-signature');
+    const expectedSignature = crypto.createHmac('sha256', process.env.CRON_SECRET!).update(payloadString).digest('hex');
 
-    const authHeader = req.headers.get('authorization');
-    if (!authHeader || authHeader !== `Bearer ${process.env.CRON_SECRET}`) {
-      return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
+    if (!signature || signature !== expectedSignature) {
+      return NextResponse.json({ error: "Unauthorized Signature" }, { status: 401 });
     }
+
+    const { reviewerDocument, format, user_id, storagePath, reviewerOutputId } = JSON.parse(payloadString);
 
     if (format !== 'docx') {
       return NextResponse.json({ error: "Only DOCX rendering is supported currently." }, { status: 400 });
@@ -25,32 +28,19 @@ export async function POST(req: NextRequest) {
     // Render Binary
     let binaryBuffer: Buffer;
     binaryBuffer = await renderReviewerDocx(reviewerDocument as GeneratedReviewerDocument);
-
-    // Store in Supabase
-    const fileName = `${crypto.randomUUID()}.${format}`;
-    const storagePath = `${user_id}/${fileName}`;
     
     const { error: uploadError } = await supabase.storage
       .from('reviewers')
-      .upload(storagePath, binaryBuffer, { contentType: format === 'pdf' ? 'application/pdf' : 'application/vnd.openxmlformats-officedocument.wordprocessingml.document' });
+      .upload(storagePath, binaryBuffer, { contentType: 'application/vnd.openxmlformats-officedocument.wordprocessingml.document', upsert: true });
 
     if (uploadError) throw new Error(`Upload failed: ${uploadError.message}`);
 
-    // Find ReviewerDocument ID to link
-    const { data: docRecord } = await supabase.from('reviewer_documents')
-       .select('id').eq('user_id', user_id).order('created_at', { ascending: false }).limit(1).single();
-
     // Save Output Record
-    await supabase.from('reviewer_outputs').insert({
-      user_id,
-      reviewer_document_id: docRecord?.id,
-      format,
-      storage_path: storagePath,
+    await supabase.from('reviewer_outputs').update({
       renderer_version: '1.0',
       layout_version: '1.0',
-      idempotency_hash: idempotencyHash,
       file_size: binaryBuffer.byteLength
-    });
+    }).eq('id', reviewerOutputId);
 
     return NextResponse.json({ success: true, storagePath });
   } catch (error: any) {

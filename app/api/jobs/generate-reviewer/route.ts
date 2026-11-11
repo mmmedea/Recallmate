@@ -44,27 +44,46 @@ export async function POST(req: NextRequest) {
       creditsReserved = true;
 
       // 4. Generate Structured Document (or hit cache)
-      const { reviewerDocument, idempotencyHash } = await generator.generate({
+      const { reviewerDocument, documentId, idempotencyHash } = await generator.generate({
         userId: user.id,
         documentIds,
-        format
+        format,
+        instructions
       });
 
       // 5. Check if THIS format is already rendered
       const { data: existingOutput } = await supabase
         .from('reviewer_outputs')
-        .select('storage_path')
+        .select('storage_path, file_size, id')
         .eq('user_id', user.id)
         .eq('idempotency_hash', idempotencyHash)
         .eq('format', format)
         .maybeSingle();
 
-      if (existingOutput) {
+      if (existingOutput && existingOutput.file_size !== null) {
         await billingService.finalizeCharge(user.id, jobId, 50, 0, "Cache hit: Reviewer fully rendered already");
         return NextResponse.json({ success: true, storagePath: existingOutput.storage_path, cached: true });
       }
 
-      // 6. Invoke Isolated Renderer Route (Synchronously via network to avoid async timeout on Vercel)
+      // Create output record
+      const storagePath = `${user.id}/${crypto.randomUUID()}.${format}`;
+      let outputId = existingOutput?.id;
+
+      if (!existingOutput) {
+         const { data: outRecord, error: insertError } = await supabase.from('reviewer_outputs').insert({
+            user_id: user.id,
+            reviewer_document_id: documentId,
+            format,
+            storage_path: storagePath,
+            idempotency_hash: idempotencyHash,
+            renderer_version: '1.0-pending',
+            layout_version: '1.0-pending'
+         }).select('id').single();
+         if (insertError) throw new Error("Failed to create reviewer output record: " + insertError.message);
+         outputId = outRecord?.id;
+      }
+
+      // 6. Invoke Isolated Renderer Route
       let rendererUrl = "";
       let rendererSecret = process.env.CRON_SECRET;
       
@@ -79,18 +98,23 @@ export async function POST(req: NextRequest) {
         rendererUrl = `${baseUrl}/api/jobs/render`;
       }
 
+      // Sign the payload so worker trusts us
+      const payloadString = JSON.stringify({
+        reviewerOutputId: outputId,
+        storagePath,
+        format,
+        user_id: user.id,
+        reviewerDocument
+      });
+      const signature = crypto.createHmac('sha256', rendererSecret!).update(payloadString).digest('hex');
+
       const renderRes = await fetch(rendererUrl, {
         method: 'POST',
         headers: {
           'Content-Type': 'application/json',
-          'Authorization': `Bearer ${rendererSecret}`
+          'X-Worker-Signature': signature
         },
-        body: JSON.stringify({
-          reviewerDocument,
-          format,
-          user_id: user.id,
-          idempotencyHash
-        })
+        body: payloadString
       });
 
       const renderData = await renderRes.json();
