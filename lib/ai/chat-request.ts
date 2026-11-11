@@ -4,7 +4,7 @@ const DocumentChatRequestSchema = z.object({
   documentId: z.string().uuid(),
   message: z.string().trim().min(1).max(2000),
   requestId: z.string().uuid(),
-}).strict();
+});
 
 const GeneralChatMessageSchema = z.object({
   role: z.enum(["user", "assistant"]),

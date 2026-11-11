@@ -3,18 +3,19 @@ import { OAuthButtons } from "@/components/auth/OAuthButtons";
 import { EmailOTPForm } from "@/components/auth/EmailOTPForm";
 import Link from "next/link";
 
-export default function LoginPage({
+export default async function LoginPage({
   searchParams,
 }: {
-  searchParams: { next?: string };
+  searchParams: Promise<{ next?: string }>;
 }) {
+  const resolvedSearchParams = await searchParams;
   let next = "/dashboard";
   if (
-    searchParams.next &&
-    searchParams.next.startsWith("/") &&
-    !searchParams.next.startsWith("//")
+    resolvedSearchParams.next &&
+    resolvedSearchParams.next.startsWith("/") &&
+    !resolvedSearchParams.next.startsWith("//")
   ) {
-    next = searchParams.next;
+    next = resolvedSearchParams.next;
   }
 
   return (

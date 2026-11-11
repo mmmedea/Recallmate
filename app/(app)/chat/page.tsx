@@ -7,8 +7,9 @@ export const dynamic = "force-dynamic";
 export default async function ChatPage({
   searchParams,
 }: {
-  searchParams: { documentId?: string };
+  searchParams: Promise<{ documentId?: string }>;
 }) {
+  const { documentId } = await searchParams;
   const supabase = await createClient();
   const {
     data: { user },
@@ -18,7 +19,6 @@ export default async function ChatPage({
     redirect("/login");
   }
 
-  const documentId = searchParams.documentId;
   if (!documentId) {
     redirect("/dashboard");
   }
@@ -60,7 +60,7 @@ export default async function ChatPage({
       
     if (messages) {
       initialMessages = messages.map(msg => {
-        const annotations = [];
+        const annotations: any[] = [];
         
         // Reconstruct citations into annotations so ChatMessage renders them
         if (msg.chat_citations && msg.chat_citations.length > 0) {
@@ -79,8 +79,8 @@ export default async function ChatPage({
         return {
           id: msg.id,
           role: msg.role === "assistant" ? "assistant" : "user",
-          content: msg.content,
-          annotations
+          parts: [{ type: 'text', text: msg.content }],
+          metadata: { annotations }
         };
       });
     }

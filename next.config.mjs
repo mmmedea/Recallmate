@@ -1,20 +1,13 @@
 /** @type {import('next').NextConfig} */
 const nextConfig = {
-  // Tell Vercel to ignore strict typing and linting errors during deployment
-  eslint: {
-    ignoreDuringBuilds: true,
-  },
-  typescript: {
-    ignoreBuildErrors: true,
-  },
+  serverExternalPackages: ['officeparser', 'pdfjs-dist'],
   experimental: {
-    serverComponentsExternalPackages: ['officeparser', 'pdfjs-dist'],
     serverActions: {
-      bodySizeLimit: '50mb',
+      bodySizeLimit: '10mb',
     },
   },
   
-  // Your existing security headers
+  // Security headers
   async headers() {
     return [
       {

@@ -1,6 +1,6 @@
 "use client";
 
-import { useState } from "react";
+import { use, useState } from "react";
 import { AuthCard } from "@/components/auth/AuthCard";
 import { OAuthButtons } from "@/components/auth/OAuthButtons";
 import { EmailOTPForm } from "@/components/auth/EmailOTPForm";
@@ -17,11 +17,8 @@ import { Button } from "@/components/ui/button";
 import { PrivacyContent } from "@/components/legal/PrivacyContent";
 import { TermsContent } from "@/components/legal/TermsContent";
 
-export default function SignupPage({
-  searchParams,
-}: {
-  searchParams: { next?: string };
-}) {
+export default function SignupPage({ searchParams }: { searchParams: Promise<{ next?: string }> }) {
+  const resolvedSearchParams = use(searchParams);
   const [privacyAgreed, setPrivacyAgreed] = useState(false);
   const [username, setUsername] = useState("");
   const [password, setPassword] = useState("");
@@ -29,11 +26,11 @@ export default function SignupPage({
 
   let next = "/dashboard";
   if (
-    searchParams.next &&
-    searchParams.next.startsWith("/") &&
-    !searchParams.next.startsWith("//")
+    resolvedSearchParams.next &&
+    resolvedSearchParams.next.startsWith("/") &&
+    !resolvedSearchParams.next.startsWith("//")
   ) {
-    next = searchParams.next;
+    next = resolvedSearchParams.next;
   }
 
   return (

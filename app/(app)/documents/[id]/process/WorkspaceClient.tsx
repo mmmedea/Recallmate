@@ -73,7 +73,7 @@ export default function WorkspaceClient({ initialSummary }: { initialSummary: Do
   }, [supabase, summary.document.id, revalidate]);
 
   const { document, notes, quiz } = summary;
-  const extStatus = document.extraction.status;
+  const extStatus = summary.extraction.status;
 
   const extractionFailed = extStatus === 'failed' || extStatus === 'cancelled';
   const extractionCompleted = extStatus === 'completed';
@@ -124,7 +124,7 @@ export default function WorkspaceClient({ initialSummary }: { initialSummary: Do
             <AlertCircle className="mt-0.5 h-5 w-5 text-red-600 dark:text-red-400" />
             <div className="ml-3 text-sm text-red-600 dark:text-red-400">
               <p className="font-semibold">Extraction Failed</p>
-              <p className="mt-1">{document.extraction.error || "The system could not extract text from this document."}</p>
+              <p className="mt-1">{summary.extraction.errorMessage || "The system could not extract text from this document."}</p>
             </div>
           </div>
         </div>
@@ -149,7 +149,7 @@ export default function WorkspaceClient({ initialSummary }: { initialSummary: Do
             <TimelineItem 
               label="Text Extraction" 
               status={extractionFailed ? 'failed' : (extractionCompleted ? 'completed' : 'processing')} 
-              description={extractionFailed ? document.extraction.error || 'Failed' : undefined}
+              description={extractionFailed ? summary.extraction.errorMessage || 'Failed' : undefined}
             />
           </ul>
         </div>

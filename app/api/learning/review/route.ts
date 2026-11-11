@@ -2,6 +2,7 @@ import { NextRequest, NextResponse } from "next/server";
 import { createClient } from "@/utils/supabase/server";
 import { createClient as createServiceClient } from "@supabase/supabase-js";
 import { z } from "zod";
+import { checkRateLimit } from "@/lib/security";
 import { getNextLearningState, FSRSRating, LearningItemState } from "@/lib/learning/scheduler";
 
 export const runtime = "nodejs";
@@ -26,6 +27,7 @@ export async function POST(req: NextRequest) {
     if (authError || !user) {
       return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
     }
+    await checkRateLimit(`learning-review:${user.id}`, { limit: 60, windowSeconds: 60 });
 
     const body = await req.json();
     const parsed = SubmitReviewRequestSchema.safeParse(body);
@@ -105,7 +107,8 @@ export async function POST(req: NextRequest) {
     });
 
   } catch (err: any) {
-    console.error("Submit Review Error:", err);
-    return NextResponse.json({ error: err.message }, { status: 500 });
+    const status = Number.isInteger(err?.status) ? err.status : 500;
+    if (status >= 500) console.error("Submit Review Error:", err?.message || "Unknown error");
+    return NextResponse.json({ error: status === 429 ? "Rate limit exceeded. Please try again later." : status === 503 ? "Learning service is temporarily unavailable." : "Could not submit the review." }, { status });
   }
 }

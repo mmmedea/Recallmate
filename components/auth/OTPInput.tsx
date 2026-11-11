@@ -35,9 +35,9 @@ export const OTPInput = forwardRef<{ focus: () => void }, OTPInputProps>(
       focus: () => inputsRef.current[0]?.focus(),
     }));
 
-    const focusIndex = (index: number) => {
+    const focusIndex = useCallback((index: number) => {
       inputsRef.current[Math.max(0, Math.min(length - 1, index))]?.focus();
-    };
+    }, [length]);
 
     const handleChange = useCallback(
       (index: number, char: string) => {
@@ -47,7 +47,7 @@ export const OTPInput = forwardRef<{ focus: () => void }, OTPInputProps>(
         onChange(next.trimEnd());
         if (index < length - 1) focusIndex(index + 1);
       },
-      [digits, length, onChange]
+      [digits, length, onChange, focusIndex]
     );
 
     const handleKeyDown = useCallback(
@@ -68,7 +68,7 @@ export const OTPInput = forwardRef<{ focus: () => void }, OTPInputProps>(
           focusIndex(index + 1);
         }
       },
-      [digits, onChange]
+      [digits, onChange, focusIndex]
     );
 
     const handlePaste = useCallback(
@@ -79,7 +79,7 @@ export const OTPInput = forwardRef<{ focus: () => void }, OTPInputProps>(
         onChange(pasted);
         focusIndex(Math.min(pasted.length, length - 1));
       },
-      [length, onChange]
+      [length, onChange, focusIndex]
     );
 
     return (

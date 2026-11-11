@@ -29,7 +29,7 @@ import { TopBar } from "@/components/shell/TopBar";
 
 describe("production regressions", () => {
   it("awaits the server Supabase client before reading the chat user", async () => {
-    await expect(ChatPage({ searchParams: {} })).rejects.toThrow("REDIRECT:/login");
+    await expect(ChatPage({ searchParams: Promise.resolve({}) })).rejects.toThrow("REDIRECT:/login");
     expect(serverClient.auth.getUser).toHaveBeenCalled();
   });
 
