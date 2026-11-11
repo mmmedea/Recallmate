@@ -149,6 +149,7 @@ BEGIN
 
         IF v_options_array IS NULL
            OR cardinality(v_options_array) <> 4
+           OR v_correct_answer_index IS NULL
            OR v_correct_answer_index < 0
            OR v_correct_answer_index > 3
            OR EXISTS (SELECT 1 FROM unnest(v_options_array) option_text WHERE length(option_text) NOT BETWEEN 1 AND 500) THEN
