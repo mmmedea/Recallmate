@@ -1,13 +1,9 @@
 export type OAuthProviderId = "google" | "github" | "facebook";
 
-const configuredOtpLength = Number(process.env.NEXT_PUBLIC_AUTH_OTP_LENGTH ?? "8");
-
-// Supabase supports email OTP lengths from 6 to 10 digits. This project sends
-// eight-digit codes; keep the value configurable so the UI and Auth setting can
-// remain aligned if that changes later.
-export const AUTH_OTP_LENGTH = Number.isInteger(configuredOtpLength) && configuredOtpLength >= 6 && configuredOtpLength <= 10
-  ? configuredOtpLength
-  : 8;
+// RecallMate deliberately uses one fixed OTP format. Keeping this constant
+// prevents a stale deployment environment variable from rendering a different
+// number of boxes than Supabase accepts.
+export const AUTH_OTP_LENGTH = 6 as const;
 
 export type OAuthProviderConfig = {
   id: OAuthProviderId;

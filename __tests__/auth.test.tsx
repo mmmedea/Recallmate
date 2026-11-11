@@ -200,11 +200,11 @@ describe('Login Page Component', () => {
 
     const request = authMocks.signInWithOtp.mock.calls[0][0];
     expect(request.options).not.toHaveProperty('emailRedirectTo');
-    expect(await screen.findByText(/8-digit RecallMate code/i)).toBeDefined();
+    expect(await screen.findByText(/6-digit RecallMate code/i)).toBeDefined();
     expect(await screen.findByText(/check your Spam or Junk folder/i)).toBeDefined();
   });
 
-  it('accepts a pasted eight-digit OTP and verifies the exact code', async () => {
+  it('accepts a pasted six-digit OTP and verifies the exact code once', async () => {
     render(
       <EmailOTPForm
         intent="signup"
@@ -217,17 +217,18 @@ describe('Login Page Component', () => {
     fireEvent.change(screen.getByLabelText('Email'), { target: { value: 'student@gmail.com' } });
     fireEvent.click(screen.getByRole('button', { name: /Create account & send code/i }));
 
-    const firstDigit = await screen.findByLabelText('Digit 1 of 8');
+    const firstDigit = await screen.findByLabelText('Digit 1 of 6');
     fireEvent.paste(firstDigit, {
-      clipboardData: { getData: () => '42668550' },
+      clipboardData: { getData: () => '426685' },
     });
 
     await vi.waitFor(() => {
       expect(authMocks.verifyOtp).toHaveBeenCalledWith({
         email: 'student@gmail.com',
-        token: '42668550',
+        token: '426685',
         type: 'email',
       });
+      expect(authMocks.verifyOtp).toHaveBeenCalledTimes(1);
     });
   });
 

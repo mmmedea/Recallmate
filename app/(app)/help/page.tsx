@@ -1,7 +1,7 @@
 "use client";
 
 import { useMemo, useState } from "react";
-import { BookOpen, LifeBuoy, Search, ShieldCheck, SlidersHorizontal, Sparkles, Workflow } from "lucide-react";
+import { BookOpen, LifeBuoy, MessageCircleHeart, Search, Send, ShieldCheck, SlidersHorizontal, Sparkles, TriangleAlert, Workflow, X } from "lucide-react";
 
 const articles = [
   { category: "Account & profile", title: "Identity, email and profile management", body: "Manage your username, profile, sign-in email, notification email, password, and account ownership from Settings. Sensitive changes require fresh verification." },
@@ -14,7 +14,40 @@ const articles = [
 
 export default function HelpPage() {
   const [query, setQuery] = useState("");
+  const [supportType, setSupportType] = useState<"feedback" | "report" | null>(null);
+  const [subject, setSubject] = useState("");
+  const [message, setMessage] = useState("");
+  const [isSending, setIsSending] = useState(false);
+  const [supportStatus, setSupportStatus] = useState<{ tone: "success" | "error"; text: string } | null>(null);
   const results = useMemo(() => articles.filter((article) => `${article.category} ${article.title} ${article.body}`.toLowerCase().includes(query.toLowerCase())), [query]);
+  const openSupport = (type: "feedback" | "report") => {
+    setSupportType(type);
+    setSubject("");
+    setMessage("");
+    setSupportStatus(null);
+  };
+  const submitSupport = async (event: React.FormEvent) => {
+    event.preventDefault();
+    if (!supportType || !subject.trim() || !message.trim()) return;
+    setIsSending(true);
+    setSupportStatus(null);
+    try {
+      const response = await fetch("/api/support", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ type: supportType, subject: subject.trim(), message: message.trim() }),
+      });
+      const result = await response.json().catch(() => ({}));
+      if (!response.ok) throw new Error(result.error || "We couldn't send your message. Please try again.");
+      setSupportStatus({ tone: "success", text: `Your ${supportType} was sent to RecallMate support.` });
+      setSubject("");
+      setMessage("");
+    } catch (error) {
+      setSupportStatus({ tone: "error", text: error instanceof Error ? error.message : "We couldn't send your message. Please try again." });
+    } finally {
+      setIsSending(false);
+    }
+  };
   return <main className="mx-auto max-w-6xl space-y-8 px-4 py-8 motion-safe:animate-in motion-safe:fade-in duration-500">
     <section className="overflow-hidden rounded-3xl bg-gradient-to-br from-indigo-600 via-violet-600 to-fuchsia-600 p-8 text-white shadow-xl">
       <div className="max-w-3xl"><p className="flex items-center gap-2 text-sm font-bold uppercase tracking-wider text-indigo-100"><Sparkles className="h-4 w-4" />RecallMate Help Center</p><h1 className="mt-3 text-4xl font-black">How can we help you study smarter?</h1><p className="mt-3 text-indigo-100">Search product guides, security information, accessibility help, and study workflows.</p></div>
@@ -25,6 +58,7 @@ export default function HelpPage() {
       return <article key={article.title} className="rounded-2xl border border-slate-200 bg-white p-5 shadow-sm transition hover:-translate-y-1 hover:shadow-lg dark:border-slate-800 dark:bg-slate-900"><Icon className="h-6 w-6 text-indigo-500" /><p className="mt-4 text-xs font-bold uppercase tracking-wider text-indigo-600 dark:text-indigo-400">{article.category}</p><h2 className="mt-1 text-lg font-bold text-slate-950 dark:text-white">{article.title}</h2><p className="mt-2 text-sm leading-6 text-slate-600 dark:text-slate-400">{article.body}</p></article>
     })}</section>
     {results.length === 0 && <p className="rounded-2xl border border-dashed border-slate-300 p-8 text-center text-slate-500 dark:border-slate-700">No guide matched that search. Ask Medea from the sidebar or try a broader phrase.</p>}
-    <section className="grid gap-4 md:grid-cols-2"><div className="rounded-2xl border border-emerald-200 bg-emerald-50 p-6 dark:border-emerald-900 dark:bg-emerald-950/20"><h2 className="font-bold text-emerald-900 dark:text-emerald-200">Accessible by design</h2><p className="mt-2 text-sm text-emerald-800 dark:text-emerald-300">Help and core study workflows are keyboard accessible and designed for readable contrast. RecallMate follows your device's reduced-motion preference.</p></div><div className="rounded-2xl border border-violet-200 bg-violet-50 p-6 dark:border-violet-900 dark:bg-violet-950/20"><h2 className="font-bold text-violet-900 dark:text-violet-200">Support escalation</h2><p className="mt-2 text-sm text-violet-800 dark:text-violet-300">Start with Medea and these guides. For account or privacy issues, use the support contact configured by your RecallMate administrator. Never include passwords or verification codes.</p></div></section>
+    <section className="grid gap-4 md:grid-cols-2"><div className="rounded-2xl border border-emerald-200 bg-emerald-50 p-6 dark:border-emerald-900 dark:bg-emerald-950/20"><h2 className="font-bold text-emerald-900 dark:text-emerald-200">Accessible by design</h2><p className="mt-2 text-sm text-emerald-800 dark:text-emerald-300">Help and core study workflows are keyboard accessible and designed for readable contrast. RecallMate follows your device's reduced-motion preference.</p></div><div className="rounded-2xl border border-violet-200 bg-violet-50 p-6 dark:border-violet-900 dark:bg-violet-950/20"><h2 className="font-bold text-violet-900 dark:text-violet-200">Contact RecallMate</h2><p className="mt-2 text-sm text-violet-800 dark:text-violet-300">Share an idea or report something broken. Your message is labeled and delivered to RecallMate support. Never include passwords or verification codes.</p><div className="mt-5 flex flex-wrap gap-3"><button type="button" onClick={() => openSupport("feedback")} className="inline-flex items-center gap-2 rounded-xl bg-violet-600 px-4 py-2.5 text-sm font-bold text-white shadow-sm transition hover:-translate-y-0.5 hover:bg-violet-700 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-violet-500"><MessageCircleHeart className="h-4 w-4" />Send feedback</button><button type="button" onClick={() => openSupport("report")} className="inline-flex items-center gap-2 rounded-xl border border-rose-300 bg-white px-4 py-2.5 text-sm font-bold text-rose-700 transition hover:-translate-y-0.5 hover:bg-rose-50 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-rose-500 dark:border-rose-800 dark:bg-slate-950 dark:text-rose-300"><TriangleAlert className="h-4 w-4" />Report a problem</button></div></div></section>
+    {supportType && <div className="fixed inset-0 z-50 flex items-end justify-center bg-slate-950/70 p-0 backdrop-blur-sm sm:items-center sm:p-4" role="presentation" onMouseDown={(event) => { if (event.target === event.currentTarget && !isSending) setSupportType(null); }}><section role="dialog" aria-modal="true" aria-labelledby="support-dialog-title" className="w-full max-w-lg rounded-t-3xl border border-slate-200 bg-white p-6 shadow-2xl motion-safe:animate-in motion-safe:slide-in-from-bottom-4 dark:border-slate-700 dark:bg-slate-900 sm:rounded-3xl"><div className="flex items-start justify-between gap-4"><div><p className="text-xs font-bold uppercase tracking-wider text-violet-600 dark:text-violet-400">RecallMate support</p><h2 id="support-dialog-title" className="mt-1 text-2xl font-black text-slate-950 dark:text-white">{supportType === "feedback" ? "Send feedback" : "Report a problem"}</h2><p className="mt-1 text-sm text-slate-500 dark:text-slate-400">This will be clearly labeled as {supportType === "feedback" ? "user feedback" : "a user report"} for the RecallMate team.</p></div><button type="button" onClick={() => setSupportType(null)} disabled={isSending} aria-label="Close support form" className="rounded-xl p-2 text-slate-500 transition hover:bg-slate-100 dark:hover:bg-slate-800"><X className="h-5 w-5" /></button></div><form onSubmit={submitSupport} className="mt-6 space-y-4"><div><label htmlFor="support-subject" className="text-sm font-bold text-slate-800 dark:text-slate-200">Subject</label><input id="support-subject" value={subject} onChange={(event) => setSubject(event.target.value)} maxLength={120} required className="mt-1.5 w-full rounded-xl border border-slate-300 bg-white px-3 py-2.5 text-slate-950 outline-none transition focus:border-violet-500 focus:ring-2 focus:ring-violet-500/20 dark:border-slate-700 dark:bg-slate-950 dark:text-white" /></div><div><label htmlFor="support-message" className="text-sm font-bold text-slate-800 dark:text-slate-200">Message</label><textarea id="support-message" value={message} onChange={(event) => setMessage(event.target.value)} minLength={10} maxLength={4000} rows={6} required className="mt-1.5 w-full resize-y rounded-xl border border-slate-300 bg-white px-3 py-2.5 text-slate-950 outline-none transition focus:border-violet-500 focus:ring-2 focus:ring-violet-500/20 dark:border-slate-700 dark:bg-slate-950 dark:text-white" /></div>{supportStatus && <p role="status" className={`rounded-xl px-3 py-2 text-sm font-medium ${supportStatus.tone === "success" ? "bg-emerald-50 text-emerald-800 dark:bg-emerald-950/40 dark:text-emerald-300" : "bg-rose-50 text-rose-800 dark:bg-rose-950/40 dark:text-rose-300"}`}>{supportStatus.text}</p>}<button type="submit" disabled={isSending || !subject.trim() || message.trim().length < 10} className="inline-flex w-full items-center justify-center gap-2 rounded-xl bg-violet-600 px-4 py-3 font-bold text-white transition hover:bg-violet-700 disabled:cursor-not-allowed disabled:opacity-50">{isSending ? "Sending…" : <><Send className="h-4 w-4" />Submit {supportType}</>}</button></form></section></div>}
   </main>;
 }

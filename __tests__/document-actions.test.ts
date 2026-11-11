@@ -24,6 +24,7 @@ const mockSupabase = {
   rpc: vi.fn(),
   storage: {
     from: vi.fn().mockReturnThis(),
+    list: vi.fn(),
     info: vi.fn(),
     download: vi.fn()
   }
@@ -83,8 +84,7 @@ describe('Document Actions', () => {
 
     it('returns error if file is not found in storage', async () => {
       mockSupabase.single.mockResolvedValueOnce({ data: { status: 'uploaded', storage_path: 'path/to/file' }, error: null });
-      mockSupabase.storage.info.mockResolvedValueOnce({ data: null, error: { message: 'Not found' } });
-      mockSupabase.storage.download.mockResolvedValueOnce({ data: null, error: { message: 'Not found' } });
+      mockSupabase.storage.list.mockResolvedValueOnce({ data: [], error: null });
 
       const res = await confirmDocumentUpload('doc_123', 'idempotency_1');
       expect(res.error).toBe('Uploaded file not found in storage');
@@ -92,9 +92,7 @@ describe('Document Actions', () => {
     
     it('calls confirm_document_upload RPC atomically', async () => {
       mockSupabase.single.mockResolvedValueOnce({ data: { status: 'uploaded', storage_path: 'path/to/file' }, error: null });
-      mockSupabase.storage.info.mockResolvedValueOnce({ data: { size: 1024 }, error: null });
-      const mockArrayBuffer = new ArrayBuffer(1024);
-      mockSupabase.storage.download.mockResolvedValueOnce({ data: { arrayBuffer: () => mockArrayBuffer }, error: null });
+      mockSupabase.storage.list.mockResolvedValueOnce({ data: [{ name: 'file', metadata: { size: 1024 } }], error: null });
       mockSupabase.rpc.mockResolvedValueOnce({ data: 'job_123', error: null });
 
       const res = await confirmDocumentUpload('doc_123', 'idempotency_1');
