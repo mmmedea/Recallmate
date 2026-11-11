@@ -12,8 +12,8 @@ export async function POST(req: NextRequest) {
       return NextResponse.json({ error: "Missing documentIds" }, { status: 400 });
     }
 
-    if (format !== 'docx') {
-      return NextResponse.json({ error: "PDF generation is temporarily disabled while we upgrade our rendering infrastructure. Please use DOCX." }, { status: 400 });
+    if (format !== 'docx' && format !== 'pdf') {
+      return NextResponse.json({ error: "Invalid format. Must be pdf or docx." }, { status: 400 });
     }
 
     // 1. Authenticate user
@@ -65,12 +65,25 @@ export async function POST(req: NextRequest) {
       }
 
       // 6. Invoke Isolated Renderer Route (Synchronously via network to avoid async timeout on Vercel)
-      const baseUrl = process.env.NEXT_PUBLIC_APP_URL || (req.headers.get('host') ? `https://${req.headers.get('host')}` : 'http://localhost:3000');
-      const renderRes = await fetch(`${baseUrl}/api/jobs/render`, {
+      let rendererUrl = "";
+      let rendererSecret = process.env.CRON_SECRET;
+      
+      if (format === 'pdf') {
+        if (!process.env.PDF_WORKER_URL) {
+          throw new Error("PDF Worker URL is not configured. PDFs are currently unavailable.");
+        }
+        rendererUrl = process.env.PDF_WORKER_URL;
+        rendererSecret = process.env.WORKER_SECRET || process.env.CRON_SECRET;
+      } else {
+        const baseUrl = process.env.NEXT_PUBLIC_APP_URL || (req.headers.get('host') ? `https://${req.headers.get('host')}` : 'http://localhost:3000');
+        rendererUrl = `${baseUrl}/api/jobs/render`;
+      }
+
+      const renderRes = await fetch(rendererUrl, {
         method: 'POST',
         headers: {
           'Content-Type': 'application/json',
-          'Authorization': `Bearer ${process.env.CRON_SECRET}`
+          'Authorization': `Bearer ${rendererSecret}`
         },
         body: JSON.stringify({
           reviewerDocument,
