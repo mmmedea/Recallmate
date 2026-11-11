@@ -60,7 +60,7 @@ export default async function ChatPage({
       
     if (messages) {
       initialMessages = messages.map(msg => {
-        const annotations = [];
+        const annotations: any[] = [];
         
         // Reconstruct citations into annotations so ChatMessage renders them
         if (msg.chat_citations && msg.chat_citations.length > 0) {
