@@ -1,4 +1,4 @@
-import { Home, LayoutDashboard, Upload, FileText, BrainCircuit, Sparkles, Settings, HelpCircle, CalendarDays } from "lucide-react";
+import { LayoutDashboard, Upload, FileText, BrainCircuit, Sparkles, Settings, HelpCircle, CalendarDays, BookOpen, BarChart3 } from "lucide-react";
 import type { LucideIcon } from "lucide-react";
 
 export interface NavItem {
@@ -16,17 +16,17 @@ export const navigationConfig: {
 } = {
   main: [
     {
-      label: "Dashboard",
+      label: "Study",
       href: "/dashboard",
       icon: LayoutDashboard,
       requiresAuth: true,
       mobileVisible: true,
     },
     {
-      label: "Home",
-      href: "/",
-      icon: Home,
-      requiresAuth: false,
+      label: "Topics",
+      href: "/topics",
+      icon: BookOpen,
+      requiresAuth: true,
       mobileVisible: true,
     },
     {
@@ -37,12 +37,13 @@ export const navigationConfig: {
       mobileVisible: true,
     },
     {
-      label: "Calendar",
+      label: "Schedule",
       href: "/calendar",
       icon: CalendarDays,
       requiresAuth: true,
       mobileVisible: true,
     },
+    { label: "Progress", href: "/progress", icon: BarChart3, requiresAuth: true, mobileVisible: true },
     {
       label: "Notes",
       href: "/notes",

@@ -21,6 +21,10 @@ interface EmailOTPFormProps {
   redirectTo?: string;
   username?: string;
   onUsernameChange?: (username: string) => void;
+  password?: string;
+  onPasswordChange?: (value: string) => void;
+  confirmPassword?: string;
+  onConfirmPasswordChange?: (value: string) => void;
 }
 
 type FormStage = "email" | "otp";
@@ -37,7 +41,7 @@ const OTP_ERROR_MESSAGES: Record<string, string> = {
   use_google: "It looks like you have a Gmail address. Please click 'Continue with Google' above!",
 };
 
-export function EmailOTPForm({ intent, privacyAgreed = true, redirectTo = "/dashboard", username = "", onUsernameChange }: EmailOTPFormProps) {
+export function EmailOTPForm({ intent, privacyAgreed = true, redirectTo = "/dashboard", username = "", onUsernameChange, password = "", onPasswordChange, confirmPassword = "", onConfirmPasswordChange }: EmailOTPFormProps) {
   const router = useRouter();
   const supabase = createClient();
 
@@ -133,6 +137,9 @@ export function EmailOTPForm({ intent, privacyAgreed = true, redirectTo = "/dash
             setIsLoading(false);
             return;
           }
+          if (password.length < 8 || !/[^A-Za-z0-9]/.test(password) || password !== confirmPassword) {
+            setErrorKey("error"); setOTPState("error"); setIsLoading(false); return;
+          }
           options.data = { privacy_agreed: true, username: username.trim() };
         }
 
@@ -178,7 +185,7 @@ export function EmailOTPForm({ intent, privacyAgreed = true, redirectTo = "/dash
         setIsLoading(false);
       }
     },
-    [email, intent, username, captchaToken, canSubmitWithCaptcha, supabase, setOTPState, setOTPFlowContext]
+    [email, intent, username, password, confirmPassword, captchaToken, canSubmitWithCaptcha, supabase, setOTPState, setOTPFlowContext]
   );
 
   const handleVerifyOTP = useCallback(
@@ -215,6 +222,10 @@ export function EmailOTPForm({ intent, privacyAgreed = true, redirectTo = "/dash
           return;
         }
 
+        if (intent === "signup") {
+          const { error: passwordError } = await supabase.auth.updateUser({ password, data: { username: username.trim() } });
+          if (passwordError) throw passwordError;
+        }
         setOTPState("verified");
         // Force router refresh so the server layout picks up the new session
         router.refresh();
@@ -227,7 +238,7 @@ export function EmailOTPForm({ intent, privacyAgreed = true, redirectTo = "/dash
         setIsLoading(false);
       }
     },
-    [otpValue, email, otpFlowContext, supabase, router, setOTPState]
+    [otpValue, email, otpFlowContext, supabase, router, setOTPState, intent, password, username]
   );
 
   const handleResend = useCallback(async () => {
@@ -255,7 +266,7 @@ export function EmailOTPForm({ intent, privacyAgreed = true, redirectTo = "/dash
     return (
       <form onSubmit={handleSendOTP} className="space-y-4" noValidate>
         <div className="space-y-1.5">
-          {intent === "signup" && <div className="space-y-1.5"><Label htmlFor="username-input">Username</Label><Input id="username-input" value={username} onChange={(e) => onUsernameChange?.(e.target.value)} placeholder="your username" autoComplete="username" disabled={isLoading} required /></div>}
+          {intent === "signup" && <><div className="space-y-1.5"><Label htmlFor="username-input">Username</Label><Input id="username-input" value={username} onChange={(e) => onUsernameChange?.(e.target.value)} placeholder="your username" autoComplete="username" disabled={isLoading} required /></div><div className="space-y-1.5"><Label htmlFor="password-input">Password (8+ characters, one special symbol)</Label><Input id="password-input" type="password" value={password} onChange={(e) => onPasswordChange?.(e.target.value)} autoComplete="new-password" disabled={isLoading} required /></div><div className="space-y-1.5"><Label htmlFor="confirm-password-input">Confirm password</Label><Input id="confirm-password-input" type="password" value={confirmPassword} onChange={(e) => onConfirmPasswordChange?.(e.target.value)} autoComplete="new-password" disabled={isLoading} required /></div></>}
           <Label htmlFor="email-input">Email</Label>
           <Input
             id="email-input"
