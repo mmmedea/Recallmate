@@ -66,7 +66,36 @@ export default function OmniChatDrawer() {
     }
   }, [messages, isOpen]);
 
-  if (!mounted) return null;
+  if (!mounted || typeof document === "undefined") return null;
+
+  const hasUploadedMaterial =
+    activeChatContext.length > 0 ||
+    (typeof window !== "undefined" && Boolean(sessionStorage.getItem("recallmate-content")));
+
+  const getRecommendationPills = () => {
+    const lastAssistantMsg = [...messages].reverse().find((m) => m.role === "assistant");
+    if (lastAssistantMsg && lastAssistantMsg.content.includes("Recommended Next Questions")) {
+      const lines = lastAssistantMsg.content.split("\n");
+      const recIdx = lines.findIndex((l) => l.includes("Recommended Next Questions"));
+      if (recIdx !== -1) {
+        const questions: { text: string; level: string }[] = [];
+        for (let i = recIdx + 1; i < lines.length; i++) {
+          const cleanLine = lines[i].replace(/^[-*\d.\s]+/, "").trim();
+          if (cleanLine && !cleanLine.startsWith("#")) {
+            questions.push({ text: cleanLine, level: i % 2 === 0 ? "Medium" : "Easy" });
+          }
+        }
+        if (questions.length > 0) return questions.slice(0, 4);
+      }
+    }
+    return [
+      { text: "Explain like I'm 5", level: "Easy" },
+      { text: "Give me a real-world example", level: "Easy" },
+      { text: "Give me a practice problem", level: "Medium" },
+      { text: "Predictive AI Exam", level: "Medium" },
+      { text: "Mastery Challenge", level: "Hard" },
+    ];
+  };
 
   const handlePauseStream = () => {
     if (abortControllerRef.current) {
@@ -89,6 +118,22 @@ export default function OmniChatDrawer() {
       content: textToSend,
       timestamp: new Date().toLocaleTimeString([], { hour: "2-digit", minute: "2-digit" }),
     };
+
+    // Guard: Require uploaded material before querying AI engine
+    if (!hasUploadedMaterial) {
+      setMessages((prev) => [
+        ...prev,
+        userMsg,
+        {
+          id: (Date.now() + 1).toString(),
+          role: "assistant",
+          content:
+            "⚠️ Please upload a study document or YouTube video first using the 📎 or 🎥 button below so I can analyze it for you!",
+          timestamp: new Date().toLocaleTimeString([], { hour: "2-digit", minute: "2-digit" }),
+        },
+      ]);
+      return;
+    }
 
     setMessages((prev) => [...prev, userMsg]);
     setLoading(true);
@@ -395,37 +440,33 @@ export default function OmniChatDrawer() {
               <div ref={messagesEndRef} />
             </div>
 
-            {/* Quick Recommendation Chips (3-Tier Difficulty Linked) */}
-            <div className="px-4 py-2 bg-slate-50 dark:bg-slate-950 border-t border-slate-200 dark:border-slate-800">
-              <p className="text-[10px] font-bold uppercase tracking-wider text-slate-400 mb-1.5 flex items-center gap-1">
-                <Sparkles className="w-3 h-3 text-indigo-500" /> Recommended Action Prompts
-              </p>
-              <div className="flex gap-1.5 overflow-x-auto pb-1 text-xs">
-                {[
-                  { text: "Explain like I'm 5", level: "Easy" },
-                  { text: "Give me a real-world example", level: "Easy" },
-                  { text: "Give me a practice problem", level: "Medium" },
-                  { text: "Predictive AI Exam", level: "Medium" },
-                  { text: "Mastery Challenge", level: "Hard" },
-                ].map((item, idx) => (
-                  <button
-                    key={idx}
-                    disabled={loading || uploading}
-                    onClick={() => {
-                      handleSend(undefined, item.text);
-                    }}
-                    className={`px-2.5 py-1 rounded-lg bg-indigo-50 dark:bg-indigo-950/60 hover:bg-indigo-100 dark:hover:bg-indigo-900 border border-indigo-200/60 dark:border-indigo-800/60 text-indigo-600 dark:text-indigo-300 font-semibold whitespace-nowrap transition-colors flex items-center gap-1 ${
-                      loading || uploading ? "opacity-50 pointer-events-none cursor-not-allowed" : ""
-                    }`}
-                  >
-                    <span>{item.text}</span>
-                    <span className="text-[9px] px-1 py-0.2 bg-indigo-200/50 dark:bg-indigo-800/50 rounded font-bold uppercase">
-                      {item.level}
-                    </span>
-                  </button>
-                ))}
+            {/* Quick Recommendation Chips (Only visible after material is uploaded) */}
+            {hasUploadedMaterial && (
+              <div className="px-4 py-2 bg-slate-50 dark:bg-slate-950 border-t border-slate-200 dark:border-slate-800 animate-in fade-in duration-200">
+                <p className="text-[10px] font-bold uppercase tracking-wider text-slate-400 mb-1.5 flex items-center gap-1">
+                  <Sparkles className="w-3 h-3 text-indigo-500" /> Recommended Action Prompts
+                </p>
+                <div className="flex gap-1.5 overflow-x-auto pb-1 text-xs">
+                  {getRecommendationPills().map((item, idx) => (
+                    <button
+                      key={idx}
+                      disabled={loading || uploading}
+                      onClick={() => {
+                        handleSend(undefined, item.text);
+                      }}
+                      className={`px-2.5 py-1 rounded-lg bg-indigo-50 dark:bg-indigo-950/60 hover:bg-indigo-100 dark:hover:bg-indigo-900 border border-indigo-200/60 dark:border-indigo-800/60 text-indigo-600 dark:text-indigo-300 font-semibold whitespace-nowrap transition-colors flex items-center gap-1 ${
+                        loading || uploading ? "opacity-50 pointer-events-none cursor-not-allowed" : ""
+                      }`}
+                    >
+                      <span>{item.text}</span>
+                      <span className="text-[9px] px-1 py-0.2 bg-indigo-200/50 dark:bg-indigo-800/50 rounded font-bold uppercase">
+                        {item.level}
+                      </span>
+                    </button>
+                  ))}
+                </div>
               </div>
-            </div>
+            )}
 
             {/* In-Chat Form + File Attachment Button + Pause Button */}
             <form
