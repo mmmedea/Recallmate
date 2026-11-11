@@ -6,120 +6,54 @@ import Navbar from "@/components/Navbar";
 
 export default function HomePage() {
   return (
-    <div className="flex flex-col min-h-screen">
+    <main className="min-h-screen bg-[#020617] text-white">
       <Navbar />
-      <div className="relative min-h-[85vh] flex flex-col justify-center items-center text-center space-y-12 py-12 transition-colors duration-300 overflow-hidden">
-        {/* Soft Background Gradient Glows */}
-        <div className="absolute top-1/4 left-1/2 -translate-x-1/2 -translate-y-1/2 w-[500px] h-[300px] bg-gradient-to-tr from-indigo-500/20 to-purple-500/20 blur-[120px] rounded-full pointer-events-none -z-10 motion-safe:animate-pulse" />
-
-        {/* Hero Badge */}
-        <div className="inline-flex items-center gap-2 px-4 py-1.5 rounded-full border border-indigo-200 dark:border-indigo-800/60 bg-indigo-50/80 dark:bg-indigo-950/50 backdrop-blur-md shadow-sm motion-safe:animate-in motion-safe:fade-in motion-safe:slide-in-from-bottom-4 duration-700">
-          <Sparkles className="w-4 h-4 text-indigo-600 dark:text-indigo-400" />
-          <span className="text-xs font-bold tracking-wide text-indigo-700 dark:text-indigo-300 uppercase">
-            AI Study Tools + Active Recall
-          </span>
+      <section className="relative isolate flex min-h-[calc(100vh-78px)] flex-col items-center overflow-hidden px-4 pb-20 pt-24 text-center sm:pt-28">
+        <div aria-hidden="true" className="pointer-events-none absolute inset-x-0 top-20 -z-10 mx-auto h-[430px] max-w-5xl rounded-full bg-[radial-gradient(ellipse_at_center,rgba(99,60,190,0.19),rgba(2,6,23,0)_68%)] blur-2xl" />
+        <div className="mb-8 inline-flex items-center gap-2 rounded-full border border-indigo-800/70 bg-indigo-950/45 px-5 py-2 text-xs font-extrabold uppercase tracking-wide text-indigo-300 shadow-sm">
+          <Sparkles className="h-4 w-4 text-indigo-400" />
+          AI-powered exam practice + active recall
         </div>
 
-        {/* Main Heading & Subtitle */}
-        <div className="max-w-3xl space-y-6 px-4 motion-safe:animate-in motion-safe:fade-in motion-safe:slide-in-from-bottom-6 duration-700 delay-150 fill-mode-both">
-          <h1 className="text-4xl sm:text-6xl font-black tracking-tight text-slate-900 dark:text-white leading-[1.15]">
-            Turn your study files into a smarter study session.
+        <div className="w-full max-w-5xl space-y-7">
+          <h1 className="mx-auto max-w-4xl text-4xl font-black leading-[1.06] tracking-[-0.045em] text-white sm:text-6xl md:text-[4.65rem]">
+            Turn any file into an<br className="hidden md:block" /> exam questionnaire your<br className="hidden md:block" /> brain will{" "}
+            <span className="bg-gradient-to-r from-indigo-500 via-purple-500 to-pink-500 bg-clip-text text-transparent">remember.</span>
           </h1>
-          <p className="text-base sm:text-lg font-medium text-slate-600 dark:text-slate-300 leading-relaxed max-w-2xl mx-auto">
-            Upload notes, slides, or PDFs. RecallMate organizes your material into clear study notes and practice questions, so you can focus on understanding and remembering what matters.
+          <p className="mx-auto max-w-3xl text-base font-medium leading-relaxed text-slate-300 sm:text-lg">
+            Upload documents, slides, or images. RecallMate turns your material into clear study notes, source-grounded practice questions, and interactive quizzes to help you master what matters.
           </p>
         </div>
 
-        {/* CTA Upload Button */}
-        <div className="motion-safe:animate-in motion-safe:fade-in motion-safe:slide-in-from-bottom-8 duration-700 delay-300 fill-mode-both">
+        <div className="mt-12">
           <Link
             href="/upload"
-            className="inline-flex items-center gap-3 px-8 py-4 rounded-2xl bg-indigo-600 hover:bg-indigo-700 dark:bg-indigo-500 dark:hover:bg-indigo-600 text-white font-extrabold text-lg shadow-xl shadow-indigo-500/25 hover:scale-[1.02] active:scale-[0.98] transition-all duration-200"
+            className="inline-flex items-center gap-3 rounded-2xl bg-indigo-600 px-8 py-4 text-lg font-extrabold text-white shadow-xl shadow-indigo-950/50 transition-all duration-200 hover:-translate-y-0.5 hover:bg-indigo-500 hover:shadow-indigo-500/25 active:translate-y-0"
           >
-            <Upload className="w-5 h-5" />
-            <span>Upload a File</span>
-            <ArrowRight className="w-5 h-5" />
+            <Upload className="h-5 w-5" />
+            Upload a File
+            <ArrowRight className="h-5 w-5" />
           </Link>
         </div>
 
-        {/* Feature Grid */}
-        <div className="grid grid-cols-1 sm:grid-cols-3 gap-6 max-w-5xl w-full px-4 pt-8">
-          {/* Card 1 */}
-          <div className="p-6 rounded-3xl bg-white/80 dark:bg-slate-900/80 border border-slate-200/80 dark:border-slate-800 backdrop-blur-lg shadow-sm hover:shadow-md transition-all text-left space-y-3 motion-safe:animate-in motion-safe:fade-in motion-safe:slide-in-from-bottom-8 duration-700 delay-300 fill-mode-both">
-            <div className="w-10 h-10 rounded-2xl bg-indigo-100 dark:bg-indigo-950/80 flex items-center justify-center text-indigo-600 dark:text-indigo-400">
-              <Sparkles className="w-5 h-5" />
-            </div>
-            <h3 className="text-lg font-black text-slate-900 dark:text-white">
-              AI study notes
-            </h3>
-            <p className="text-xs text-slate-600 dark:text-slate-400 leading-relaxed">
-              Get concise summaries and organized key points from your uploaded material.
-            </p>
-          </div>
-
-          {/* Card 2 */}
-          <div className="p-6 rounded-3xl bg-white/80 dark:bg-slate-900/80 border border-slate-200/80 dark:border-slate-800 backdrop-blur-lg shadow-sm hover:shadow-md transition-all text-left space-y-3 motion-safe:animate-in motion-safe:fade-in motion-safe:slide-in-from-bottom-8 duration-700 delay-500 fill-mode-both">
-            <div className="w-10 h-10 rounded-2xl bg-purple-100 dark:bg-purple-950/80 flex items-center justify-center text-purple-600 dark:text-purple-400">
-              <Brain className="w-5 h-5" />
-            </div>
-            <h3 className="text-lg font-black text-slate-900 dark:text-white">
-              Source-grounded quizzes
-            </h3>
-            <p className="text-xs text-slate-600 dark:text-slate-400 leading-relaxed">
-              Practice with questions generated from your uploaded material, with difficulty levels to guide your review.
-            </p>
-          </div>
-
-          {/* Card 3 */}
-          <div className="p-6 rounded-3xl bg-white/80 dark:bg-slate-900/80 border border-slate-200/80 dark:border-slate-800 backdrop-blur-lg shadow-sm hover:shadow-md transition-all text-left space-y-3 motion-safe:animate-in motion-safe:fade-in motion-safe:slide-in-from-bottom-8 duration-700 delay-700 fill-mode-both">
-            <div className="w-10 h-10 rounded-2xl bg-rose-100 dark:bg-rose-950/80 flex items-center justify-center text-rose-600 dark:text-rose-400">
-              <Heart className="w-5 h-5" />
-            </div>
-            <h3 className="text-lg font-black text-slate-900 dark:text-white">
-              Hearts System
-            </h3>
-            <p className="text-xs text-slate-600 dark:text-slate-400 leading-relaxed">
-              A simple reward system makes each practice session more engaging and encourages steady progress.
-            </p>
-          </div>
+        <div className="mt-24 grid w-full max-w-6xl grid-cols-1 gap-5 px-1 text-left sm:grid-cols-3">
+          <article className="rounded-3xl border border-slate-800 bg-slate-900/70 p-6 shadow-lg shadow-black/10 backdrop-blur">
+            <div className="mb-4 flex h-11 w-11 items-center justify-center rounded-2xl bg-indigo-500/15 text-indigo-300"><Sparkles className="h-5 w-5" /></div>
+            <h2 className="mb-2 text-lg font-extrabold text-white">AI study notes</h2>
+            <p className="text-sm leading-relaxed text-slate-400">Turn lengthy documents and lecture slides into organized summaries and key points.</p>
+          </article>
+          <article className="rounded-3xl border border-slate-800 bg-slate-900/70 p-6 shadow-lg shadow-black/10 backdrop-blur">
+            <div className="mb-4 flex h-11 w-11 items-center justify-center rounded-2xl bg-purple-500/15 text-purple-300"><Brain className="h-5 w-5" /></div>
+            <h2 className="mb-2 text-lg font-extrabold text-white">Source-grounded quizzes</h2>
+            <p className="text-sm leading-relaxed text-slate-400">Practice with questions based on your own materials and review at your pace.</p>
+          </article>
+          <article className="rounded-3xl border border-slate-800 bg-slate-900/70 p-6 shadow-lg shadow-black/10 backdrop-blur">
+            <div className="mb-4 flex h-11 w-11 items-center justify-center rounded-2xl bg-rose-500/15 text-rose-300"><Heart className="h-5 w-5" /></div>
+            <h2 className="mb-2 text-lg font-extrabold text-white">Active recall</h2>
+            <p className="text-sm leading-relaxed text-slate-400">Build a consistent study habit with focused practice and progress-friendly sessions.</p>
+          </article>
         </div>
-
-        {/* Medea AI Teaser */}
-        <div className="w-full max-w-3xl mt-16 px-4 motion-safe:animate-in motion-safe:fade-in motion-safe:slide-in-from-bottom-8 duration-700 delay-1000 fill-mode-both">
-          <div className="p-8 md:p-10 rounded-3xl bg-indigo-50/50 dark:bg-indigo-950/20 border border-indigo-100 dark:border-indigo-900/50 flex flex-col md:flex-row items-center gap-8 text-left relative overflow-hidden shadow-sm">
-            {/* Background flourish */}
-            <div className="absolute top-0 right-0 w-64 h-64 bg-indigo-500/10 rounded-full blur-[80px] -z-10" />
-            
-            <div className="flex-1 space-y-4">
-              <div className="inline-flex items-center gap-2 px-3 py-1 rounded-full bg-indigo-100 dark:bg-indigo-900/50 text-indigo-700 dark:text-indigo-300 text-xs font-bold uppercase tracking-wider">
-                <Sparkles className="w-3.5 h-3.5" />
-                Meet Medea
-              </div>
-              <h2 className="text-2xl md:text-3xl font-black text-slate-900 dark:text-white leading-tight">
-                Your personal AI study tutor
-              </h2>
-              <p className="text-slate-600 dark:text-slate-400 text-sm md:text-base leading-relaxed">
-                Stuck on a difficult concept? Ask Medea about your uploaded material. Get clear explanations, chapter summaries, and follow-up questions that help you understand the ideas.
-              </p>
-            </div>
-            
-            <div className="flex flex-col gap-3 w-full md:w-auto shrink-0 z-10">
-              <Link
-                href="/upload"
-                className="w-full sm:w-auto px-6 py-3 rounded-xl bg-indigo-600 hover:bg-indigo-700 text-white font-bold text-sm shadow-md transition-all text-center"
-              >
-                Upload your material
-              </Link>
-              <Link
-                href="/login"
-                className="w-full sm:w-auto px-6 py-3 rounded-xl bg-white dark:bg-slate-800 border border-slate-200 dark:border-slate-700 hover:bg-slate-50 dark:hover:bg-slate-700 text-slate-900 dark:text-white font-bold text-sm transition-all text-center"
-              >
-                Sign in to ask Medea
-              </Link>
-            </div>
-          </div>
-        </div>
-      </div>
-    </div>
+      </section>
+    </main>
   );
 }
