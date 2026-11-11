@@ -199,7 +199,7 @@ export async function POST(req: NextRequest) {
 
   if (interactionError || !interaction) {
     await serviceClient.from("ai_jobs").update({ status: "failed" }).eq("id", billingJobId);
-    await billingService.finalizeJob(user.id, billingJobId, 0, "Interaction init failed");
+    await billingService.finalizeCharge(user.id, billingJobId, 5, 0, "Interaction init failed");
     return NextResponse.json({ error: "Failed to initialize interaction" }, { status: 500 });
   }
 
@@ -293,7 +293,7 @@ export async function POST(req: NextRequest) {
           completed_at: new Date().toISOString()
         }).eq("id", interactionId);
 
-        await billingService.finalizeJob(user.id, billingJobId, 5, "Chat completed successfully");
+        await billingService.finalizeCharge(user.id, billingJobId, 5, 5, "Chat completed successfully");
       } catch (err: any) {
         console.error("Stream Execution Error:", err);
         await serviceClient.from("chat_interactions").update({
@@ -302,7 +302,7 @@ export async function POST(req: NextRequest) {
         }).eq("id", interactionId);
         
         await serviceClient.from("ai_jobs").update({ status: "failed" }).eq("id", billingJobId);
-        await billingService.finalizeJob(user.id, billingJobId, 0, "AI generation failed");
+        await billingService.finalizeCharge(user.id, billingJobId, 5, 0, "AI generation failed");
         
         throw err;
       }
