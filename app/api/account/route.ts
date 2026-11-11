@@ -1,6 +1,7 @@
 import { NextResponse } from 'next/server'
 import { createClient as createServerClient } from '@/utils/supabase/server'
 import { createClient as createAdminClient } from '@supabase/supabase-js'
+import { checkRateLimit } from '@/lib/security'
 
 export const runtime = 'nodejs'
 
@@ -27,11 +28,24 @@ export async function DELETE() {
   const { data: { user }, error: authError } = await supabase.auth.getUser()
   if (authError || !user) return NextResponse.json({ error: 'Unauthorized' }, { status: 401 })
 
+  try {
+    await checkRateLimit(`account-delete:${user.id}`, { limit: 2, windowSeconds: 3600 })
+  } catch (error: any) {
+    const status = Number.isInteger(error?.status) ? error.status : error?.message === 'Rate limit exceeded' ? 429 : 503
+    return NextResponse.json({ error: status === 429 ? 'Too many account deletion attempts. Try again later.' : 'Account deletion is temporarily unavailable.' }, { status })
+  }
+
   const serviceKey = process.env.SUPABASE_SERVICE_ROLE_KEY
   const supabaseUrl = process.env.NEXT_PUBLIC_SUPABASE_URL
   if (!serviceKey || !supabaseUrl) return NextResponse.json({ error: 'Account deletion is not configured' }, { status: 503 })
 
   const admin = createAdminClient(supabaseUrl, serviceKey, { auth: { autoRefreshToken: false, persistSession: false } })
+
+  const { error: signOutError } = await supabase.auth.signOut({ scope: 'global' })
+  if (signOutError) {
+    console.error('[account-delete] session revocation failed:', signOutError)
+    return NextResponse.json({ error: 'Could not safely revoke account sessions. Please try again.' }, { status: 503 })
+  }
 
   try {
     // Remove all user-owned files from the application's private storage folders.
