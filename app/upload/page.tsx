@@ -65,7 +65,7 @@ export default function UploadPage() {
         let clientSideFailed = false;
 
         // ==========================================
-        // 1. CLIENT-SIDE EXTRACTION (Bulletproofed for Safari)
+        // 1. CLIENT-SIDE EXTRACTION 
         // ==========================================
         try {
           if (fileName.endsWith(".txt") || fileName.endsWith(".md") || fileName.endsWith(".csv")) {
@@ -85,7 +85,6 @@ export default function UploadPage() {
             const JSZip = zipModule.default || zipModule;
             const zip = new (JSZip as any)();
             
-            // SAFARI FIX 1: Pass ArrayBuffer explicitly instead of the raw File object
             const arrayBuffer = await file.arrayBuffer();
             const loadedZip = await zip.loadAsync(arrayBuffer);
             
@@ -110,9 +109,9 @@ export default function UploadPage() {
               pdfjsLib.GlobalWorkerOptions.workerSrc = `https://cdnjs.cloudflare.com/ajax/libs/pdf.js/${pdfjsLib.version}/pdf.worker.min.js`;
             }
             
-            // SAFARI FIX 2: Create a local URL for the PDF to completely bypass binary array crashes
-            const objectUrl = URL.createObjectURL(file);
-            const pdf = await pdfjsLib.getDocument(objectUrl).promise;
+            const arrayBuffer = await file.arrayBuffer();
+            const uint8Array = new Uint8Array(arrayBuffer);
+            const pdf = await pdfjsLib.getDocument({ data: uint8Array }).promise;
             
             const maxPages = Math.min(pdf.numPages, 50);
             const batchSize = 3; 
@@ -141,7 +140,6 @@ export default function UploadPage() {
             }
             
             pdf.destroy();
-            URL.revokeObjectURL(objectUrl); // Clean up memory
 
             if (pdf.numPages > 50) {
               extractedTextForFile += "\n[System Note: The PDF was truncated to the first 50 pages to optimize AI memory and processing speed.]\n";
@@ -153,7 +151,7 @@ export default function UploadPage() {
         }
 
         // ==========================================
-        // 2. SERVER-SIDE FALLBACK 
+        // 2. SERVER-SIDE FALLBACK (SAFARI BUG FIX)
         // ==========================================
         if (
           clientSideFailed || 
@@ -166,12 +164,14 @@ export default function UploadPage() {
             throw new Error(`"${file.name}" is too large. Images and Presentations must be under 4.5MB.`);
           }
 
-          const form = new FormData();
-          
-          // SAFARI FIX 3: Strip emojis, accents, and invalid characters from filename
-          // Safari's FormData.append strictly crashes if it sees unexpected characters in the filename.
+          // SAFARI BUG FIX: Convert File to a raw anonymous Blob. 
+          // This strips all hidden emojis/characters from the native iOS file properties 
+          // that cause Safari's fetch() network layer to instantly crash.
+          const safeBlob = new Blob([file], { type: file.type });
           const safeFileName = file.name.replace(/[^a-zA-Z0-9.\-_]/g, "_") || "upload.file";
-          form.append("file", file, safeFileName);
+          
+          const form = new FormData();
+          form.append("file", safeBlob, safeFileName);
           
           const endpoint = isMediaFile(file) ? "/api/transcribe" : "/api/extract-text";
           
@@ -282,7 +282,7 @@ export default function UploadPage() {
           />
 
           {status === "extracting" && (
-            <div className="mt-6 flex items-center justify-center gap-3 rounded-2xl bg-white/60 dark:bg-slate-900/60 backdrop-blur-md px-6 py-4 text-sm font-bold text-indigo-600 dark:text-indigo-400 border border-slate-200/60 dark:border-slate-700/60 shadow-sm animate-pulse">
+            <div className="mt-6 flex items-center justify-center gap-3 rounded-2xl bg-slate-900/60 backdrop-blur-md px-6 py-4 text-sm font-bold text-indigo-400 border border-slate-700/60 shadow-sm animate-pulse">
               <Loader2 className="h-5 w-5 animate-spin" />
               Extracting text from your files...
             </div>
@@ -290,10 +290,10 @@ export default function UploadPage() {
         </>
       ) : (
         /* CONFIGURATION STEP WITH MODE SELECTOR & OPTIONS */
-        <div className="bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-800 rounded-3xl p-8 space-y-8 shadow-sm">
+        <div className="bg-slate-900 border border-slate-800 rounded-3xl p-8 space-y-8 shadow-sm">
           
           <div>
-            <label className="block text-sm font-bold text-slate-900 dark:text-white mb-3">
+            <label className="block text-sm font-bold text-white mb-3">
               Select Study Mode
             </label>
             <div className="grid grid-cols-2 gap-4">
@@ -301,8 +301,8 @@ export default function UploadPage() {
                 onClick={() => setStudyMode("quiz")}
                 className={`py-4 px-5 rounded-2xl font-bold border-2 flex items-center justify-center gap-3 transition-all ${
                   studyMode === "quiz"
-                    ? "bg-indigo-600 border-indigo-600 text-white dark:bg-indigo-500 dark:border-indigo-500 shadow-md"
-                    : "bg-slate-50 border-slate-200 text-slate-700 dark:bg-slate-950 dark:border-slate-800 dark:text-slate-300"
+                    ? "bg-indigo-500 border-indigo-500 text-white shadow-md"
+                    : "bg-slate-950 border-slate-800 text-slate-300"
                 }`}
               >
                 <BrainCircuit className="w-5 h-5" /> Quiz Mode
@@ -311,8 +311,8 @@ export default function UploadPage() {
                 onClick={() => setStudyMode("notes")}
                 className={`py-4 px-5 rounded-2xl font-bold border-2 flex items-center justify-center gap-3 transition-all ${
                   studyMode === "notes"
-                    ? "bg-indigo-600 border-indigo-600 text-white dark:bg-indigo-500 dark:border-indigo-500 shadow-md"
-                    : "bg-slate-50 border-slate-200 text-slate-700 dark:bg-slate-950 dark:border-slate-800 dark:text-slate-300"
+                    ? "bg-indigo-500 border-indigo-500 text-white shadow-md"
+                    : "bg-slate-950 border-slate-800 text-slate-300"
                 }`}
               >
                 <BookOpen className="w-5 h-5" /> Notes Mode
@@ -321,9 +321,9 @@ export default function UploadPage() {
           </div>
 
           {studyMode === "quiz" && (
-            <div className="space-y-6 pt-4 border-t border-slate-100 dark:border-slate-800 animate-in fade-in duration-200">
+            <div className="space-y-6 pt-4 border-t border-slate-800 animate-in fade-in duration-200">
               <div>
-                <label className="block text-sm font-bold text-slate-900 dark:text-white mb-3">
+                <label className="block text-sm font-bold text-white mb-3">
                   Quiz Difficulty
                 </label>
                 <div className="grid grid-cols-3 gap-3">
@@ -333,8 +333,8 @@ export default function UploadPage() {
                       onClick={() => setSelectedDifficulty(level)}
                       className={`py-3 px-4 rounded-xl font-bold capitalize border-2 transition-all ${
                         selectedDifficulty === level
-                          ? "bg-indigo-600 border-indigo-600 text-white dark:bg-indigo-500 dark:border-indigo-500"
-                          : "bg-slate-50 border-slate-200 text-slate-700 dark:bg-slate-950 dark:border-slate-800 dark:text-slate-300"
+                          ? "bg-indigo-500 border-indigo-500 text-white"
+                          : "bg-slate-950 border-slate-800 text-slate-300"
                       }`}
                     >
                       {level} {level === "hard" && "🔥"}
@@ -345,10 +345,10 @@ export default function UploadPage() {
 
               <div>
                 <div className="flex justify-between items-center mb-3">
-                  <label className="text-sm font-bold text-slate-900 dark:text-white">
+                  <label className="text-sm font-bold text-white">
                     Number of Questions ({questionCount})
                   </label>
-                  <span className="text-xs font-semibold text-slate-500 dark:text-slate-400">
+                  <span className="text-xs font-semibold text-slate-400">
                     Max limit: {maxLimit} questions
                   </span>
                 </div>
@@ -368,7 +368,7 @@ export default function UploadPage() {
           <button
             onClick={handleGenerate}
             disabled={status === "generating"}
-            className="w-full py-4 bg-indigo-600 hover:bg-indigo-700 dark:bg-indigo-500 dark:hover:bg-indigo-600 text-white rounded-2xl font-black text-lg flex items-center justify-center gap-3 shadow-lg transition-all"
+            className="w-full py-4 bg-indigo-500 hover:bg-indigo-600 text-white rounded-2xl font-black text-lg flex items-center justify-center gap-3 shadow-lg transition-all"
           >
             {status === "generating" ? (
               <>
@@ -386,7 +386,7 @@ export default function UploadPage() {
       )}
 
       {error && (
-        <div className="mt-6 rounded-2xl bg-rose-50/80 dark:bg-rose-950/50 backdrop-blur-md px-6 py-4 text-sm font-semibold text-rose-600 dark:text-rose-400 border border-rose-200/50 dark:border-rose-900/50 text-center shadow-sm">
+        <div className="mt-6 rounded-2xl bg-rose-950/50 backdrop-blur-md px-6 py-4 text-sm font-semibold text-rose-400 border border-rose-900/50 text-center shadow-sm">
           {error}
         </div>
       )}
