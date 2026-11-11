@@ -1,4 +1,4 @@
-name: Security dependency upgrade and validation
+name: Security dependency upgrade and validation (latest)
 
 on:
   workflow_dispatch:
