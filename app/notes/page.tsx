@@ -22,16 +22,21 @@ export default function NotesPage() {
   return (
     <div className="mx-auto max-w-3xl py-12 px-4 space-y-8 transition-colors duration-200">
       
+      {/* Top Navigation with Return Arrow */}
       <div className="flex justify-between items-center">
         <button 
           onClick={() => router.push("/upload")}
-          className="flex items-center gap-2 text-sm font-bold text-slate-500 hover:text-slate-800 dark:text-slate-400 dark:hover:text-white"
+          className="flex items-center gap-2 text-sm font-bold text-slate-500 hover:text-slate-800 dark:text-slate-400 dark:hover:text-white transition-colors"
         >
-          <ArrowLeft className="w-4 h-4" /> Upload New File
+          <ArrowLeft className="w-4 h-4" /> Back to Upload
         </button>
         
         <button
-          onClick={() => router.push("/quiz")}
+          onClick={() => {
+            // Signals the upload page to open straight to the configuration options for a new quiz
+            sessionStorage.setItem("recallmate-reconfigure", "true");
+            router.push("/upload");
+          }}
           className="flex items-center gap-2 px-4 py-2 bg-indigo-600 hover:bg-indigo-700 text-white rounded-xl text-sm font-bold shadow-md transition-all"
         >
           <BrainCircuit className="w-4 h-4" /> Switch to Quiz Mode

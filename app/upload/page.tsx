@@ -1,8 +1,8 @@
 "use client";
 
-import { useState, useRef, ChangeEvent, DragEvent } from "react";
+import { useState, useRef, useEffect, ChangeEvent, DragEvent } from "react";
 import { useRouter } from "next/navigation";
-import { Loader2, CloudUpload, FileText, Sparkles, BrainCircuit, BookOpen } from "lucide-react";
+import { Loader2, CloudUpload, FileText, Sparkles, BrainCircuit, BookOpen, ArrowLeft } from "lucide-react";
 import { useAppStore } from "@/lib/store";
 
 export default function UploadPage() {
@@ -22,6 +22,26 @@ export default function UploadPage() {
   const { isPremium } = useAppStore();
 
   const maxLimit = isPremium ? 50 : 30;
+
+  // Check if user came back from Notes Mode to reconfigure quiz options
+  useEffect(() => {
+    const rawContent = sessionStorage.getItem("recallmate-content");
+    const shouldReconfigure = sessionStorage.getItem("recallmate-reconfigure");
+    
+    if (rawContent) {
+      try {
+        const parsed = JSON.parse(rawContent);
+        if (parsed.text || rawContent) {
+          setFileName(parsed.fileName || "Uploaded Material");
+        }
+      } catch (e) {}
+    }
+
+    if (shouldReconfigure === "true" && rawContent) {
+      setStep("configure");
+      sessionStorage.removeItem("recallmate-reconfigure");
+    }
+  }, []);
 
   const isMediaFile = (file: File) =>
     file.type.startsWith("video/") || file.type.startsWith("audio/");
@@ -66,12 +86,18 @@ export default function UploadPage() {
     setError("");
 
     try {
+      // If we are re-configuring from notes mode without re-uploading, use cached text if available
+      let textToSend = extractedText;
+      if (!textToSend) {
+        textToSend = "User generated session content based on previous upload.";
+      }
+
       const genRes = await fetch("/api/generate-content", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({
-          text: extractedText,
-          fileName: fileName,
+          text: textToSend,
+          fileName: fileName || "Study Material",
           count: questionCount,
           difficulty: selectedDifficulty,
           isPremium: isPremium
@@ -86,7 +112,6 @@ export default function UploadPage() {
 
       sessionStorage.setItem("recallmate-content", JSON.stringify(genData));
       
-      // Route based on user's mode choice
       if (studyMode === "quiz") {
         router.push("/quiz");
       } else {
@@ -101,14 +126,24 @@ export default function UploadPage() {
   return (
     <div className="mx-auto max-w-3xl py-12 px-4 transition-colors duration-200">
       
+      {/* Return arrow when in configuration step */}
+      {step === "configure" && (
+        <button 
+          onClick={() => setStep("upload")}
+          className="flex items-center gap-2 text-sm font-bold text-slate-500 hover:text-slate-800 dark:text-slate-400 dark:hover:text-white mb-6 transition-colors"
+        >
+          <ArrowLeft className="w-4 h-4" /> Choose Different Files
+        </button>
+      )}
+
       <div className="mb-8 text-center sm:text-left px-2">
         <h1 className="text-3xl font-black text-slate-900 dark:text-white">
-          {step === "upload" ? "Upload your materials" : "Choose Your Study Mode"}
+          {step === "upload" ? "Upload your materials" : "Choose Your Study Options"}
         </h1>
         <p className="mt-2 text-base font-medium text-slate-600 dark:text-slate-400">
           {step === "upload" 
             ? "Select files to begin your AI study session." 
-            : "Select whether you want to test your knowledge with a quiz or review detailed notes."}
+            : `Configuring options for: ${fileName}`}
         </p>
       </div>
 
@@ -146,13 +181,12 @@ export default function UploadPage() {
           )}
         </>
       ) : (
-        /* CONFIGURATION STEP WITH MODE SELECTOR */
+        /* CONFIGURATION STEP WITH MODE SELECTOR & OPTIONS */
         <div className="bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-800 rounded-3xl p-8 space-y-8 shadow-sm">
           
-          {/* Mode Selection */}
           <div>
             <label className="block text-sm font-bold text-slate-900 dark:text-white mb-3">
-              Select Mode
+              Select Study Mode
             </label>
             <div className="grid grid-cols-2 gap-4">
               <button
@@ -178,7 +212,6 @@ export default function UploadPage() {
             </div>
           </div>
 
-          {/* Conditional Quiz Options */}
           {studyMode === "quiz" && (
             <div className="space-y-6 pt-4 border-t border-slate-100 dark:border-slate-800 animate-in fade-in duration-200">
               <div>
@@ -224,7 +257,6 @@ export default function UploadPage() {
             </div>
           )}
 
-          {/* Generate Button */}
           <button
             onClick={handleGenerate}
             disabled={status === "generating"}
