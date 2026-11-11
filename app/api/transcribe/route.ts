@@ -1,7 +1,7 @@
 import { NextRequest, NextResponse } from "next/server";
-import { timingSafeEqual } from "crypto";
 import { createClient } from "@supabase/supabase-js";
 import { requireUser, checkRateLimit } from "@/lib/security";
+import { Redis } from "@upstash/redis";
 
 export const runtime = "nodejs";
 export const preferredRegion = "iad1";
@@ -10,7 +10,7 @@ const ASSEMBLYAI_KEY = process.env.ASSEMBLYAI_API_KEY;
 const MAX_MEDIA_BYTES = 20 * 1024 * 1024;
 const redisUrl = process.env.KV_REST_API_URL || process.env.UPSTASH_REDIS_REST_URL || "";
 const redisToken = process.env.KV_REST_API_TOKEN || process.env.UPSTASH_REDIS_REST_TOKEN || "";
-const redis = redisUrl && redisToken ? new (require("@upstash/redis").Redis)({ url: redisUrl, token: redisToken }) : null;
+const redis = redisUrl && redisToken ? new Redis({ url: redisUrl, token: redisToken }) : null;
 
 function isYouTubeUrl(value: unknown): value is string {
   if (typeof value !== "string" || value.length > 2048) return false;
