@@ -22,7 +22,7 @@ function matchesMagic(buffer: Uint8Array, signature: readonly number[]) {
 export async function POST(req: NextRequest) {
   try {
     const { user } = await requireUser();
-    await checkRateLimit(user.id);
+    await checkRateLimit(`extract-text:${user.id}`, { limit: 10, windowSeconds: 60 });
 
     const contentType = req.headers.get("content-type") || "";
     if (!contentType.toLowerCase().includes("multipart/form-data")) {
