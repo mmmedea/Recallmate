@@ -153,6 +153,7 @@ export default function OmniChatDrawer() {
             source_type: "document",
             source_name: file.name,
             extracted_text: file.context,
+            timestamp: Date.now(),
           });
           addChatContext({
             source_type: "document",

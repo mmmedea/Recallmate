@@ -40,7 +40,7 @@ create table public.preferences (
 
 -- 1D. Documents (Private Files uploaded by user)
 create table public.documents (
-  id uuid default uuid_generate_v4() primary key,
+  id uuid default gen_random_uuid() primary key,
   user_id uuid references auth.users (id) on delete cascade not null,
   filename text not null,
   storage_path text not null,
@@ -53,7 +53,7 @@ create table public.documents (
 
 -- 1E. Document Chunks (Server-managed RAG Citations)
 create table public.document_chunks (
-  id uuid default uuid_generate_v4() primary key,
+  id uuid default gen_random_uuid() primary key,
   document_id uuid references public.documents (id) on delete cascade not null,
   chunk_index integer not null,
   page_number integer,
@@ -68,7 +68,7 @@ create unique index idx_document_chunks_order on public.document_chunks(document
 
 -- 1F. Notes (Client Writable)
 create table public.notes (
-  id uuid default uuid_generate_v4() primary key,
+  id uuid default gen_random_uuid() primary key,
   document_id uuid references public.documents (id) on delete cascade not null,
   content text not null,
   created_at timestamp with time zone default timezone('utc'::text, now()) not null
@@ -76,7 +76,7 @@ create table public.notes (
 
 -- 1G. Topics & Adaptive Mastery (Server-managed generation)
 create table public.topics (
-  id uuid default uuid_generate_v4() primary key,
+  id uuid default gen_random_uuid() primary key,
   document_id uuid references public.documents (id) on delete cascade not null,
   name text not null,
   description text
@@ -85,7 +85,7 @@ create table public.topics (
 create unique index idx_topics_document_name on public.topics (document_id, lower(name));
 
 create table public.topic_mastery (
-  id uuid default uuid_generate_v4() primary key,
+  id uuid default gen_random_uuid() primary key,
   user_id uuid references auth.users (id) on delete cascade not null,
   topic_id uuid references public.topics (id) on delete cascade not null,
   mastery_score float default 0.0 check (mastery_score >= 0.0 and mastery_score <= 1.0),
@@ -97,7 +97,7 @@ create table public.topic_mastery (
 
 -- 1H. Questions & Topic Links (Server-managed)
 create table public.questions (
-  id uuid default uuid_generate_v4() primary key,
+  id uuid default gen_random_uuid() primary key,
   document_id uuid references public.documents (id) on delete cascade not null,
   question_text text not null,
   options jsonb not null,
@@ -116,7 +116,7 @@ create table public.question_topics (
 
 -- 1I. Quiz Attempts & Answers (Server-managed to protect scoring integrity)
 create table public.quiz_attempts (
-  id uuid default uuid_generate_v4() primary key,
+  id uuid default gen_random_uuid() primary key,
   user_id uuid references auth.users (id) on delete cascade not null,
   document_id uuid references public.documents (id) on delete cascade not null,
   score integer default 0 check (score >= 0),
@@ -127,7 +127,7 @@ create table public.quiz_attempts (
 );
 
 create table public.quiz_answers (
-  id uuid default uuid_generate_v4() primary key,
+  id uuid default gen_random_uuid() primary key,
   attempt_id uuid references public.quiz_attempts (id) on delete cascade not null,
   question_id uuid references public.questions (id) on delete cascade not null,
   selected_answer text not null,
@@ -233,7 +233,7 @@ create trigger validate_quiz_answer_context_trigger
 
 -- 1J. AI Jobs (Idempotency & Concurrency Protection - Server-managed)
 create table public.ai_jobs (
-  id uuid default uuid_generate_v4() primary key,
+  id uuid default gen_random_uuid() primary key,
   user_id uuid references auth.users (id) on delete cascade not null,
   document_id uuid references public.documents (id) on delete cascade,
   operation text not null check (operation in ('extract_text', 'generate_notes', 'generate_quiz', 'chat')),
@@ -250,7 +250,7 @@ on public.ai_jobs (user_id, idempotency_key);
 
 -- 1K. AI Usage Logs (Cost tracking - Server only)
 create table public.ai_usage_logs (
-  id uuid default uuid_generate_v4() primary key,
+  id uuid default gen_random_uuid() primary key,
   user_id uuid references auth.users (id) on delete set null,
   operation text not null,
   provider text not null,
@@ -371,11 +371,11 @@ on conflict (id) do nothing;
 
 create policy "Users can view their own study materials"
   on storage.objects for select to authenticated
-  using (bucket_id = 'study_materials' and auth.uid() = owner_id);
+  using (bucket_id = 'study_materials' and auth.uid()::text = owner_id);
 
 create policy "Users can upload their own study materials"
   on storage.objects for insert to authenticated
-  with check (bucket_id = 'study_materials' and auth.uid() = owner_id);
+  with check (bucket_id = 'study_materials' and auth.uid()::text = owner_id);
 
 -- Storage UPDATE and DELETE are server-managed to enforce lifecycle
 

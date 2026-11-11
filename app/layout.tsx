@@ -1,10 +1,9 @@
 import type { Metadata } from "next";
 import { Inter } from "next/font/google";
 import "@/app/globals.css";
-import Navbar from "@/components/Navbar";
 import { ThemeProvider } from "@/components/ThemeProvider";
-import InactivityPreventer from "@/components/InactivityPreventer";
-import OmniChatDrawer from "@/components/OmniChatDrawer";
+
+import { Toaster } from "@/components/ui/toaster";
 
 const inter = Inter({ subsets: ["latin"] });
 
@@ -16,12 +15,10 @@ export const metadata: Metadata = {
 export default function RootLayout({ children }: { children: React.ReactNode }) {
   return (
     <html lang="en" suppressHydrationWarning>
-      <body className={`${inter.className} bg-slate-50 dark:bg-slate-950 text-slate-900 dark:text-slate-100 min-h-screen transition-colors duration-200 antialiased`}>
+      <body className={`${inter.className} bg-background text-foreground min-h-screen antialiased transition-colors duration-200`}>
         <ThemeProvider attribute="class" defaultTheme="system" enableSystem>
-          <InactivityPreventer />
-          <Navbar />
-          <main className="mx-auto max-w-6xl px-4 pb-20 pt-6">{children}</main>
-          <OmniChatDrawer />
+          {children}
+          <Toaster />
         </ThemeProvider>
       </body>
     </html>

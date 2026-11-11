@@ -43,5 +43,11 @@
       "destination": "https://recallmate.vercel.app/:path*",
       "permanent": true
     }
+  ],
+  "crons": [
+    {
+      "path": "/api/jobs/worker",
+      "schedule": "* * * * *"
+    }
   ]
 }

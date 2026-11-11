@@ -1,7 +1,6 @@
 import { NextRequest, NextResponse } from "next/server";
 import pdfParse from "pdf-parse";
 import mammoth from "mammoth";
-import officeParser from "officeparser";
 
 export const runtime = "nodejs";
 
@@ -92,11 +91,7 @@ export async function POST(req: NextRequest) {
     }
     // 5. Handle PowerPoint presentations (.pptx, .ppt)
     else if (fileName.endsWith(".pptx") || fileName.endsWith(".ppt")) {
-      try {
-        extractedText = await officeParser.parseOfficeAsync(buffer);
-      } catch (pptErr) {
-        extractedText = `[Presentation File: ${file.name}]`;
-      }
+       extractedText = `[Presentation File: ${file.name} - Text extraction currently disabled]`;
     }
     // 6. Handle Text, Markdown, and CSV files
     else if (

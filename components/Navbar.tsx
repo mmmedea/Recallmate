@@ -26,6 +26,12 @@ export default function Navbar() {
           <div className="flex items-center gap-3">
             <HeartsDisplay />
             <ThemeToggle />
+            <Link
+              href="/login"
+              className="rounded-full border border-slate-200 dark:border-slate-700 px-4 py-1.5 text-sm font-semibold text-slate-700 dark:text-slate-300 hover:bg-slate-100 dark:hover:bg-slate-800 transition-colors"
+            >
+              Sign in
+            </Link>
             {!isPremium && (
               <button
                 onClick={() => setPremiumOpen(true)}

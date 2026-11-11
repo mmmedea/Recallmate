@@ -1,9 +1,10 @@
 import { NextResponse } from 'next/server';
 import type { NextRequest } from 'next/server';
+import { updateSession } from './utils/supabase/middleware';
 import { Ratelimit } from '@upstash/ratelimit';
 import { Redis } from '@upstash/redis';
 
-// Initialize Redis and RateLimiter only if credentials exist to avoid crashing
+// Initialize Redis and RateLimiter only if credentials exist
 let ratelimit: Ratelimit | null = null;
 if (process.env.UPSTASH_REDIS_REST_URL && process.env.UPSTASH_REDIS_REST_TOKEN) {
   const redis = new Redis({
@@ -11,7 +12,6 @@ if (process.env.UPSTASH_REDIS_REST_URL && process.env.UPSTASH_REDIS_REST_TOKEN) 
     token: process.env.UPSTASH_REDIS_REST_TOKEN,
   });
 
-  // Create a new ratelimiter, that allows 10 requests per 10 seconds per IP
   ratelimit = new Ratelimit({
     redis: redis,
     limiter: Ratelimit.slidingWindow(10, '10 s'),
@@ -20,18 +20,15 @@ if (process.env.UPSTASH_REDIS_REST_URL && process.env.UPSTASH_REDIS_REST_TOKEN) 
 }
 
 export async function middleware(request: NextRequest) {
-  const { pathname } = request.nextUrl;
+  // 1. Refresh Supabase Auth Session
+  const supabaseResponse = await updateSession(request);
 
-  // We only want to rate limit the expensive AI API routes
+  // 2. Rate Limiting for specific API routes
+  const { pathname } = request.nextUrl;
   if (pathname.startsWith('/api/chat') || pathname.startsWith('/api/extract-text') || pathname.startsWith('/api/generate-content')) {
     
-    // Check if user is premium via secure HttpOnly cookie
-    const isPremium = request.cookies.has('recallmate_premium');
-
-    if (isPremium) {
-      // Premium users bypass the rate limiter completely
-      return NextResponse.next();
-    }
+    // NOTE: Premium status checks are now handled strictly on the server via `requireEntitlement()`
+    // We apply base rate limiting here, and the Server Action will enforce stricter limits.
 
     if (ratelimit) {
       const ip = request.ip ?? '127.0.0.1';
@@ -53,14 +50,18 @@ export async function middleware(request: NextRequest) {
     }
   }
 
-  return NextResponse.next();
+  return supabaseResponse;
 }
 
 export const config = {
   matcher: [
-    // Apply to API routes
-    '/api/chat/:path*',
-    '/api/extract-text/:path*',
-    '/api/generate-content/:path*',
+    /*
+     * Match all request paths except for the ones starting with:
+     * - _next/static (static files)
+     * - _next/image (image optimization files)
+     * - favicon.ico (favicon file)
+     * Feel free to modify this pattern to include more paths.
+     */
+    '/((?!_next/static|_next/image|favicon.ico|.*\\.(?:svg|png|jpg|jpeg|gif|webp)$).*)',
   ],
 };
