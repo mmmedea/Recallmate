@@ -2,11 +2,12 @@ import { createClient } from "@supabase/supabase-js";
 import { Database } from "@/types/supabase";
 import { BillingService } from "./billing";
 import { estimateTokens } from "./provider";
+import type { AIOperation } from "./config";
 
 export type AIEntitlementContext = {
   userId: string;
   documentId: string;
-  operation: string;
+  operation: Exclude<AIOperation, "extract_text">;
 };
 
 /**
@@ -25,7 +26,7 @@ export async function authorizeCredits(
   const billing = new BillingService(supabase);
   
   // 1. Estimate Tokens (cheap local or API call)
-  const estimatedInputTokens = await estimateTokens(model, inputContent);
+  const estimatedInputTokens = await estimateTokens(inputContent, context.operation);
   
   // 2. We assume some output based on operation (e.g. notes = 1000, quiz = 1500)
   const estimatedOutputTokens = context.operation === 'generate_quiz' ? 1500 : 1000;
