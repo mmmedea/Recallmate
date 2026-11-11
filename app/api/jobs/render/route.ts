@@ -1,6 +1,5 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { createClient } from '@supabase/supabase-js';
-import { renderReviewerPdf } from '@/lib/renderer/pdf';
 import { renderReviewerDocx } from '@/lib/renderer/docx';
 import { GeneratedReviewerDocument } from '@/lib/ai/schemas';
 import crypto from 'crypto';
@@ -14,6 +13,10 @@ export async function POST(req: NextRequest) {
       return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
     }
 
+    if (format !== 'docx') {
+      return NextResponse.json({ error: "Only DOCX rendering is supported currently." }, { status: 400 });
+    }
+
     const supabase = createClient(
       process.env.NEXT_PUBLIC_SUPABASE_URL!,
       process.env.SUPABASE_SERVICE_ROLE_KEY!
@@ -21,11 +24,7 @@ export async function POST(req: NextRequest) {
 
     // Render Binary
     let binaryBuffer: Buffer;
-    if (format === 'pdf') {
-      binaryBuffer = await renderReviewerPdf(reviewerDocument as GeneratedReviewerDocument);
-    } else {
-      binaryBuffer = await renderReviewerDocx(reviewerDocument as GeneratedReviewerDocument);
-    }
+    binaryBuffer = await renderReviewerDocx(reviewerDocument as GeneratedReviewerDocument);
 
     // Store in Supabase
     const fileName = `${crypto.randomUUID()}.${format}`;

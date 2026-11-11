@@ -15,7 +15,7 @@ export function ReviewerMakerDialog({
   isOpen: boolean;
   onClose: () => void;
 }) {
-  const [format, setFormat] = useState<Format>('pdf');
+  const [format, setFormat] = useState<Format>('docx');
   const [isGenerating, setIsGenerating] = useState(false);
   const [error, setError] = useState('');
   const [generatedPath, setGeneratedPath] = useState<string | null>(null);
@@ -107,18 +107,6 @@ export function ReviewerMakerDialog({
               <div>
                 <label className="block text-sm font-medium text-slate-700 dark:text-slate-300 mb-2">Format</label>
                 <div className="space-y-2">
-                  <label className="flex items-center gap-3 p-3 border border-slate-200 dark:border-slate-700 rounded-lg cursor-pointer hover:bg-slate-50 dark:hover:bg-slate-800/50">
-                    <input 
-                      type="radio" 
-                      name="format" 
-                      value="pdf" 
-                      checked={format === 'pdf'} 
-                      onChange={() => setFormat('pdf')}
-                      className="w-4 h-4 text-indigo-600"
-                    />
-                    <FileText className="w-5 h-5 text-red-500" />
-                    <span>PDF</span>
-                  </label>
                   <label className="flex items-center gap-3 p-3 border border-slate-200 dark:border-slate-700 rounded-lg cursor-pointer hover:bg-slate-50 dark:hover:bg-slate-800/50">
                     <input 
                       type="radio" 
