@@ -5,10 +5,11 @@ import Navbar from "@/components/Navbar";
 
 export default function HomePage() {
   return (
-    <main className="min-h-screen overflow-hidden bg-[#08070d] text-white">
+    <main className="min-h-screen overflow-hidden bg-[radial-gradient(ellipse_at_18%_24%,rgba(167,139,250,0.15),transparent_34%),radial-gradient(ellipse_at_82%_68%,rgba(255,82,107,0.11),transparent_32%),#08070d] text-white">
       <Navbar />
       <section className="relative isolate flex min-h-[calc(100vh-76px)] flex-col items-center px-5 pb-24 pt-24 text-center sm:pt-28">
         <div aria-hidden="true" className="pointer-events-none absolute inset-x-0 top-12 -z-10 mx-auto h-[480px] max-w-5xl rounded-full bg-[radial-gradient(ellipse_at_center,rgba(181,151,255,0.17),rgba(8,7,13,0)_68%)] blur-3xl" />
+        <div aria-hidden="true" className="pointer-events-none absolute -bottom-28 -right-40 -z-10 h-[420px] w-[420px] rounded-full bg-[#ff526b]/10 blur-[110px]" />
         <p className="mb-8 rounded-full border border-[#a78bfa]/40 bg-[#a78bfa]/10 px-5 py-2 font-pixelify text-xs uppercase tracking-[0.16em] text-[#c9b7ff] sm:text-sm">
           A smarter way to study
         </p>
