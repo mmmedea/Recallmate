@@ -32,6 +32,14 @@ jobs:
 
       - name: Build with type and lint checks
         run: npm run build
+        env:
+          # Non-secret placeholders let Next.js collect route data in CI.
+          # Vercel uses its real project-scoped Supabase environment variables.
+          NEXT_PUBLIC_SUPABASE_URL: https://build-placeholder.supabase.co
+          NEXT_PUBLIC_SUPABASE_ANON_KEY: build-only-placeholder
+          SUPABASE_SERVICE_ROLE_KEY: build-only-placeholder
+          NEXT_PUBLIC_APP_URL: http://localhost:3000
+          CRON_SECRET: build-only-placeholder
 
       - name: Run automated tests
         run: npm run test:run

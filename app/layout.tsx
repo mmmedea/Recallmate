@@ -6,8 +6,8 @@ import CookieConsent from "@/components/CookieConsent";
 import { Toaster } from "@/components/ui/toaster";
 
 export const metadata: Metadata = {
-  title: "RecallMate – Study Smarter with AI",
-  description: "Upload study documents or images and let AI turn them into predictive exam questions and active recall quizzes.",
+  title: "RecallMate | AI Study Notes, Quizzes & Tutor",
+  description: "Turn your PDFs, slides, and notes into organized study guides, practice quizzes grounded in your material, and clear explanations with RecallMate.",
 };
 
 export default function RootLayout({ children }: { children: React.ReactNode }) {

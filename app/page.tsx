@@ -16,20 +16,17 @@ export default function HomePage() {
         <div className="inline-flex items-center gap-2 px-4 py-1.5 rounded-full border border-indigo-200 dark:border-indigo-800/60 bg-indigo-50/80 dark:bg-indigo-950/50 backdrop-blur-md shadow-sm motion-safe:animate-in motion-safe:fade-in motion-safe:slide-in-from-bottom-4 duration-700">
           <Sparkles className="w-4 h-4 text-indigo-600 dark:text-indigo-400" />
           <span className="text-xs font-bold tracking-wide text-indigo-700 dark:text-indigo-300 uppercase">
-            Predictive Exam AI + Active Recall
+            AI Study Tools + Active Recall
           </span>
         </div>
 
         {/* Main Heading & Subtitle */}
         <div className="max-w-3xl space-y-6 px-4 motion-safe:animate-in motion-safe:fade-in motion-safe:slide-in-from-bottom-6 duration-700 delay-150 fill-mode-both">
           <h1 className="text-4xl sm:text-6xl font-black tracking-tight text-slate-900 dark:text-white leading-[1.15]">
-            Turn any file into an exam questionnaire your brain will{" "}
-            <span className="bg-gradient-to-r from-indigo-600 via-violet-600 to-pink-500 bg-clip-text text-transparent">
-              remember.
-            </span>
+            Turn your study files into a smarter study session.
           </h1>
           <p className="text-base sm:text-lg font-medium text-slate-600 dark:text-slate-300 leading-relaxed max-w-2xl mx-auto">
-            Upload documents, slides, or images. AI predicts realistic exam questions, extracts key facts, and creates interactive quizzes to master.
+            Upload notes, slides, or PDFs. RecallMate organizes your material into clear study notes and practice questions, so you can focus on understanding and remembering what matters.
           </p>
         </div>
 
@@ -53,10 +50,10 @@ export default function HomePage() {
               <Sparkles className="w-5 h-5" />
             </div>
             <h3 className="text-lg font-black text-slate-900 dark:text-white">
-              AI-generated Notes
+              AI study notes
             </h3>
             <p className="text-xs text-slate-600 dark:text-slate-400 leading-relaxed">
-              Instant summaries and organized bullet points directly extracted from your source files.
+              Get concise summaries and organized key points from your uploaded material.
             </p>
           </div>
 
@@ -66,10 +63,10 @@ export default function HomePage() {
               <Brain className="w-5 h-5" />
             </div>
             <h3 className="text-lg font-black text-slate-900 dark:text-white">
-              Predictive Questionnaires
+              Source-grounded quizzes
             </h3>
             <p className="text-xs text-slate-600 dark:text-slate-400 leading-relaxed">
-              Forecasts realistic test questions divided into Easy, Medium, and Hard difficulty levels.
+              Practice with questions generated from your uploaded material, with difficulty levels to guide your review.
             </p>
           </div>
 
@@ -82,7 +79,7 @@ export default function HomePage() {
               Hearts System
             </h3>
             <p className="text-xs text-slate-600 dark:text-slate-400 leading-relaxed">
-              Gamified learning stakes that keep you focused while testing your recall precision.
+              A simple reward system makes each practice session more engaging and encourages steady progress.
             </p>
           </div>
         </div>
@@ -102,7 +99,7 @@ export default function HomePage() {
                 Your personal AI study tutor
               </h2>
               <p className="text-slate-600 dark:text-slate-400 text-sm md:text-base leading-relaxed">
-                Stuck on a difficult concept? Ask Medea. She knows exactly what's in your uploaded material and can explain complex topics, summarize chapters, or test your knowledge in real-time.
+                Stuck on a difficult concept? Ask Medea about your uploaded material. Get clear explanations, chapter summaries, and follow-up questions that help you understand the ideas.
               </p>
             </div>
             
