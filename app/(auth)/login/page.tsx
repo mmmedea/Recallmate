@@ -8,7 +8,7 @@ export default function LoginPage({
 }: {
   searchParams: { next?: string };
 }) {
-  let next = "/upload";
+  let next = "/dashboard";
   if (
     searchParams.next &&
     searchParams.next.startsWith("/") &&

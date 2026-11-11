@@ -1,5 +1,6 @@
 import { redirect } from "next/navigation";
 import { createClient } from "@/utils/supabase/server";
+import ThemeToggle from "@/components/ThemeToggle";
 
 export default async function AuthLayout({
   children,
@@ -13,13 +14,13 @@ export default async function AuthLayout({
   const { data } = await supabase.auth.getClaims();
 
   if (data?.claims) {
-    redirect("/upload");
+    redirect("/dashboard");
   }
 
   return (
     <div className="min-h-screen bg-gradient-to-br from-slate-50 via-white to-indigo-50/30 dark:from-slate-950 dark:via-slate-900 dark:to-indigo-950/20 flex flex-col">
       {/* Minimal header — wordmark only */}
-      <header className="px-6 py-5">
+      <header className="flex items-center justify-between px-6 py-5">
         <a
           href="/"
           className="inline-flex items-center gap-2 font-extrabold text-slate-900 dark:text-white hover:opacity-80 transition-opacity"
@@ -42,6 +43,7 @@ export default async function AuthLayout({
           </div>
           RecallMate
         </a>
+        <ThemeToggle />
       </header>
 
       {/* Centered auth card */}

@@ -8,7 +8,7 @@ import { AlertCircle, User, Trash2, CheckCircle2 } from "lucide-react";
 import { useRouter } from "next/navigation";
 
 export default function SettingsPage() {
-  const [profile, setProfile] = useState({ age: "", school: "", gender: "" });
+  const [profile, setProfile] = useState({ username: "", age: "", school: "", gender: "" });
   const [loading, setLoading] = useState(false);
   const [saving, setSaving] = useState(false);
   const [message, setMessage] = useState("");
@@ -21,6 +21,7 @@ export default function SettingsPage() {
       const { data: { user } } = await supabase.auth.getUser();
       if (user?.user_metadata) {
         setProfile({
+          username: user.user_metadata.username || "",
           age: user.user_metadata.age || "",
           school: user.user_metadata.school || "",
           gender: user.user_metadata.gender || "",
@@ -36,6 +37,7 @@ export default function SettingsPage() {
     setMessage("");
     const { error } = await supabase.auth.updateUser({
       data: {
+        username: profile.username.trim(),
         age: profile.age,
         school: profile.school,
         gender: profile.gender
@@ -53,9 +55,11 @@ export default function SettingsPage() {
   const deleteAccount = async () => {
     if (!confirm("Are you absolutely sure? This will delete your account and all data permanently.")) return;
     
-    // In Supabase, hard deleting users from the client is usually not allowed for security reasons,
-    // so we call an edge function or RPC. For now, we will simulate it and sign them out.
-    // To truly delete, we need an admin function.
+    const response = await fetch("/api/account", { method: "DELETE" });
+    if (!response.ok) {
+      setMessage("Unable to delete account. Please try again or contact support.");
+      return;
+    }
     await supabase.auth.signOut();
     router.push("/");
   };
@@ -71,6 +75,10 @@ export default function SettingsPage() {
 
       <div className="space-y-6 bg-white dark:bg-slate-900 p-6 rounded-2xl border border-slate-200 dark:border-slate-800 shadow-sm">
         <div className="space-y-4">
+          <div>
+            <label className="block text-sm font-medium text-slate-700 dark:text-slate-300 mb-1">Username</label>
+            <Input type="text" placeholder="e.g. alex_studies" value={profile.username} onChange={(e) => setProfile({...profile, username: e.target.value})} disabled={loading} />
+          </div>
           <div>
             <label className="block text-sm font-medium text-slate-700 dark:text-slate-300 mb-1">Age</label>
             <Input 

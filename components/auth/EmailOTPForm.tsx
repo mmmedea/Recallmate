@@ -19,6 +19,8 @@ interface EmailOTPFormProps {
   intent: OTPIntent;
   privacyAgreed?: boolean; // required true for signup
   redirectTo?: string;
+  username?: string;
+  onUsernameChange?: (username: string) => void;
 }
 
 type FormStage = "email" | "otp";
@@ -35,7 +37,7 @@ const OTP_ERROR_MESSAGES: Record<string, string> = {
   use_google: "It looks like you have a Gmail address. Please click 'Continue with Google' above!",
 };
 
-export function EmailOTPForm({ intent, privacyAgreed = true, redirectTo = "/dashboard" }: EmailOTPFormProps) {
+export function EmailOTPForm({ intent, privacyAgreed = true, redirectTo = "/dashboard", username = "", onUsernameChange }: EmailOTPFormProps) {
   const router = useRouter();
   const supabase = createClient();
 
@@ -125,7 +127,13 @@ export function EmailOTPForm({ intent, privacyAgreed = true, redirectTo = "/dash
             setIsLoading(false);
             return;
           }
-          options.data = { privacy_agreed: true };
+          if (!username.trim()) {
+            setErrorKey("error");
+            setOTPState("error");
+            setIsLoading(false);
+            return;
+          }
+          options.data = { privacy_agreed: true, username: username.trim() };
         }
 
         const { error } = await supabase.auth.signInWithOtp({
@@ -170,7 +178,7 @@ export function EmailOTPForm({ intent, privacyAgreed = true, redirectTo = "/dash
         setIsLoading(false);
       }
     },
-    [email, intent, captchaToken, canSubmitWithCaptcha, supabase, setOTPState, setOTPFlowContext]
+    [email, intent, username, captchaToken, canSubmitWithCaptcha, supabase, setOTPState, setOTPFlowContext]
   );
 
   const handleVerifyOTP = useCallback(
@@ -247,6 +255,7 @@ export function EmailOTPForm({ intent, privacyAgreed = true, redirectTo = "/dash
     return (
       <form onSubmit={handleSendOTP} className="space-y-4" noValidate>
         <div className="space-y-1.5">
+          {intent === "signup" && <div className="space-y-1.5"><Label htmlFor="username-input">Username</Label><Input id="username-input" value={username} onChange={(e) => onUsernameChange?.(e.target.value)} placeholder="your username" autoComplete="username" disabled={isLoading} required /></div>}
           <Label htmlFor="email-input">Email</Label>
           <Input
             id="email-input"

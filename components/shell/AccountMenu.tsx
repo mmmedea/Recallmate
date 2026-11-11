@@ -13,6 +13,7 @@ import {
   DropdownMenuTrigger,
 } from "@/components/ui/dropdown-menu";
 import { Button } from "@/components/ui/button";
+import Link from "next/link";
 import type { AuthenticatedUser } from "@/lib/types/auth";
 
 export function AccountMenu({ user }: { user: AuthenticatedUser }) {
@@ -52,9 +53,11 @@ export function AccountMenu({ user }: { user: AuthenticatedUser }) {
           </div>
         </DropdownMenuLabel>
         <DropdownMenuSeparator />
-        <DropdownMenuItem className="cursor-pointer">
+        <DropdownMenuItem asChild className="cursor-pointer">
+          <Link href="/settings">
           <Settings className="mr-2 h-4 w-4" />
           <span>Settings</span>
+          </Link>
         </DropdownMenuItem>
         <DropdownMenuSeparator />
         <DropdownMenuItem 
