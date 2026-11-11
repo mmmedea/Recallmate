@@ -31,12 +31,20 @@ export default function Navbar() {
             RecallMate
           </span>
         </Link>
-        <Link
-          href="/login"
-          className="font-fredoka inline-flex min-w-0 items-center justify-center rounded-full border border-[#c4a7ff]/65 bg-[#2a1c38]/90 px-4 py-2 text-xs font-semibold tracking-wide text-[#e8dcff] shadow-[0_4px_16px_rgba(167,139,250,.16)] transition-all hover:border-[#ff7185] hover:bg-[#3a2038] hover:text-white hover:shadow-[0_5px_18px_rgba(255,82,107,.2)] sm:px-4 sm:py-2 sm:text-sm"
-        >
-          Sign in
-        </Link>
+        <nav aria-label="Account navigation" className="flex items-center gap-2 sm:gap-3">
+          <Link
+            href="/login"
+            className="font-fredoka inline-flex min-w-0 items-center justify-center rounded-full border border-[#c4a7ff]/65 bg-[#2a1c38]/90 px-4 py-2 text-xs font-semibold tracking-wide text-[#e8dcff] shadow-[0_4px_16px_rgba(167,139,250,.16)] transition-all hover:border-[#ff7185] hover:bg-[#3a2038] hover:text-white hover:shadow-[0_5px_18px_rgba(255,82,107,.2)] sm:px-4 sm:py-2 sm:text-sm"
+          >
+            Log in
+          </Link>
+          <Link
+            href="/signup"
+            className="font-fredoka inline-flex min-w-0 items-center justify-center rounded-full border border-[#c4a7ff]/65 bg-gradient-to-r from-[#a78bfa] via-[#c4a7ff] to-[#ff7185] px-5 py-2 text-xs font-bold tracking-wide text-[#100a19] shadow-[0_4px_16px_rgba(167,139,250,.22)] transition-all hover:-translate-y-0.5 hover:brightness-110 sm:px-5 sm:py-2 sm:text-sm"
+          >
+            Learn now
+          </Link>
+        </nav>
       </div>
     </header>
   );
