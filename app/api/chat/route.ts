@@ -6,7 +6,7 @@ import { Database } from "@/types/supabase";
 import { LexicalRetriever } from "@/lib/ai/retriever";
 import { BillingService } from "@/lib/ai/billing";
 import { ProviderAdapter } from "@/lib/ai/provider";
-import { buildBoundedMemoryPrompt, ChatMessage } from "@/lib/ai/memory";
+import { buildBoundedMemoryPrompt, ChatMessage, ChatMessageRole } from "@/lib/ai/memory";
 import { checkRateLimit } from "@/lib/security";
 import { createUIMessageStream, createUIMessageStreamResponse } from "ai";
 import {
