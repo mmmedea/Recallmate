@@ -168,7 +168,7 @@ export default function StudyHubClient({ initialSummary }: { initialSummary: Doc
             description="Turn this material into a printable, exam-ready reviewer"
             icon={<Printer className="h-6 w-6 text-orange-500" />}
             status={extractionFailed ? 'failed' : 'ready'} // Ready as long as extraction is complete
-            errorMessage={extractionFailed ? "Cannot generate reviewer without document text" : undefined}
+            errorMessage={extractionFailed ? "Cannot generate reviewer without document text" : null}
             onAction={() => setShowReviewerDialog(true)}
             isPending={false}
             actionLabels={{ ready: 'Create Reviewer', generate: 'Create Reviewer' }}
