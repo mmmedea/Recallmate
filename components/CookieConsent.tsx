@@ -35,17 +35,17 @@ export default function CookieConsent() {
     <>
       {showBanner && !showPreferences && (
         <aside aria-label="Cookie consent" className="fixed inset-x-0 bottom-0 z-[60] px-4 pb-0 pt-4 sm:px-6 sm:pb-0">
-          <div className="mx-auto flex max-w-7xl flex-col items-start justify-between gap-6 rounded-t-[22px] border border-slate-800 bg-[#101a2d] p-6 shadow-[0_-18px_60px_rgba(0,0,0,0.35)] sm:p-7 md:flex-row md:items-center">
+          <div className="mx-auto flex max-w-7xl flex-col items-start justify-between gap-6 rounded-t-[22px] border border-[#a78bfa]/20 bg-[#17131f] p-6 shadow-[0_-18px_60px_rgba(0,0,0,0.45)] sm:p-7 md:flex-row md:items-center">
             <div className="max-w-3xl space-y-2">
-              <h2 className="text-lg font-extrabold tracking-tight text-white">We value your privacy</h2>
-              <p className="text-sm leading-relaxed text-slate-400 sm:text-base">
+              <h2 className="font-fredoka text-lg font-semibold tracking-tight text-white">We value your privacy</h2>
+              <p className="font-nunito text-sm leading-relaxed text-[#b9b1c6] sm:text-base">
                 We use essential cookies to keep RecallMate secure and keep you signed in. With your permission, we may also use optional cookies to understand product usage and improve the experience.
               </p>
             </div>
             <div className="flex w-full shrink-0 flex-col gap-3 sm:flex-row md:w-auto">
-              <Button variant="outline" onClick={() => setShowPreferences(true)} className="h-12 whitespace-nowrap rounded-xl border-slate-700 bg-[#050b18] px-5 font-bold text-slate-100 hover:bg-slate-800 hover:text-white">Manage Preferences</Button>
-              <Button variant="outline" onClick={() => saveConsent({ essential: true, analytics: false, marketing: false })} className="h-12 whitespace-nowrap rounded-xl border-slate-700 bg-[#050b18] px-5 font-bold text-slate-100 hover:bg-slate-800 hover:text-white">Deny All</Button>
-              <Button onClick={() => saveConsent({ essential: true, analytics: true, marketing: true })} className="h-12 whitespace-nowrap rounded-xl bg-indigo-600 px-5 font-bold text-white hover:bg-indigo-500">Accept All</Button>
+              <Button variant="outline" onClick={() => setShowPreferences(true)} className="h-12 whitespace-nowrap rounded-xl border-[#a78bfa]/30 bg-[#0c0a12] px-5 font-nunito font-bold text-[#f4efff] hover:bg-[#282033] hover:text-white">Manage Preferences</Button>
+              <Button variant="outline" onClick={() => saveConsent({ essential: true, analytics: false, marketing: false })} className="h-12 whitespace-nowrap rounded-xl border-[#a78bfa]/30 bg-[#0c0a12] px-5 font-nunito font-bold text-[#f4efff] hover:bg-[#282033] hover:text-white">Deny All</Button>
+              <Button onClick={() => saveConsent({ essential: true, analytics: true, marketing: true })} className="h-12 whitespace-nowrap rounded-xl bg-[#a78bfa] px-5 font-nunito font-extrabold text-[#120d1d] hover:bg-[#c4a7ff]">Accept All</Button>
             </div>
           </div>
         </aside>
@@ -82,7 +82,7 @@ export default function CookieConsent() {
           </div>
           <DialogFooter className="mt-2 flex-col gap-2 sm:flex-row">
             <Button variant="outline" onClick={() => setShowPreferences(false)}>Cancel</Button>
-            <Button onClick={() => saveConsent(preferences)} className="bg-indigo-600 text-white hover:bg-indigo-500">Save Preferences</Button>
+            <Button onClick={() => saveConsent(preferences)} className="bg-[#a78bfa] text-[#120d1d] hover:bg-[#c4a7ff]">Save Preferences</Button>
           </DialogFooter>
         </DialogContent>
       </Dialog>
