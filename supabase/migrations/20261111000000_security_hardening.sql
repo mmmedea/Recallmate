@@ -168,19 +168,30 @@ REVOKE ALL ON FUNCTION public.save_generated_quiz(uuid, uuid, uuid, jsonb[]) FRO
 GRANT EXECUTE ON FUNCTION public.save_generated_notes(uuid, uuid, uuid, text, text[], jsonb[]) TO service_role;
 GRANT EXECUTE ON FUNCTION public.save_generated_quiz(uuid, uuid, uuid, jsonb[]) TO service_role;
 
--- Learning RPCs are invoked only by trusted server routes using the service-role client.
+-- Learning RPCs retain SECURITY INVOKER and authenticated-user support.
+-- They validate the JWT identity in the function body and cannot act for another user.
 CREATE OR REPLACE FUNCTION public.ensure_learning_items(p_user_id uuid, p_document_id uuid)
 RETURNS void
 LANGUAGE plpgsql
-SECURITY DEFINER
+SECURITY INVOKER
 SET search_path = pg_catalog, public
 AS $$
+DECLARE
+    v_claims jsonb := auth.jwt();
 BEGIN
+    IF COALESCE(v_claims->>'role', '') <> 'service_role' THEN
+        IF auth.uid() IS NULL
+           OR auth.uid() IS DISTINCT FROM p_user_id
+           OR COALESCE(v_claims->>'is_anonymous', 'false') = 'true' THEN
+            RAISE EXCEPTION 'Unauthorized' USING errcode = '42501';
+        END IF;
+    END IF;
+
     IF NOT EXISTS (
         SELECT 1 FROM public.documents d
         WHERE d.id = p_document_id AND d.user_id = p_user_id
     ) THEN
-        RAISE EXCEPTION 'Unauthorized document';
+        RAISE EXCEPTION 'Unauthorized document' USING errcode = '42501';
     END IF;
 
     INSERT INTO public.learning_items (user_id, document_id, question_id)
@@ -209,19 +220,29 @@ CREATE OR REPLACE FUNCTION public.process_learning_review(
 )
 RETURNS void
 LANGUAGE plpgsql
-SECURITY DEFINER
+SECURITY INVOKER
 SET search_path = pg_catalog, public
 AS $$
 DECLARE
+    v_claims jsonb := auth.jwt();
     v_document_id uuid;
 BEGIN
+    IF COALESCE(v_claims->>'role', '') <> 'service_role' THEN
+        IF auth.uid() IS NULL
+           OR auth.uid() IS DISTINCT FROM p_user_id
+           OR COALESCE(v_claims->>'is_anonymous', 'false') = 'true' THEN
+            RAISE EXCEPTION 'Unauthorized' USING errcode = '42501';
+        END IF;
+    END IF;
+
     IF p_state NOT BETWEEN 0 AND 3
        OR p_rating NOT BETWEEN 1 AND 4
        OR p_reps < 0
        OR p_lapses < 0
        OR p_scheduled_days < 0
-       OR p_request_id IS NULL
-       OR length(p_request_id) > 128 THEN
+       OR p_stability IS NULL OR p_stability < 0 OR p_stability > 1000000
+       OR p_difficulty IS NULL OR p_difficulty < 0 OR p_difficulty > 10
+       OR p_request_id IS NULL OR length(p_request_id) NOT BETWEEN 1 AND 128 THEN
         RAISE EXCEPTION 'Invalid review data';
     END IF;
 
@@ -232,7 +253,7 @@ BEGIN
     FOR UPDATE;
 
     IF v_document_id IS NULL THEN
-        RAISE EXCEPTION 'Learning item not found or unauthorized';
+        RAISE EXCEPTION 'Learning item not found or unauthorized' USING errcode = '42501';
     END IF;
 
     IF p_review_session_id IS NOT NULL AND NOT EXISTS (
@@ -241,7 +262,7 @@ BEGIN
           AND s.user_id = p_user_id
           AND s.document_id = v_document_id
     ) THEN
-        RAISE EXCEPTION 'Review session not found or unauthorized';
+        RAISE EXCEPTION 'Review session not found or unauthorized' USING errcode = '42501';
     END IF;
 
     INSERT INTO public.learning_reviews (
@@ -273,10 +294,10 @@ BEGIN
 END;
 $$;
 
-REVOKE ALL ON FUNCTION public.ensure_learning_items(uuid, uuid) FROM PUBLIC, anon, authenticated;
-REVOKE ALL ON FUNCTION public.process_learning_review(uuid, uuid, text, uuid, integer, timestamptz, double precision, double precision, integer, integer, integer, boolean, integer, timestamptz) FROM PUBLIC, anon, authenticated;
-GRANT EXECUTE ON FUNCTION public.ensure_learning_items(uuid, uuid) TO service_role;
-GRANT EXECUTE ON FUNCTION public.process_learning_review(uuid, uuid, text, uuid, integer, timestamptz, double precision, double precision, integer, integer, integer, boolean, integer, timestamptz) TO service_role;
+REVOKE ALL ON FUNCTION public.ensure_learning_items(uuid, uuid) FROM PUBLIC, anon;
+REVOKE ALL ON FUNCTION public.process_learning_review(uuid, uuid, text, uuid, integer, timestamptz, double precision, double precision, integer, integer, integer, boolean, integer, timestamptz) FROM PUBLIC, anon;
+GRANT EXECUTE ON FUNCTION public.ensure_learning_items(uuid, uuid) TO authenticated, service_role;
+GRANT EXECUTE ON FUNCTION public.process_learning_review(uuid, uuid, text, uuid, integer, timestamptz, double precision, double precision, integer, integer, integer, boolean, integer, timestamptz) TO authenticated, service_role;
 
 -- Remove unnecessary anonymous table privileges. RLS remains enabled for authenticated users.
 REVOKE ALL ON TABLE public.learning_items FROM anon;
