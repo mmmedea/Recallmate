@@ -79,8 +79,8 @@ export default async function ChatPage({
         return {
           id: msg.id,
           role: msg.role === "assistant" ? "assistant" : "user",
-          content: msg.content,
-          annotations
+          parts: [{ type: 'text', text: msg.content }],
+          metadata: { annotations }
         };
       });
     }
