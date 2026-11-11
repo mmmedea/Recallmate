@@ -17,28 +17,27 @@ export async function POST(req: NextRequest) {
       return NextResponse.json({ error: "Not enough content extracted from this file." }, { status: 400 });
     }
 
-    // 1. AUTO-DISCOVERY: Fetch exactly what this API key is allowed to use
+    // 1. AUTO-DISCOVERY: Fetch allowed models
     const listUrl = `https://generativelanguage.googleapis.com/v1beta/models?key=${apiKey}`;
     const listRes = await fetch(listUrl);
     const listData = await listRes.json();
 
     if (!listRes.ok) {
-      console.error("API Key Verification Failed:", listData);
       return NextResponse.json({ error: "Invalid API Key or blocked access by Google." }, { status: 500 });
     }
 
-    // 2. Filter out unsupported models AND specifically block the restricted "2.5" versions
     const validModels = (listData.models || []).filter((m: any) => 
       m.supportedGenerationMethods?.includes("generateContent") && 
-      !m.name.includes("2.5") // Skips models we know Google blocks for new users
+      !m.name.includes("2.5")
     );
 
     const prompt = `You are an expert study assistant reviewing material from "${fileName || "Uploaded File"}".
 Extracted File Content:
-"""${text.slice(0, 15000)}"""
+"""${text.slice(0, 12000)}"""
 
 Instructions:
-Return ONLY a single raw JSON object matching the exact structure below. Do NOT wrap it in markdown blockquotes. Do not include the word "json".
+Return ONLY a single raw JSON object matching the exact structure below. 
+Escape all quotation marks properly inside strings.
 
 {
   "summary": "Concise 3-5 sentence overview of the file.",
@@ -66,13 +65,13 @@ Return ONLY a single raw JSON object matching the exact structure below. Do NOT 
 }
 
 Rules:
-- Provide 4 multiple-choice questions for each difficulty level (easy, medium, hard).
+- Provide exactly 3 multiple-choice questions for each difficulty level to ensure the response fits.
 - Include exact quote/source text and page/section number.`;
 
     let rawText = "";
     let lastErrorMsg = "No valid models found for this API key.";
 
-    // 3. LOOP: Test the actual permitted models one by one until success
+    // 2. LOOP: Test permitted models
     for (const model of validModels) {
       console.log(`Trying permitted model: ${model.name}`);
       
@@ -87,6 +86,8 @@ Rules:
           contents: [{ parts: [{ text: prompt }] }],
           generationConfig: {
             responseMimeType: "application/json",
+            maxOutputTokens: 8192, // CRITICAL: Gives the AI maximum space to finish the JSON
+            temperature: 0.2       // CRITICAL: Forces strict formatting logic
           }
         }),
       });
@@ -97,10 +98,9 @@ Rules:
         rawText = aiData.candidates?.[0]?.content?.parts?.[0]?.text || "";
         if (rawText) {
           console.log(`Success! Extracted data using model: ${model.name}`);
-          break; // Stop looping! We got the notes.
+          break;
         }
       } else {
-        console.warn(`Model ${model.name} failed:`, aiData.error?.message);
         lastErrorMsg = aiData.error?.message || `Failed on ${model.name}`;
       }
     }
@@ -109,22 +109,26 @@ Rules:
       return NextResponse.json({ error: lastErrorMsg }, { status: 500 });
     }
 
-    // 4. ROBUST JSON PARSING (Strips Markdown Fences)
+    // 3. ULTRA-STRICT JSON PARSING
     let parsedData;
     try {
-      // Step A: Strip leading/trailing markdown blocks if they exist
-      let cleanedText = rawText.replace(/^```(json)?\s*/i, "").replace(/```$/i, "").trim();
+      // Strip markdown backticks completely
+      let cleanedText = rawText.replace(/```json\n?/gi, "").replace(/```\n?/g, "").trim();
       
-      // Step B: Regex extraction to ensure we ONLY grab the JSON object
-      const jsonMatch = cleanedText.match(/\{[\s\S]*\}/);
-      if (jsonMatch) {
-        cleanedText = jsonMatch[0];
+      // Physically slice everything outside the main JSON brackets
+      const firstBrace = cleanedText.indexOf("{");
+      const lastBrace = cleanedText.lastIndexOf("}");
+      
+      if (firstBrace !== -1 && lastBrace !== -1) {
+        cleanedText = cleanedText.slice(firstBrace, lastBrace + 1);
       }
 
       parsedData = JSON.parse(cleanedText);
     } catch (parseErr) {
       console.error("JSON Parsing Failed. Raw text was:", rawText);
-      return NextResponse.json({ error: "Failed to parse structured study content." }, { status: 500 });
+      return NextResponse.json({ 
+        error: "The AI generated a malformed response or cut off early. Please try again." 
+      }, { status: 500 });
     }
 
     return NextResponse.json({ fileName, ...parsedData });

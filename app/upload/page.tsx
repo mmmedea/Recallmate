@@ -1,139 +1,72 @@
-import { NextRequest, NextResponse } from "next/server";
+"use client";
 
-export const runtime = "nodejs";
+import { useState } from "react";
+import { useRouter } from "next/navigation";
+import { Loader2 } from "lucide-react";
+import FileUploader from "@/components/FileUploader";
 
-export async function POST(req: NextRequest) {
-  try {
-    const apiKey = process.env.GEMINI_API_KEY;
-    
-    if (!apiKey) {
-      console.error("SERVER ERROR: GEMINI_API_KEY is missing.");
-      return NextResponse.json({ error: "Server Configuration Error: GEMINI_API_KEY is not set." }, { status: 500 });
-    }
+export default function UploadPage() {
+  const [status, setStatus] = useState<"idle" | "extracting" | "generating">("idle");
+  const [error, setError] = useState("");
+  const router = useRouter();
 
-    const { text, fileName } = await req.json();
+  const isMediaFile = (file: File) =>
+    file.type.startsWith("video/") || file.type.startsWith("audio/");
 
-    if (!text || text.trim().length < 20) {
-      return NextResponse.json({ error: "Not enough content extracted from this file." }, { status: 400 });
-    }
-
-    // 1. AUTO-DISCOVERY: Fetch allowed models
-    const listUrl = `https://generativelanguage.googleapis.com/v1beta/models?key=${apiKey}`;
-    const listRes = await fetch(listUrl);
-    const listData = await listRes.json();
-
-    if (!listRes.ok) {
-      return NextResponse.json({ error: "Invalid API Key or blocked access by Google." }, { status: 500 });
-    }
-
-    const validModels = (listData.models || []).filter((m: any) => 
-      m.supportedGenerationMethods?.includes("generateContent") && 
-      !m.name.includes("2.5")
-    );
-
-    const prompt = `You are an expert study assistant reviewing material from "${fileName || "Uploaded File"}".
-Extracted File Content:
-"""${text.slice(0, 12000)}"""
-
-Instructions:
-Return ONLY a single raw JSON object matching the exact structure below. 
-Escape all quotation marks properly inside strings.
-
-{
-  "summary": "Concise 3-5 sentence overview of the file.",
-  "notes": ["bullet point 1", "bullet point 2"],
-  "questions": {
-    "easy": [
-      {
-        "id": "e1",
-        "question": "Question string?",
-        "options": {
-          "A": "Option text 1",
-          "B": "Option text 2",
-          "C": "Option text 3",
-          "D": "Option text 4"
-        },
-        "correctAnswer": "A",
-        "explanation": "Detailed explanation.",
-        "sourceCitation": "Exact quote",
-        "pageNumber": "Page 1"
-      }
-    ],
-    "medium": [],
-    "hard": []
-  }
-}
-
-Rules:
-- Provide exactly 3 multiple-choice questions for each difficulty level to ensure the response fits.
-- Include exact quote/source text and page/section number.`;
-
-    let rawText = "";
-    let lastErrorMsg = "No valid models found for this API key.";
-
-    // 2. LOOP: Test permitted models
-    for (const model of validModels) {
-      console.log(`Trying permitted model: ${model.name}`);
-      
-      const generateUrl = `https://generativelanguage.googleapis.com/v1beta/${model.name}:generateContent?key=${apiKey}`;
-      
-      const response = await fetch(generateUrl, {
-        method: "POST",
-        headers: {
-          "Content-Type": "application/json",
-        },
-        body: JSON.stringify({
-          contents: [{ parts: [{ text: prompt }] }],
-          generationConfig: {
-            responseMimeType: "application/json",
-            maxOutputTokens: 8192, // CRITICAL: Gives the AI maximum space to finish the JSON
-            temperature: 0.2       // CRITICAL: Forces strict formatting logic
-          }
-        }),
-      });
-
-      const aiData = await response.json();
-
-      if (response.ok) {
-        rawText = aiData.candidates?.[0]?.content?.parts?.[0]?.text || "";
-        if (rawText) {
-          console.log(`Success! Extracted data using model: ${model.name}`);
-          break;
-        }
-      } else {
-        lastErrorMsg = aiData.error?.message || `Failed on ${model.name}`;
-      }
-    }
-
-    if (!rawText) {
-      return NextResponse.json({ error: lastErrorMsg }, { status: 500 });
-    }
-
-    // 3. ULTRA-STRICT JSON PARSING
-    let parsedData;
+  const handleFile = async (file: File) => {
+    setError("");
     try {
-      // Strip markdown backticks completely
-      let cleanedText = rawText.replace(/```json\n?/gi, "").replace(/```\n?/g, "").trim();
-      
-      // Physically slice everything outside the main JSON brackets
-      const firstBrace = cleanedText.indexOf("{");
-      const lastBrace = cleanedText.lastIndexOf("}");
-      
-      if (firstBrace !== -1 && lastBrace !== -1) {
-        cleanedText = cleanedText.slice(firstBrace, lastBrace + 1);
+      const form = new FormData();
+      form.append("file", file);
+
+      setStatus("extracting");
+      const endpoint = isMediaFile(file) ? "/api/transcribe" : "/api/extract-text";
+      const extractRes = await fetch(endpoint, { method: "POST", body: form });
+      const extractData = await extractRes.json();
+
+      if (!extractRes.ok) {
+        throw new Error(extractData.error || "Failed to read file.");
       }
 
-      parsedData = JSON.parse(cleanedText);
-    } catch (parseErr) {
-      console.error("JSON Parsing Failed. Raw text was:", rawText);
-      return NextResponse.json({ 
-        error: "The AI generated a malformed response or cut off early. Please try again." 
-      }, { status: 500 });
-    }
+      setStatus("generating");
+      const genRes = await fetch("/api/generate-content", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ text: extractData.text, fileName: file.name })
+      });
+      const genData = await genRes.json();
 
-    return NextResponse.json({ fileName, ...parsedData });
-  } catch (err: any) {
-    console.error("Unhandled Error:", err);
-    return NextResponse.json({ error: "Failed to generate study content." }, { status: 500 });
-  }
+      if (!genRes.ok) {
+        throw new Error(genData.error || "Failed to generate study content.");
+      }
+
+      sessionStorage.setItem("recallmate-content", JSON.stringify(genData));
+      router.push("/quiz");
+    } catch (err) {
+      setError(err instanceof Error ? err.message : "Something went wrong.");
+      setStatus("idle");
+    }
+  };
+
+  return (
+    <div className="mx-auto max-w-xl py-10">
+      <h1 className="text-2xl font-bold text-gray-900">Upload your material</h1>
+      <p className="mt-1 text-sm text-gray-500">
+        We'll extract the content and generate notes plus active recall questions.
+      </p>
+
+      <div className="mt-6">
+        <FileUploader onFileSelected={handleFile} disabled={status !== "idle"} />
+      </div>
+
+      {status !== "idle" && (
+        <div className="mt-6 flex items-center gap-2 text-sm text-gray-500">
+          <Loader2 className="h-4 w-4 animate-spin" />
+          {status === "extracting" ? "Reading your file..." : "Generating notes and questions..."}
+        </div>
+      )}
+
+      {error && <p className="mt-4 text-sm text-rose-500">{error}</p>}
+    </div>
+  );
 }
