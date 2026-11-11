@@ -1,13 +1,23 @@
 import { describe, it, expect, vi, beforeEach } from 'vitest';
 import { createDocumentUploadSession, confirmDocumentUpload } from '@/app/actions/document-actions';
 
-const { mockAdminClient } = vi.hoisted(() => ({
+const { mockAdminClient, mockSupabase, USER_ID, DOCUMENT_ID, IDEMPOTENCY_KEY } = vi.hoisted(() => ({
   mockAdminClient: { rpc: vi.fn() },
+  mockSupabase: {
+    from: vi.fn().mockReturnThis(),
+    insert: vi.fn().mockReturnThis(),
+    select: vi.fn().mockReturnThis(),
+    single: vi.fn().mockReturnThis(),
+    eq: vi.fn().mockReturnThis(),
+    storage: {
+      from: vi.fn().mockReturnThis(),
+      list: vi.fn(),
+    },
+  },
+  USER_ID: '11111111-1111-4111-8111-111111111111',
+  DOCUMENT_ID: '22222222-2222-4222-8222-222222222222',
+  IDEMPOTENCY_KEY: '33333333-3333-4333-8333-333333333333',
 }));
-
-const USER_ID = '11111111-1111-4111-8111-111111111111';
-const DOCUMENT_ID = '22222222-2222-4222-8222-222222222222';
-const IDEMPOTENCY_KEY = '33333333-3333-4333-8333-333333333333';
 
 // Mock dependencies
 vi.mock('@/lib/security', () => ({
@@ -23,17 +33,7 @@ vi.mock('@/lib/security', () => ({
   }
 }));
 
-const mockSupabase = {
-  from: vi.fn().mockReturnThis(),
-  insert: vi.fn().mockReturnThis(),
-  select: vi.fn().mockReturnThis(),
-  single: vi.fn().mockReturnThis(),
-  eq: vi.fn().mockReturnThis(),
-  storage: {
-    from: vi.fn().mockReturnThis(),
-    list: vi.fn(),
-  }
-};
+
 
 vi.mock('@/utils/supabase/server', () => ({
   createClient: vi.fn(() => mockSupabase)
