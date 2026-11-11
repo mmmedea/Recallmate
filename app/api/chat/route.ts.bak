@@ -1,0 +1,285 @@
+import { NextRequest, NextResponse } from "next/server";
+import { createClient } from "@/utils/supabase/server";
+import { createClient as createServiceClient } from "@supabase/supabase-js";
+import { z } from "zod";
+import { Database } from "@/types/supabase";
+import { LexicalRetriever } from "@/lib/ai/retriever";
+import { BillingService } from "@/lib/ai/billing";
+import { ProviderAdapter } from "@/lib/ai/provider";
+import { ModelRegistry } from "@/lib/ai/config";
+import { buildBoundedMemoryPrompt, ChatMessage } from "@/lib/ai/memory";
+import { validateChatCitations } from "@/lib/ai/validation";
+import { ChatGenAISchema, GeneratedChat, ZodChatSchema } from "@/lib/ai/schemas";
+import { rateLimitAdapter } from "@/lib/ai/ratelimit";
+
+export const runtime = "nodejs";
+export const preferredRegion = "iad1";
+
+// Contract for the incoming chat request
+const ChatRequestSchema = z.object({
+  documentId: z.string().uuid(),
+  message: z.string().trim().min(1).max(2000),
+  sessionId: z.string().uuid().optional(),
+  clientMessageId: z.string().uuid() // Used as idempotency key
+}).strict();
+
+export async function POST(req: NextRequest) {
+  try {
+    const supabase = await createClient();
+    const token = req.headers.get("authorization")?.split("Bearer ")[1];
+    const { data: { user }, error: authError } = token 
+      ? await supabase.auth.getUser(token)
+      : await supabase.auth.getUser();
+
+    if (authError || !user) {
+      console.log("Auth Error:", authError);
+      return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
+    }
+
+    // 1. Rate Limiting Check
+    try {
+      await rateLimitAdapter.checkChatRateLimit(user.id);
+    } catch (err: any) {
+      return NextResponse.json({ error: err.message }, { status: 429 });
+    }
+
+    let body;
+    try {
+      body = await req.json();
+    } catch (err) {
+      return NextResponse.json({ error: "Invalid JSON body" }, { status: 400 });
+    }
+
+    const parseResult = ChatRequestSchema.safeParse(body);
+    if (!parseResult.success) {
+      return NextResponse.json(
+        { error: "Invalid request payload", details: parseResult.error.issues },
+        { status: 400 }
+      );
+    }
+
+    const { documentId, message, sessionId, clientMessageId } = parseResult.data;
+
+    // Service Role Client for Security Enforcements & Database access
+    const serviceClient = createServiceClient<Database>(
+      process.env.NEXT_PUBLIC_SUPABASE_URL!,
+      process.env.SUPABASE_SERVICE_ROLE_KEY!
+    );
+
+    // 2. Document Ownership
+    const { data: document, error: docError } = await serviceClient
+      .from("documents")
+      .select("id, filename")
+      .eq("id", documentId)
+      .eq("user_id", user.id)
+      .single();
+
+    if (docError || !document) {
+      return NextResponse.json({ error: "Document not found or unauthorized" }, { status: 403 });
+    }
+
+    // 3. Resolve or Create Chat Session
+    let resolvedSessionId = sessionId;
+    if (resolvedSessionId) {
+      const { data: session, error: sessionError } = await serviceClient
+        .from("conversations")
+        .select("id")
+        .eq("id", resolvedSessionId)
+        .eq("user_id", user.id)
+        .eq("document_id", documentId)
+        .single();
+      
+      if (sessionError || !session) {
+        return NextResponse.json({ error: "Chat session not found or unauthorized" }, { status: 403 });
+      }
+    } else {
+      const { data: newSession, error: newSessionError } = await serviceClient
+        .from("conversations")
+        .insert({
+          user_id: user.id,
+          document_id: documentId
+        })
+        .select("id")
+        .single();
+
+      if (newSessionError || !newSession) {
+        console.error("Session creation error:", newSessionError);
+        return NextResponse.json({ error: "Failed to create chat session" }, { status: 500 });
+      }
+      resolvedSessionId = newSession.id;
+    }
+
+    // 4. Idempotency Check
+    const { data: existingMessage } = await serviceClient
+      .from("chat_messages")
+      .select("id, content, sources")
+      .eq("session_id", resolvedSessionId)
+      .eq("client_message_id", clientMessageId)
+      .maybeSingle();
+
+    if (existingMessage) {
+      // Find the corresponding assistant reply if it exists
+      const { data: assistantReply } = await serviceClient
+        .from("chat_messages")
+        .select("id, content, sources")
+        .eq("session_id", resolvedSessionId)
+        .eq("role", "assistant")
+        .order("created_at", { ascending: false })
+        .limit(1)
+        .maybeSingle();
+      
+      return NextResponse.json({
+        success: true,
+        sessionId: resolvedSessionId,
+        message: assistantReply?.content || "",
+        sources: assistantReply?.sources || [],
+        recovered: true
+      });
+    }
+
+    // 5. Create AI Job (Synchronous)
+    const jobId = crypto.randomUUID();
+    const { error: jobError } = await serviceClient
+      .from("ai_jobs")
+      .insert({
+        id: jobId,
+        user_id: user.id,
+        document_id: documentId,
+        operation: "chat",
+        idempotency_key: clientMessageId,
+        execution_mode: "synchronous",
+        status: "processing",
+        started_at: new Date().toISOString()
+      });
+
+    if (jobError) {
+      console.error("AI Job Error:", jobError);
+      return NextResponse.json({ error: "Failed to initialize AI Job" }, { status: 500 });
+    }
+
+    // 6. Entitlements Check
+    const billingService = new BillingService(serviceClient);
+    const estimatedCost = 5; // Standard cost for a chat turn
+    try {
+      await billingService.reserveCredits(user.id, jobId, estimatedCost, "Reserve: chat turn");
+    } catch (e: any) {
+      await serviceClient.from("ai_jobs").update({ status: "failed" }).eq("id", jobId);
+      return NextResponse.json({ error: e.message || "Insufficient credits" }, { status: 402 });
+    }
+
+    try {
+      // Persist User Message Immediately
+      await serviceClient.from("chat_messages").insert({
+        session_id: resolvedSessionId,
+        user_id: user.id,
+        client_message_id: clientMessageId,
+        role: "user",
+        content: message
+      });
+
+      // 7. Context Retrieval
+      const retriever = new LexicalRetriever(serviceClient);
+      const retrievedContext = await retriever.retrieveRelevantChunks({
+        documentId,
+        userId: user.id,
+        query: message,
+        limit: 10, // Retrieve up to 10 relevant chunks
+        maxTokens: 8000
+      });
+
+      // 8. Bounded Memory Construction
+      const { data: historyData } = await serviceClient
+        .from("chat_messages")
+        .select("role, content")
+        .eq("session_id", resolvedSessionId)
+        .neq("client_message_id", clientMessageId) // Exclude current user message
+        .order("created_at", { ascending: false })
+        .limit(10);
+      
+      const history: ChatMessage[] = (historyData || []).reverse().map(h => ({
+        role: h.role as ChatMessageRole,
+        content: h.content
+      }));
+
+      // Determine explicit behavior for RAG fallback if no chunks found
+      let systemPrompt = "You are a helpful study assistant. Answer questions strictly based on the provided RETRIEVED DOCUMENT CONTEXT. If the answer cannot be found in the context, explicitly state 'I couldn't find that information in your document.' Do not use general knowledge to answer document-specific questions. Always provide citations using chunkIndex.";
+      
+      const prompt = buildBoundedMemoryPrompt({
+        systemPrompt,
+        question: message,
+        retrievedContext: retrievedContext.chunks,
+        history,
+        maxHistoryMessages: 10
+      });
+
+      // 9. Execute Structured Gemini Output
+      const response = await ProviderAdapter.executeStructuredGeneration<GeneratedChat>(
+        "chat",
+        systemPrompt,
+        prompt,
+        ChatGenAISchema
+      );
+
+      const generatedData = response.data;
+      
+      // Basic Structural Validation
+      const parsedChat = ZodChatSchema.parse(generatedData);
+
+      // 10. Citation Validation
+      const validChunkIndices = new Set(retrievedContext.chunks.map(c => c.chunk_index));
+      validateChatCitations(parsedChat, validChunkIndices);
+
+      // 11. Persist Assistant Reply
+      await serviceClient.rpc("save_chat_message", {
+        p_session_id: resolvedSessionId,
+        p_user_id: user.id,
+        p_client_message_id: crypto.randomUUID(), // Assistant replies get generated unique IDs
+        p_role: "assistant",
+        p_content: parsedChat.answer,
+        p_sources: parsedChat.sources as any,
+        p_generation_id: jobId,
+        p_prompt_version: "medea-chat-v1",
+        p_model: ModelRegistry.chat.model
+      });
+
+      // 12. Finalize AI Job & Reconcile Credits
+      const actualCost = Math.max(1, Math.ceil(response.usage.outputTokens / 500));
+      await billingService.finalizeCharge(user.id, jobId, estimatedCost, actualCost, `Completed chat turn`);
+      
+      await serviceClient.from("ai_jobs").update({
+        status: "completed",
+        completed_at: new Date().toISOString()
+      }).eq("id", jobId);
+
+      return NextResponse.json({
+        success: true,
+        sessionId: resolvedSessionId,
+        message: parsedChat.answer,
+        sources: parsedChat.sources
+      });
+
+    } catch (e: any) {
+      console.error("Chat Error:", e);
+      
+      await serviceClient.from("ai_jobs").update({
+        status: "failed",
+        completed_at: new Date().toISOString()
+      }).eq("id", jobId);
+
+      await billingService.recordLedgerEntry({
+        userId: user.id,
+        jobId: jobId,
+        entryType: "REFUND",
+        credits: estimatedCost,
+        reason: "Failed chat interaction"
+      });
+
+      return NextResponse.json({ error: "Failed to generate response. " + e.message }, { status: 500 });
+    }
+
+  } catch (err: any) {
+    console.error("Global Chat Error:", err);
+    return NextResponse.json({ error: err.message }, { status: 500 });
+  }
+}
+

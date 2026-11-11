@@ -1,5 +1,4 @@
 import mammoth from 'mammoth';
-import pdf from 'pdf-parse';
 
 export interface DocumentChunk {
   chunk_index: number;
@@ -42,21 +41,7 @@ function chunkText(text: string, pageNumber?: number, startingIndex: number = 0)
 }
 
 export const processPdfServerSide = async (buffer: Buffer): Promise<DocumentChunk[]> => {
-  let chunkIndex = 0;
-  const chunks: DocumentChunk[] = [];
-
-  // pdf-parse doesn't have a reliable way to get page-by-page text with metadata out of the box
-  // but we can parse it and inject some pseudo metadata if possible.
-  // For now, let's just parse the full text and chunk it, since true page preservation
-  // requires pdfjs-dist directly which is tricky in Node environment without canvas.
-  // We will fulfill the requirement by ensuring the chunk structure SUPPORTS page_number.
-  
-  const data = await pdf(buffer);
-  
-  const text = data.text;
-  const genericChunks = chunkText(text, undefined, chunkIndex);
-  
-  return genericChunks;
+    throw new Error("Server-side PDF parsing is disabled to respect 50MB Vercel limit. PDFs must be parsed on the client.");
 };
 
 export const processDocxServerSide = async (buffer: Buffer): Promise<DocumentChunk[]> => {
