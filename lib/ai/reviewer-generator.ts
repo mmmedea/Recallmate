@@ -22,7 +22,7 @@ export class ReviewerGenerator {
     this.supabase = supabase;
   }
 
-  async generate(params: GenerateReviewerParams): Promise<{ reviewerDocument: GeneratedReviewerDocument, documentId: string | undefined, idempotencyHash: string }> {
+  async generate(params: GenerateReviewerParams): Promise<{ reviewerDocument: GeneratedReviewerDocument, documentId: string, idempotencyHash: string }> {
     const { userId, documentIds, format, reviewerOptions = {} } = params;
 
     if (documentIds.length === 0 || documentIds.length > this.MAX_DOCS) {
@@ -123,13 +123,14 @@ RULES:
       prompt_version: promptVersion
     }).select('id').single();
 
-    if (error) {
+    if (error || !data?.id) {
        console.error("Failed to insert reviewer_documents", error);
+       throw new Error('Failed to save generated reviewer document.');
     }
 
     return {
       reviewerDocument: reviewerDoc,
-      documentId: data?.id,
+      documentId: data.id,
       idempotencyHash
     };
   }
