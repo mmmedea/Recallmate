@@ -84,7 +84,7 @@ if (process.env.UPSTASH_REDIS_REST_URL && process.env.UPSTASH_REDIS_REST_TOKEN) 
 }
 
 export async function checkRateLimit(ip: string) {
-  if (!ratelimit) return true;
+  if (!ratelimit) {\n    if (process.env.NODE_ENV === 'production') {\n      throw new SecurityError('Rate limiting is not configured', 503)\n    }\n    return true\n  }
   
   const { success } = await ratelimit.limit(ip);
   if (!success) {
