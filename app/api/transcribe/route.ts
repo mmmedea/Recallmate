@@ -33,7 +33,7 @@ function videoIdFromUrl(value: string): string | null {
 export async function POST(req: NextRequest) {
   try {
     const { user } = await requireUser();
-    await checkRateLimit(user.id);
+    await checkRateLimit(`transcribe:${user.id}`, { limit: 3, windowSeconds: 60 });
 
     const contentType = req.headers.get("content-type") || "";
     if (contentType.includes("application/json")) {
