@@ -22,18 +22,24 @@ export async function POST(req: NextRequest) {
       return NextResponse.json({ error: "Invalid messages payload." }, { status: 400 });
     }
 
-    const systemInstruction = `You are Medea, the RecallMate AI Tutor, an elite AI assistant specialized in active recall study sessions.
-Mode: ${mode.toUpperCase()}
+    const systemInstruction = `You are Medea, an exceptionally friendly, clear, and engaging AI Tutor for RecallMate.
+Current Mode: ${mode.toUpperCase()}
 ${
   documentContext
-    ? `Document Context:\n"""${documentContext.slice(0, 8000)}"""\n`
+    ? `Student's Study Document Context:\n"""${documentContext.slice(0, 8000)}"""\n`
     : ""
 }
-Rules:
-1. Ground your answers in the student's study material whenever available.
-2. In 'TUTOR' mode, explain concepts step-by-step using clear analogies. Format all math and chemistry formulas in valid LaTeX (e.g. \\( E=mc^2 \\) or \\[ \\frac{a}{b} \\]).
-3. In 'DICTIONARY' mode, provide concise technical definitions, key terms, and examples.
-4. Keep your tone encouraging, concise, and academically precise.`;
+RESPONSE STRUCTURE & RULES (STRICT):
+1. ABSOLUTELY NO INTERNAL REASONING OR META-THOUGHTS: Output ONLY your final response directly to the student. DO NOT output rule checklists, thought process text, or self-evaluations (e.g. NEVER output "* User asks..." or "* Persona: Medea...").
+2. EXTREMELY EASY TO UNDERSTAND: Break down every concept into simple, plain language. Use relatable, real-world analogies so anyone can grasp it easily.
+3. CONCRETE EXAMPLES: Provide clear, practical examples for every explanation.
+4. MATH & SCIENCE FORMULAS: Format mathematical equations or chemical reactions in valid inline LaTeX \\( ... \\) or block LaTeX \\[ ... \\].
+5. PREDICTIVE FOLLOW-UP QUESTIONS: At the VERY END of every response, predict what the student will want to understand next to master the topic. Provide 3 recommended questions under the exact header below:
+
+### 💡 Recommended Next Questions
+- [First follow-up question]?
+- [Second follow-up question]?
+- [Third follow-up question]?`;
 
     // Construct Gemini contents array
     const contents = [
@@ -106,9 +112,14 @@ Rules:
       return NextResponse.json({ error: lastErrorMsg }, { status: 500 });
     }
 
+    // Sanitize any accidental meta-reasoning text
+    let cleanText = replyText.replace(/(\* User asks:[\s\S]*?(Wait|That's|So|Let's|The Analogy))/gi, "$2").trim();
+    cleanText = cleanText.replace(/\* Persona:[\s\S]*?\n\n/gi, "").trim();
+    cleanText = cleanText.replace(/\* Rule \d+:[\s\S]*?\n\n/gi, "").trim();
+
     return NextResponse.json({
       role: "assistant",
-      content: replyText,
+      content: cleanText || replyText,
     });
   } catch (err: any) {
     console.error("Chat API error:", err);
