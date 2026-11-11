@@ -8,16 +8,12 @@ import {
   Send,
   Bot,
   User,
-  BookOpen,
-  Brain,
   RefreshCw,
   Paperclip,
   Crown,
   FileText,
   Youtube,
   Zap,
-  HelpCircle,
-  CheckCircle2,
   Square,
 } from "lucide-react";
 import MathRenderer from "./MathRenderer";
@@ -39,7 +35,6 @@ interface AttachedFile {
 
 export default function OmniChatDrawer() {
   const [mounted, setMounted] = useState(false);
-  const [mode, setMode] = useState<"tutor" | "dictionary" | "socratic">("tutor");
   const [input, setInput] = useState("");
   const [loading, setLoading] = useState(false);
   const [uploading, setUploading] = useState(false);
@@ -57,7 +52,7 @@ export default function OmniChatDrawer() {
       id: "init",
       role: "assistant",
       content:
-        "Hello! I'm **Medea**, your friendly AI tutor. Ask me about math, science, definitions, general knowledge, or your uploaded study materials—I'll explain it clearly and help you reason through it.",
+        "Hello! I'm **Medea AI**, your unified learning assistant. Ask me a simple or complex question about any subject, or attach study material—I’ll answer directly and explain the reasoning clearly.",
       timestamp: new Date().toLocaleTimeString([], { hour: "2-digit", minute: "2-digit" }),
     },
   ]);
@@ -183,7 +178,6 @@ export default function OmniChatDrawer() {
         headers: { "Content-Type": "application/json" },
         signal: controller.signal,
         body: JSON.stringify({
-          mode,
           documentContext: docContext,
           messages: [...messages, userMsg].map((m) => ({
             role: m.role,
@@ -204,7 +198,7 @@ export default function OmniChatDrawer() {
       const aiMsg: Message = {
         id: (Date.now() + 1).toString(),
         role: "assistant",
-        content: data.content,
+        content: data.content || "Medea returned an empty response. Please try again.",
         timestamp: new Date().toLocaleTimeString([], { hour: "2-digit", minute: "2-digit" }),
       };
 
@@ -329,7 +323,7 @@ export default function OmniChatDrawer() {
                 </div>
                 <div>
                   <h2 className="font-black text-slate-900 dark:text-white text-base flex items-center gap-1.5">
-                    Medea – AI Tutor
+                    Medea AI
                     {isPremium ? (
                       <span className="px-2 py-0.5 text-[10px] font-black uppercase tracking-wider text-slate-950 bg-gradient-to-r from-amber-400 to-yellow-500 rounded-full flex items-center gap-1">
                         <Crown className="w-3 h-3 fill-slate-950" /> Unlimited
@@ -341,7 +335,7 @@ export default function OmniChatDrawer() {
                     )}
                   </h2>
                   <p className="text-xs text-slate-500 dark:text-slate-400">
-                    Interactive Tutor & Smart Dictionary
+                    One assistant for every subject
                   </p>
                 </div>
               </div>
@@ -353,18 +347,6 @@ export default function OmniChatDrawer() {
               >
                 <X className="w-5 h-5" />
               </button>
-            </div>
-
-            <div className="grid grid-cols-3 gap-1 border-b border-slate-200 bg-white px-3 py-2 dark:border-slate-800 dark:bg-slate-900" role="group" aria-label="Medea teaching mode">
-              {([
-                { key: "tutor", label: "Tutor", icon: BookOpen },
-                { key: "socratic", label: "Socratic", icon: Brain },
-                { key: "dictionary", label: "Dictionary", icon: HelpCircle },
-              ] as const).map((item) => (
-                <button type="button" key={item.key} aria-pressed={mode === item.key} onClick={() => setMode(item.key)} className={`inline-flex min-h-10 items-center justify-center gap-1.5 rounded-lg px-2 text-xs font-bold transition ${mode === item.key ? "bg-indigo-600 text-white shadow" : "text-slate-500 hover:bg-slate-100 hover:text-slate-900 dark:hover:bg-slate-800 dark:hover:text-white"}`}>
-                  <item.icon className="h-3.5 w-3.5" />{item.label}
-                </button>
-              ))}
             </div>
 
             {/* Active Context Provenance Bar */}

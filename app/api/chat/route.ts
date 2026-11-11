@@ -61,6 +61,7 @@ export async function POST(req: NextRequest) {
       const content = await generateMedeaReply({
         system: MEDEA_GENERAL_SYSTEM_PROMPT,
         prompt: buildMedeaGeneralPrompt(chatRequest),
+        question: chatRequest.question,
         userId: user.id,
       });
       return NextResponse.json({ content });
