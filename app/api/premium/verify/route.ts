@@ -4,8 +4,10 @@ import { checkRateLimit } from "@/lib/security";
 
 export async function POST(request: NextRequest) {
   try {
-    const ip = request.headers.get("x-forwarded-for")?.split(",")[0]?.trim() || "unknown";
-    await checkRateLimit(`premium-verify:${ip}`);
+    const ip = request.headers.get("x-real-ip")?.trim()
+      || request.headers.get("x-forwarded-for")?.split(",")[0]?.trim()
+      || "unknown";
+    await checkRateLimit(`premium-verify:${ip}`, { limit: 5, windowSeconds: 60 });
 
     const configuredPassword = process.env.PREMIUM_PASSWORD;
     if (!configuredPassword || configuredPassword.length < 12) {
