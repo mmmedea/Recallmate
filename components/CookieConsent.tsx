@@ -35,7 +35,7 @@ export default function CookieConsent() {
     <>
       {showBanner && !showPreferences && (
         <aside aria-label="Cookie consent" className="fixed inset-x-0 bottom-0 z-[60] px-4 pb-0 pt-4 sm:px-6 sm:pb-0">
-          <div className="mx-auto flex max-w-6xl flex-col items-start justify-between gap-6 rounded-t-[22px] border border-slate-800 bg-[#101a2d] p-6 shadow-[0_-18px_60px_rgba(0,0,0,0.35)] sm:p-7 md:flex-row md:items-center">
+          <div className="mx-auto flex max-w-7xl flex-col items-start justify-between gap-6 rounded-t-[22px] border border-slate-800 bg-[#101a2d] p-6 shadow-[0_-18px_60px_rgba(0,0,0,0.35)] sm:p-7 md:flex-row md:items-center">
             <div className="max-w-3xl space-y-2">
               <h2 className="text-lg font-extrabold tracking-tight text-white">We value your privacy</h2>
               <p className="text-sm leading-relaxed text-slate-400 sm:text-base">
