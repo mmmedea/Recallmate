@@ -7,7 +7,7 @@ const LOGO_FALLBACK = "https://lh3.googleusercontent.com/d/1VBjuDg72zKakz032deRq
 export default function Navbar() {
   return (
     <header className="sticky top-0 z-40 bg-[#100b19]/85 text-white backdrop-blur-2xl">
-      <div className="mx-auto flex min-h-[86px] max-w-[1480px] items-center justify-between px-5 sm:px-8">
+      <div className="mx-auto flex min-h-[86px] max-w-[1480px] items-center justify-between px-7 sm:px-12 lg:px-16">
         <Link href="/" aria-label="RecallMate home" className="flex items-center gap-3">
           <span className="flex h-12 w-12 items-center justify-center overflow-hidden rounded-2xl border border-[#c4a7ff]/40 bg-[#21182d] shadow-[0_0_25px_rgba(167,139,250,.22)]">
             <img
