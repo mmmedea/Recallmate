@@ -22,6 +22,7 @@ import {
 } from "lucide-react";
 import MathRenderer from "./MathRenderer";
 import { useAppStore } from "@/lib/store";
+import { processFileClientSide } from "@/lib/client-parser";
 
 interface Message {
   id: string;
@@ -245,31 +246,11 @@ export default function OmniChatDrawer() {
     setUploading(true);
 
     for (const file of files) {
-      const formData = new FormData();
-      formData.append("file", file);
-
       try {
-        const res = await fetch("/api/extract-text", {
-          method: "POST",
-          body: formData,
-        });
-
-        let data;
-        try {
-          data = await res.json();
-        } catch (parseErr) {
-          if (!res.ok) {
-            if (res.status === 413) throw new Error("File is too large (max 4.5MB).");
-            if (res.status === 429) throw new Error("Too many requests. Please wait a moment.");
-            throw new Error(`Server returned an error (${res.status}).`);
-          }
-          throw new Error("Failed to parse server response.");
-        }
-
-        if (!res.ok) throw new Error(data.error || "Failed to parse document.");
+        const extractedText = await processFileClientSide(file);
 
         // Save as quiet chip — no chat message, no API call yet
-        setAttachedFiles((prev) => [...prev, { name: file.name, context: data.text }]);
+        setAttachedFiles((prev) => [...prev, { name: file.name, context: extractedText }]);
       } catch (err: any) {
         alert(`File upload failed for ${file.name}: ${err.message}`);
       }
