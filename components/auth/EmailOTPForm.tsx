@@ -39,6 +39,7 @@ const AUTH_ERRORS: Record<string, string> = {
   email_delivery: "We couldn't send the email. Check the address and try again.",
   email_invalid: "Enter a valid email address, including Gmail addresses such as name@gmail.com.",
   account_exists: "An account already uses this email. Sign in instead, or reset your password.",
+  username_exists: "That username is already taken. Choose a different username.",
   email_unconfirmed: "This account has not been verified yet. Finish email verification before signing in.",
   service_unavailable: "RecallMate sign-in is temporarily unavailable. Please try again shortly.",
   network: "Connection error. Check your connection and try again.",
@@ -147,6 +148,28 @@ export function EmailOTPForm({
       setIsLoading(true);
       setErrorKey(null);
       setOTPState("sending");
+      const availabilityResponse = await fetch("/api/auth/check-availability", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ email: normalizedEmail, username: username.trim() }),
+      });
+      const availability = await availabilityResponse.json() as { emailExists?: boolean; usernameExists?: boolean; error?: string };
+      if (!availabilityResponse.ok) {
+        setErrorKey(availabilityResponse.status === 429 ? "rate_limited" : "service_unavailable");
+        setOTPState("error");
+        return;
+      }
+      if (availability.emailExists) {
+        setErrorKey("account_exists");
+        setOTPState("error");
+        return;
+      }
+      if (availability.usernameExists) {
+        setErrorKey("username_exists");
+        setOTPState("error");
+        return;
+      }
+
       const { error } = await supabase.auth.signInWithOtp({
         email: normalizedEmail,
         options: {

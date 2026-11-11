@@ -29,9 +29,29 @@ describe("reviewer source filtering", () => {
     expect(sections[0].images[0]).toMatch(/^data:image\/png;base64,/);
   });
 
+  it("joins styled PowerPoint runs into readable paragraphs and removes loading placeholders", async () => {
+    const zip = new JSZip();
+    zip.file("ppt/slides/slide1.xml", '<p:sld xmlns:a="a"><a:p><a:r><a:t>Lesson 3:</a:t></a:r></a:p><a:p><a:r><a:t>Specimen </a:t></a:r><a:r><a:t>Variables</a:t></a:r></a:p><a:p><a:r><a:t>Loading...</a:t></a:r></a:p><a:p><a:buChar char="•"/><a:r><a:t>Proper patient preparation and specimen transport</a:t></a:r></a:p></p:sld>');
+
+    const sections = await extractPptxReviewerSections(await zip.generateAsync({ type: "arraybuffer" }));
+    expect(sections[0].title).toBe("Lesson 3: Specimen Variables");
+    expect(sections[0].text).toContain("• Proper patient preparation and specimen transport");
+    expect(sections[0].text).not.toContain("Loading");
+    expect(sections[0].text).not.toContain("Specimen\nVariables");
+  });
+
   it("creates a real two-column Word reviewer with running page fields", async () => {
     const file = new File(["lesson"], "Hematology.pptx", { type: "application/vnd.openxmlformats-officedocument.presentationml.presentation" });
-    const blob = await buildReviewerDocxBlob(file, [{ title: "Red Blood Cells", text: "Normal range: preserve every sourced figure.\nNOTE: Review the exception.", images: [] }], { name: "Rose", accent: "E11D48", tint: "FFE4E6" });
+    const blob = await buildReviewerDocxBlob(file, [{
+      title: "Red Blood Cells",
+      text: "Normal range: preserve every sourced figure.\nNOTE: Review the exception.",
+      images: [],
+      tables: [[
+        ["Index", "Normal value"],
+        ["MCV", "75-98 fL"],
+        ["MCH", "27-33 pg"],
+      ]],
+    }], { name: "Rose", accent: "E11D48", tint: "FFE4E6" });
     const archive = await JSZip.loadAsync(await blob.arrayBuffer());
     const documentXml = await archive.file("word/document.xml")!.async("string");
     const footerXml = await archive.file("word/footer1.xml")!.async("string");
@@ -42,6 +62,8 @@ describe("reviewer source filtering", () => {
     expect(documentXml).toContain("preserve every sourced figure");
     expect(stylesXml).toContain('w:color w:val="000000"');
     expect(documentXml).toContain('w:fill="FFE4E6"');
+    expect(documentXml).toContain('w:fill="E11D48"');
+    expect(documentXml).toContain('w:color w:val="FFFFFF"');
     expect(footerXml).toContain("PAGE");
     expect(footerXml).toContain("NUMPAGES");
   });

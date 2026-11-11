@@ -17,4 +17,13 @@ describe("document schema contract", () => {
     expect(migration).toMatch(/for update to authenticated/i);
     expect(migration).toMatch(/for delete to authenticated/i);
   });
+
+  it("enforces case-insensitive usernames and provides a server-only signup availability check", () => {
+    const migration = readFileSync(resolve(process.cwd(), "supabase/migrations/20260830122315_enforce_unique_signup_identity.sql"), "utf8");
+    expect(migration).toMatch(/unique index if not exists profiles_username_unique_ci/i);
+    expect(migration).toMatch(/on public\.profiles \(lower\(username\)\)/i);
+    expect(migration).toMatch(/check_signup_availability/i);
+    expect(migration).toMatch(/revoke execute[^;]+from public, anon, authenticated/i);
+    expect(migration).toMatch(/grant execute[^;]+to service_role/i);
+  });
 });

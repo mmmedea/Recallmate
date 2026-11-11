@@ -24,8 +24,18 @@ const authMocks = vi.hoisted(() => ({
   updateUser: vi.fn().mockResolvedValue({ data: {}, error: null }),
 }));
 
+const availabilityFetch = vi.fn();
+
 beforeEach(() => {
+  vi.clearAllMocks();
   useOTPStore.setState({ otpState: 'idle', otpFlowContext: null });
+  availabilityFetch.mockReset();
+  availabilityFetch.mockResolvedValue({
+    ok: true,
+    status: 200,
+    json: async () => ({ emailExists: false, usernameExists: false }),
+  });
+  vi.stubGlobal('fetch', availabilityFetch);
 });
 
 // Mock Next.js router & navigation
@@ -202,6 +212,34 @@ describe('Login Page Component', () => {
     expect(request.options).not.toHaveProperty('emailRedirectTo');
     expect(await screen.findByText(/6-digit RecallMate code/i)).toBeDefined();
     expect(await screen.findByText(/check your Spam or Junk folder/i)).toBeDefined();
+  });
+
+  it('stops signup and directs an existing email to sign in', async () => {
+    availabilityFetch.mockResolvedValueOnce({
+      ok: true,
+      status: 200,
+      json: async () => ({ emailExists: true, usernameExists: false }),
+    });
+    render(<EmailOTPForm intent="signup" privacyAgreed username="student_18" password="Strong!Pass1" confirmPassword="Strong!Pass1" />);
+    fireEvent.change(screen.getByLabelText('Email'), { target: { value: 'existing@gmail.com' } });
+    fireEvent.click(screen.getByRole('button', { name: /Create account & send code/i }));
+
+    expect(await screen.findByText(/account already uses this email.*Sign in instead/i)).toBeDefined();
+    expect(authMocks.signInWithOtp).not.toHaveBeenCalled();
+  });
+
+  it('stops signup when the username already exists', async () => {
+    availabilityFetch.mockResolvedValueOnce({
+      ok: true,
+      status: 200,
+      json: async () => ({ emailExists: false, usernameExists: true }),
+    });
+    render(<EmailOTPForm intent="signup" privacyAgreed username="student_18" password="Strong!Pass1" confirmPassword="Strong!Pass1" />);
+    fireEvent.change(screen.getByLabelText('Email'), { target: { value: 'new@gmail.com' } });
+    fireEvent.click(screen.getByRole('button', { name: /Create account & send code/i }));
+
+    expect(await screen.findByText(/username is already taken/i)).toBeDefined();
+    expect(authMocks.signInWithOtp).not.toHaveBeenCalled();
   });
 
   it('accepts a pasted six-digit OTP and verifies the exact code once', async () => {

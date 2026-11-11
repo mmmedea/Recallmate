@@ -63,14 +63,14 @@ export default function EditableStudyNotes() {
       const response = await fetch("/api/generate-content", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ text, fileName: file.name, count: 5, difficulty: "easy" }),
+        body: JSON.stringify({ text, fileName: file.name, count: 5, difficulty: "easy", purpose: "notes" }),
       });
       const data = await response.json();
       if (!response.ok) throw new Error(data.error || "Medea could not generate notes from this file.");
       const nextHtml = generatedNotesHtml(data);
       setHtml(nextHtml);
       localStorage.setItem(STORAGE_KEY, nextHtml);
-      setSaved("Generated and saved - click anywhere in the page to edit");
+      setSaved(data.notice || "Generated and saved - click anywhere in the page to edit");
     } catch (cause) {
       setError(cause instanceof Error ? cause.message : "The notes could not be generated.");
       setSaved("Generation stopped");
