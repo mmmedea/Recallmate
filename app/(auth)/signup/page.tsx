@@ -1,6 +1,6 @@
 "use client";
 
-import { useState } from "react";
+import { Suspense, useState } from "react";
 import { useSearchParams } from "next/navigation";
 import { AuthCard } from "@/components/auth/AuthCard";
 import { OAuthButtons } from "@/components/auth/OAuthButtons";
@@ -18,7 +18,7 @@ import { Button } from "@/components/ui/button";
 import { PrivacyContent } from "@/components/legal/PrivacyContent";
 import { TermsContent } from "@/components/legal/TermsContent";
 
-export default function SignupPage() {
+function SignupPageContent() {
   const searchParams = useSearchParams();
   const requestedNext = searchParams.get("next");
   const [privacyAgreed, setPrivacyAgreed] = useState(false);
@@ -147,5 +147,21 @@ export default function SignupPage() {
         </p>
       </div>
     </AuthCard>
+  );
+}
+
+export default function SignupPage() {
+  return (
+    <Suspense
+      fallback={
+        <AuthCard>
+          <p role="status" className="py-8 text-center text-sm text-slate-500">
+            Loading sign-up form…
+          </p>
+        </AuthCard>
+      }
+    >
+      <SignupPageContent />
+    </Suspense>
   );
 }
