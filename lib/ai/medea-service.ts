@@ -22,6 +22,10 @@ export function solveSafeArithmetic(prompt: string) {
   }
 }
 
+export function shouldGroundWithGoogleSearch(question: string) {
+  return /\b(today|current|currently|latest|recent|news|weather|price|score|schedule|this week|this month|this year|who is the|as of)\b/i.test(question);
+}
+
 export async function generateMedeaReply(request: MedeaGenerationRequest) {
   const { system, prompt, userId } = request;
   const deterministic = solveSafeArithmetic(request.question || prompt);
@@ -30,7 +34,22 @@ export async function generateMedeaReply(request: MedeaGenerationRequest) {
   if (process.env.GEMINI_API_KEY) {
     try {
       const { ProviderAdapter } = await import("./provider");
-      const direct = await ProviderAdapter.generate({ operation: "chat", systemInstruction: system, prompt });
+      const directRequest = {
+        operation: "chat",
+        systemInstruction: system,
+        prompt,
+      } as const;
+      let direct;
+      if (shouldGroundWithGoogleSearch(request.question || prompt)) {
+        try {
+          direct = await ProviderAdapter.generate({ ...directRequest, tools: [{ type: "google_search" }] });
+        } catch (searchError) {
+          console.warn("Medea Google Search grounding failed; retrying without grounding.", searchError);
+          direct = await ProviderAdapter.generate(directRequest);
+        }
+      } else {
+        direct = await ProviderAdapter.generate(directRequest);
+      }
       if (direct.text.trim()) return direct.text;
     } catch (directError) {
       console.warn("Medea direct Gemini request failed; trying AI Gateway.", directError);

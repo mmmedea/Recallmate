@@ -1,5 +1,6 @@
 import { describe, expect, it, vi } from 'vitest'
 import { syncEventsToGoogle } from '@/lib/integrations/google-calendar'
+import { verifyGoogleOAuthProvider } from '@/lib/integrations/google-oauth'
 
 const baseEvent = {
   id: 'event-1', title: 'Chemistry review', description: 'Chapter 4',
@@ -8,6 +9,10 @@ const baseEvent = {
 }
 
 describe('Google Calendar synchronization', () => {
+  it('turns a disabled-provider response into a safe in-app setup message', async () => {
+    const fetchImpl = vi.fn(async () => new Response(JSON.stringify({ code: 400, msg: 'Unsupported provider: provider is not enabled' }), { status: 400 })) as unknown as typeof fetch
+    await expect(verifyGoogleOAuthProvider('https://example.supabase.co/auth/v1/authorize', fetchImpl)).rejects.toThrow(/not configured yet/i)
+  })
   it('creates RecallMate events in the primary Google Calendar', async () => {
     const fetchImpl = vi.fn(async () => new Response(JSON.stringify({ id: 'google-1' }), { status: 200 })) as unknown as typeof fetch
     const result = await syncEventsToGoogle({ accessToken: 'private-token', events: [baseEvent], fetchImpl })
