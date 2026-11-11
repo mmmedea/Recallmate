@@ -2,7 +2,6 @@ import ReactMarkdown from "react-markdown";
 import remarkMath from "remark-math";
 import rehypeKatex from "rehype-katex";
 import "katex/dist/katex.min.css";
-import { Message } from "@ai-sdk/react";
 import { TutorStatus, VerificationIndicator, CitationBadge } from "./TutorIndicators";
 import { MedeaStreamPart } from "@/lib/ai/tutor/stream";
 
@@ -10,17 +9,15 @@ export function ChatMessage({
   message, 
   isLast, 
   isLoading,
-  streamData 
 }: { 
-  message: Message; 
+  message: any; 
   isLast: boolean; 
   isLoading: boolean;
-  streamData?: any[]; 
 }) {
   const isAssistant = message.role === "assistant";
   
   // Extract annotations
-  const annotations = (message.annotations as MedeaStreamPart[]) || [];
+  const annotations = ((message.metadata?.annotations || message.annotations) as MedeaStreamPart[]) || [];\n  const messageText = Array.isArray(message.parts)\n    ? message.parts.filter((part: any) => part.type === 'text').map((part: any) => part.text).join('')\n    : message.content || '';
   
   const statusAnnotations = annotations.filter(a => a.type === "data-tutor-status");
   const latestStatus = statusAnnotations.length > 0 ? statusAnnotations[statusAnnotations.length - 1].data : null;
@@ -45,7 +42,7 @@ export function ChatMessage({
             ? "bg-white dark:bg-zinc-900 border border-zinc-200 dark:border-zinc-800 rounded-tl-sm text-zinc-800 dark:text-zinc-200" 
             : "bg-blue-600 text-white rounded-tr-sm"}
         `}>
-          {message.content ? (
+          {messageText ? (
              <div className={`prose dark:prose-invert max-w-none prose-sm 
                 prose-p:leading-relaxed prose-pre:bg-zinc-100 dark:prose-pre:bg-zinc-800 prose-pre:border prose-pre:border-zinc-200 dark:prose-pre:border-zinc-700
                 ${isAssistant ? "" : "prose-p:text-white prose-a:text-blue-100 prose-strong:text-white"}
@@ -68,7 +65,7 @@ export function ChatMessage({
                    table: ({node, ...props}) => <div className="overflow-x-auto w-full my-4"><table className="min-w-full text-left text-sm" {...props} /></div>
                  }}
                >
-                 {message.content}
+                 {messageText}
                </ReactMarkdown>
              </div>
           ) : (
