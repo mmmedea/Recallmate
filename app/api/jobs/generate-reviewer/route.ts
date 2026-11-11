@@ -19,14 +19,13 @@ export async function POST(req: NextRequest) {
     if (!authHeader?.startsWith('Bearer ') || authHeader.length > 8192) return NextResponse.json({ error: 'Unauthorized' }, { status: 401 });
     const token = authHeader.slice(7).trim();
     if (!token || token.includes(' ')) return NextResponse.json({ error: 'Unauthorized' }, { status: 401 });
-    const supabase = createClient(
-      process.env.NEXT_PUBLIC_SUPABASE_URL!,
-      process.env.SUPABASE_SERVICE_ROLE_KEY!
-    );
+    const supabaseUrl = process.env.NEXT_PUBLIC_SUPABASE_URL;
+    const serviceRoleKey = process.env.SUPABASE_SERVICE_ROLE_KEY;
+    if (!supabaseUrl || !serviceRoleKey) return NextResponse.json({ error: 'Reviewer generation is not configured.' }, { status: 503 });
+    const supabase = createClient(supabaseUrl, serviceRoleKey, { auth: { autoRefreshToken: false, persistSession: false } });
     const { data: { user }, error: userError } = await supabase.auth.getUser(token);
     if (userError || !user) return NextResponse.json({ error: 'Unauthorized' }, { status: 401 });
     await checkRateLimit(user.id);
-    if (!process.env.NEXT_PUBLIC_SUPABASE_URL || !process.env.SUPABASE_SERVICE_ROLE_KEY) return NextResponse.json({ error: 'Reviewer generation is not configured.' }, { status: 503 });
 
     // 2. Billing Check (Reserve 50 credits per reviewer generation)
     const billingService = new BillingService(supabase);
@@ -45,7 +44,7 @@ export async function POST(req: NextRequest) {
         userId: user.id,
         documentIds,
         format,
-        instructions
+        reviewerOptions: { instructions }
       });
 
       // 5. Check if THIS format is already rendered
