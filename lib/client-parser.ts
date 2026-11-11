@@ -44,7 +44,7 @@ export const compressPdfToImage = async (buffer: ArrayBuffer, pdfjsLib: any): Pr
   if (!pdfjsLib) {
     const pdfjsModule = await import("pdfjs-dist");
     pdfjsLib = pdfjsModule.default || pdfjsModule;
-    pdfjsLib.GlobalWorkerOptions.workerSrc = `https://cdnjs.cloudflare.com/ajax/libs/pdf.js/${pdfjsLib.version}/pdf.worker.min.js`;
+    pdfjsLib.GlobalWorkerOptions.workerSrc = "/pdf.worker.min.js";
   }
 
   const loadingTask = pdfjsLib.getDocument({ data: new Uint8Array(buffer), isEvalSupported: false });
@@ -168,8 +168,7 @@ export const processFileClientSide = async (rawFile: File): Promise<string> => {
         if (!pdfjsLib) {
           const pdfjsModule = await import("pdfjs-dist");
           pdfjsLib = pdfjsModule.default || pdfjsModule;
-          // Use CDN for worker to prevent relative path/CORS issues in mobile in-app browsers
-          pdfjsLib.GlobalWorkerOptions.workerSrc = `https://cdnjs.cloudflare.com/ajax/libs/pdf.js/${pdfjsLib.version}/pdf.worker.min.js`;
+          pdfjsLib.GlobalWorkerOptions.workerSrc = "/pdf.worker.min.js";
         }
         
         const uint8Array = new Uint8Array(arrayBuffer!);
@@ -205,7 +204,7 @@ export const processFileClientSide = async (rawFile: File): Promise<string> => {
       extractedTextForFile = await Promise.race([
         runClientExtraction(),
         new Promise<string>((_, reject) => 
-          setTimeout(() => reject(new Error("Extraction timed out")), 45000)
+          setTimeout(() => reject(new Error("Extraction timed out")), 90000)
         )
       ]);
     } catch (clientErr) {
