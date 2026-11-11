@@ -2,7 +2,7 @@
 
 import { ChangeEvent, useEffect, useMemo, useState } from "react";
 import { useRouter } from "next/navigation";
-import { AlertCircle, Bell, Camera, CheckCircle2, KeyRound, Mail, Palette, ShieldCheck, Trash2, User } from "lucide-react";
+import { AlertCircle, Bell, Camera, CheckCircle2, KeyRound, LogOut, Mail, MapPin, Palette, Plug, ShieldCheck, Trash2, User } from "lucide-react";
 import { createClient } from "@/utils/supabase/client";
 import ThemeToggle from "@/components/ThemeToggle";
 import { Button } from "@/components/ui/button";
@@ -19,9 +19,15 @@ type Profile = {
   avatarUrl: string;
   notificationsEnabled: boolean;
   notificationEmail: string;
+  secondaryEmail: string;
+  street: string;
+  city: string;
+  region: string;
+  country: string;
+  addressType: "home" | "work";
 };
 
-const EMPTY_PROFILE: Profile = { username: "", age: "", school: "", gender: "", interests: "", avatarUrl: "", notificationsEnabled: true, notificationEmail: "" };
+const EMPTY_PROFILE: Profile = { username: "", age: "", school: "", gender: "", interests: "", avatarUrl: "", notificationsEnabled: true, notificationEmail: "", secondaryEmail: "", street: "", city: "", region: "", country: "", addressType: "home" };
 const PASSWORD_RULE = /^(?=.*[^A-Za-z0-9]).{8,}$/;
 
 export default function SettingsPage() {
@@ -52,6 +58,12 @@ export default function SettingsPage() {
         avatarUrl: String(metadata.avatar_url ?? metadata.picture ?? ""),
         notificationsEnabled: metadata.notifications_enabled !== false,
         notificationEmail: String(metadata.notification_email ?? email),
+        secondaryEmail: String(metadata.secondary_email ?? ""),
+        street: String(metadata.address?.street ?? ""),
+        city: String(metadata.address?.city ?? ""),
+        region: String(metadata.address?.region ?? ""),
+        country: String(metadata.address?.country ?? ""),
+        addressType: metadata.address?.type === "work" ? "work" : "home",
       });
       setLoading(false);
     }
@@ -78,6 +90,8 @@ export default function SettingsPage() {
         avatar_url: profile.avatarUrl,
         notifications_enabled: profile.notificationsEnabled,
         notification_email: profile.notificationEmail.trim() || accountEmail,
+        secondary_email: profile.secondaryEmail.trim(),
+        address: { street: profile.street.trim(), city: profile.city.trim(), region: profile.region.trim(), country: profile.country.trim(), type: profile.addressType },
         recallmate_account_completed: true,
       },
     });
@@ -143,6 +157,14 @@ export default function SettingsPage() {
     router.refresh();
   };
 
+  const signOutOtherSessions = async () => {
+    setBusy("sessions");
+    const { error } = await supabase.auth.signOut({ scope: "others" });
+    setBusy(null);
+    if (error) notify("error", `Could not sign out other sessions: ${error.message}`);
+    else notify("success", "Other RecallMate sessions have been signed out.");
+  };
+
   return (
     <div className="mx-auto max-w-4xl space-y-6 px-4 py-8 motion-safe:animate-in motion-safe:fade-in motion-safe:slide-in-from-bottom-3 duration-500">
       <div>
@@ -179,6 +201,19 @@ export default function SettingsPage() {
         </div>
       </section>
 
+      <section className="rounded-3xl border border-slate-200 bg-white p-6 shadow-sm dark:border-slate-800 dark:bg-slate-900">
+        <h2 className="flex items-center gap-2 text-xl font-bold dark:text-white"><MapPin className="h-6 w-6 text-indigo-500" />Account identity & optional address</h2>
+        <p className="mt-1 text-sm text-slate-500">A secondary contact and address are optional. They are stored with your protected account metadata and are never shown publicly.</p>
+        <div className="mt-5 grid gap-4 sm:grid-cols-2">
+          <Field label="Secondary email"><Input type="email" value={profile.secondaryEmail} onChange={(event) => setProfile({ ...profile, secondaryEmail: event.target.value })} placeholder="Optional recovery contact" /></Field>
+          <Field label="Address type"><select value={profile.addressType} onChange={(event) => setProfile({ ...profile, addressType: event.target.value as "home" | "work" })} className="flex h-10 w-full rounded-md border border-input bg-background px-3 py-2 text-sm"><option value="home">Home</option><option value="work">Work</option></select></Field>
+          <Field label="Street number & street"><Input value={profile.street} onChange={(event) => setProfile({ ...profile, street: event.target.value })} placeholder="Optional" /></Field>
+          <Field label="City"><Input value={profile.city} onChange={(event) => setProfile({ ...profile, city: event.target.value })} placeholder="Optional" /></Field>
+          <Field label="County / province"><Input value={profile.region} onChange={(event) => setProfile({ ...profile, region: event.target.value })} placeholder="Optional" /></Field>
+          <Field label="Country"><Input value={profile.country} onChange={(event) => setProfile({ ...profile, country: event.target.value })} placeholder="Optional" /></Field>
+        </div>
+      </section>
+
       <section className="grid gap-6 md:grid-cols-2">
         <div className="rounded-3xl border border-slate-200 bg-white p-6 shadow-sm dark:border-slate-800 dark:bg-slate-900">
           <h2 className="flex items-center gap-2 text-lg font-bold dark:text-white"><Palette className="h-5 w-5 text-violet-500" />Appearance</h2>
@@ -212,7 +247,10 @@ export default function SettingsPage() {
             <Button variant="outline" onClick={changePassword} disabled={busy !== null}>{busy === "password" ? "Changing…" : "Change password"}</Button>
           </div>
         </div>
+        <div className="mt-6 rounded-2xl border border-slate-200 p-4 dark:border-slate-700"><h3 className="flex items-center gap-2 font-bold dark:text-white"><LogOut className="h-4 w-4" />Active session safety</h3><p className="my-2 text-sm text-slate-500">If you used RecallMate on a shared or lost device, immediately revoke every other active session.</p><Button variant="outline" onClick={signOutOtherSessions} disabled={busy !== null}>{busy === "sessions" ? "Signing out…" : "Sign out of other sessions"}</Button></div>
       </section>
+
+      <section className="rounded-3xl border border-slate-200 bg-white p-6 shadow-sm dark:border-slate-800 dark:bg-slate-900"><h2 className="flex items-center gap-2 text-xl font-bold dark:text-white"><Plug className="h-6 w-6 text-violet-500" />Workspace & integrations</h2><p className="mt-2 text-sm text-slate-500">Calendar connections use explicit consent. Open Schedule to add an event directly to Google Calendar or export your full year as an ICS file.</p><Button variant="outline" className="mt-4" onClick={() => router.push('/calendar')}>Open calendar integrations</Button></section>
 
       <section className="rounded-3xl border border-red-200 bg-red-50 p-6 dark:border-red-900/60 dark:bg-red-950/20">
         <h2 className="flex items-center gap-2 text-xl font-bold text-red-700 dark:text-red-400"><AlertCircle className="h-6 w-6" />Danger zone</h2>

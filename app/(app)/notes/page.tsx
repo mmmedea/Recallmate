@@ -2,37 +2,56 @@
 
 import { useEffect, useState } from "react";
 import { useRouter } from "next/navigation";
-import { ArrowLeft, BookOpen, BrainCircuit } from "lucide-react";
+import { ArrowLeft, BookOpen, BrainCircuit, FilePlus2, Sparkles } from "lucide-react";
 import ProgressiveNote from "@/components/ProgressiveNote";
 import MathRenderer from "@/components/MathRenderer";
 
 export default function NotesPage() {
   const [content, setContent] = useState<any>(null);
+  const [hydrated, setHydrated] = useState(false);
   const router = useRouter();
 
   useEffect(() => {
     const raw = sessionStorage.getItem("recallmate-content");
-    if (!raw) {
-      router.push("/upload");
-      return;
+    if (raw) {
+      try {
+        setContent(JSON.parse(raw));
+      } catch {
+        sessionStorage.removeItem("recallmate-content");
+      }
     }
-    setContent(JSON.parse(raw));
-  }, [router]);
+    setHydrated(true);
+  }, []);
 
-  if (!content) return null;
+  if (!hydrated) return null;
+
+  if (!content) {
+    return (
+      <div className="mx-auto flex min-h-[65vh] max-w-3xl items-center justify-center px-4 py-10">
+        <section className="w-full overflow-hidden rounded-3xl border border-indigo-200 bg-gradient-to-br from-white via-indigo-50 to-violet-50 p-8 text-center shadow-xl shadow-indigo-950/5 dark:border-indigo-900/60 dark:from-slate-900 dark:via-indigo-950/40 dark:to-slate-900 sm:p-12">
+          <span className="mx-auto grid h-16 w-16 place-items-center rounded-2xl bg-gradient-to-br from-indigo-500 to-violet-600 text-white shadow-lg shadow-indigo-500/25"><BookOpen className="h-8 w-8" /></span>
+          <p className="mt-6 text-xs font-black uppercase tracking-[0.2em] text-indigo-600 dark:text-indigo-300">Your learning library</p>
+          <h1 className="mt-2 text-3xl font-black text-slate-950 dark:text-white">Study notes</h1>
+          <p className="mx-auto mt-3 max-w-xl leading-7 text-slate-600 dark:text-slate-300">No generated notes are open yet. Upload a document, slide deck, image, or text file and let Medea create organized notes you can review here.</p>
+          <div className="mt-7 flex flex-col justify-center gap-3 sm:flex-row">
+            <button onClick={() => router.push("/upload")} className="inline-flex items-center justify-center gap-2 rounded-xl bg-indigo-600 px-5 py-3 text-sm font-bold text-white shadow-lg shadow-indigo-500/20 transition hover:-translate-y-0.5 hover:bg-indigo-700"><FilePlus2 className="h-4 w-4" />Upload study material</button>
+            <button onClick={() => router.push("/topics")} className="inline-flex items-center justify-center gap-2 rounded-xl border border-slate-200 bg-white px-5 py-3 text-sm font-bold text-slate-700 transition hover:-translate-y-0.5 hover:bg-slate-50 dark:border-slate-700 dark:bg-slate-800 dark:text-slate-200"><Sparkles className="h-4 w-4" />Explore study tools</button>
+          </div>
+        </section>
+      </div>
+    );
+  }
 
   return (
     <div className="mx-auto max-w-3xl py-10 px-4 space-y-8 pb-32 transition-colors duration-200">
-      
       {/* Top Navigation */}
       <div className="flex justify-between items-center">
-        <button 
+        <button
           onClick={() => router.push("/upload")}
           className="flex items-center gap-2 text-sm font-bold text-slate-500 hover:text-slate-800 dark:text-slate-400 dark:hover:text-white transition-colors"
         >
           <ArrowLeft className="w-4 h-4" /> Back to Upload
         </button>
-        
         <button
           onClick={() => {
             sessionStorage.setItem("recallmate-reconfigure", "true");
@@ -89,4 +108,4 @@ export default function NotesPage() {
 
     </div>
   );
-}
+}

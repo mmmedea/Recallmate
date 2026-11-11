@@ -9,7 +9,7 @@ CREATE TABLE IF NOT EXISTS public.calendar_events (
   starts_at timestamptz NOT NULL,
   ends_at timestamptz,
   all_day boolean NOT NULL DEFAULT true,
-  event_type text NOT NULL DEFAULT 'study' CHECK (event_type IN ('study', 'review', 'quiz', 'exam', 'assignment', 'custom')),
+  event_type text NOT NULL DEFAULT 'study' CHECK (event_type IN ('study', 'review', 'quiz', 'exam', 'assignment', 'note', 'reminder', 'custom')),
   color text NOT NULL DEFAULT 'indigo' CHECK (color IN ('indigo', 'violet', 'blue', 'emerald', 'amber', 'rose', 'slate')),
   completed_at timestamptz,
   created_at timestamptz NOT NULL DEFAULT now(),
@@ -43,7 +43,7 @@ CREATE INDEX IF NOT EXISTS calendar_reminders_pending_idx ON public.calendar_rem
 CREATE INDEX IF NOT EXISTS notifications_user_unread_idx ON public.notifications(user_id, created_at DESC) WHERE read_at IS NULL;
 
 CREATE OR REPLACE FUNCTION public.set_calendar_event_updated_at()
-RETURNS trigger LANGUAGE plpgsql SECURITY DEFINER SET search_path = '' AS $$
+RETURNS trigger LANGUAGE plpgsql SET search_path = '' AS $$
 BEGIN
   NEW.updated_at = now();
   RETURN NEW;
@@ -59,13 +59,17 @@ ALTER TABLE public.calendar_events ENABLE ROW LEVEL SECURITY;
 ALTER TABLE public.calendar_reminders ENABLE ROW LEVEL SECURITY;
 ALTER TABLE public.notifications ENABLE ROW LEVEL SECURITY;
 
+DROP POLICY IF EXISTS "Students manage their own calendar events" ON public.calendar_events;
 CREATE POLICY "Students manage their own calendar events" ON public.calendar_events
 FOR ALL TO authenticated USING (auth.uid() = user_id) WITH CHECK (auth.uid() = user_id);
+DROP POLICY IF EXISTS "Students manage their own calendar reminders" ON public.calendar_reminders;
 CREATE POLICY "Students manage their own calendar reminders" ON public.calendar_reminders
 FOR ALL TO authenticated USING (auth.uid() = user_id) WITH CHECK (auth.uid() = user_id);
+DROP POLICY IF EXISTS "Students manage their own notifications" ON public.notifications;
 CREATE POLICY "Students manage their own notifications" ON public.notifications
 FOR ALL TO authenticated USING (auth.uid() = user_id) WITH CHECK (auth.uid() = user_id);
 
 GRANT SELECT, INSERT, UPDATE, DELETE ON public.calendar_events TO authenticated;
 GRANT SELECT, INSERT, UPDATE, DELETE ON public.calendar_reminders TO authenticated;
 GRANT SELECT, INSERT, UPDATE, DELETE ON public.notifications TO authenticated;
+GRANT USAGE ON SCHEMA public TO authenticated;

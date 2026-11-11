@@ -13,7 +13,7 @@ const initialForm = (date: Date): CalendarEventInput => ({ title: '', descriptio
 
 function dateKey(date: Date) { return date.toISOString().slice(0, 10) }
 
-export default function YearCalendar({ initialEvents, initialYear }: { initialEvents: CalendarEvent[]; initialYear: number }) {
+export default function YearCalendar({ initialEvents, initialYear, loadError }: { initialEvents: CalendarEvent[]; initialYear: number; loadError?: string }) {
   const [year, setYear] = useState(initialYear)
   const [events, setEvents] = useState(initialEvents)
   const [selected, setSelected] = useState<CalendarEvent | null>(null)
@@ -21,7 +21,10 @@ export default function YearCalendar({ initialEvents, initialYear }: { initialEv
   const [isPending, startTransition] = useTransition()
   const eventsByDate = useMemo(() => events.reduce<Record<string, CalendarEvent[]>>((acc, event) => { (acc[event.starts_at.slice(0, 10)] ??= []).push(event); return acc }, {}), [events])
 
-  const changeYear = (nextYear: number) => startTransition(async () => { setEvents(await getCalendarEvents(nextYear)); setYear(nextYear) })
+  const changeYear = (nextYear: number) => startTransition(async () => {
+    try { setEvents(await getCalendarEvents(nextYear)); setYear(nextYear) }
+    catch { alert('RecallMate could not load that year. Please try again.') }
+  })
   const openNew = (date: Date) => { setSelected(null); setForm(initialForm(date)) }
   const openEdit = (event: CalendarEvent) => { setSelected(event); setForm({ ...event, reminderMinutes: null }) }
   const closeEditor = () => { setSelected(null); setForm(null) }
@@ -63,6 +66,7 @@ export default function YearCalendar({ initialEvents, initialYear }: { initialEv
       <div><p className="text-sm font-semibold text-indigo-600 dark:text-indigo-400">Study planner</p><h1 className="text-3xl font-bold text-slate-950 dark:text-white">{year} Calendar</h1><p className="mt-1 text-slate-500 dark:text-slate-400">Plan every semester, deadline, and review in one place.</p></div>
       <div className="flex flex-wrap gap-2"><button onClick={() => changeYear(year - 1)} className="rounded-lg border border-slate-200 p-2 hover:bg-slate-100 dark:border-slate-700 dark:hover:bg-slate-800" aria-label="Previous year"><ChevronLeft className="h-5 w-5" /></button><button onClick={() => changeYear(new Date().getFullYear())} className="rounded-lg border border-slate-200 px-3 text-sm font-semibold hover:bg-slate-100 dark:border-slate-700 dark:hover:bg-slate-800">Today</button><button onClick={() => changeYear(year + 1)} className="rounded-lg border border-slate-200 p-2 hover:bg-slate-100 dark:border-slate-700 dark:hover:bg-slate-800" aria-label="Next year"><ChevronRight className="h-5 w-5" /></button><button onClick={exportCalendar} className="inline-flex items-center gap-2 rounded-lg border border-slate-200 px-3 py-2 text-sm font-semibold hover:bg-slate-100 dark:border-slate-700 dark:hover:bg-slate-800" title="Download and import into Google Calendar"><Download className="h-4 w-4" />Google Calendar</button><button onClick={() => openNew(new Date())} className="inline-flex items-center gap-2 rounded-lg bg-indigo-600 px-4 py-2 text-sm font-semibold text-white hover:bg-indigo-700"><Plus className="h-4 w-4" />Add event</button></div>
     </div>
+    {loadError && <div role="status" className="rounded-xl border border-amber-300 bg-amber-50 px-4 py-3 text-sm font-medium text-amber-900 dark:border-amber-500/30 dark:bg-amber-500/10 dark:text-amber-200">{loadError}</div>}
     {isPending && <p className="text-sm text-slate-500">Updating calendar…</p>}
     <div className="grid grid-cols-1 gap-4 xl:grid-cols-3">
       {Array.from({ length: 12 }, (_, month) => <Month key={month} month={month} year={year} eventsByDate={eventsByDate} onNew={openNew} onEvent={openEdit} onToggle={toggleComplete} />)}
@@ -89,7 +93,7 @@ function EventEditor({ form, setForm, selected, busy, onCancel, onSave, onDelete
         <textarea value={form.description ?? ''} onChange={e => set('description', e.target.value)} placeholder="Notes, chapters, or study instructions" className="w-full rounded-lg border border-slate-200 bg-transparent px-3 py-2 text-sm dark:border-slate-700" rows={4} />
         <div className="grid grid-cols-1 gap-3 sm:grid-cols-3">
           <label className="text-sm font-medium dark:text-slate-200">Date<input type="date" value={localDate} onChange={e => set('starts_at', new Date(`${e.target.value}T12:00:00`).toISOString())} className="mt-1 block w-full rounded-lg border border-slate-200 bg-transparent px-3 py-2 dark:border-slate-700" /></label>
-          <label className="text-sm font-medium dark:text-slate-200">Type<select value={form.event_type} onChange={e => set('event_type', e.target.value as CalendarEvent['event_type'])} className="mt-1 block w-full rounded-lg border border-slate-200 bg-transparent px-3 py-2 dark:border-slate-700">{['study','review','quiz','exam','assignment','custom'].map(type => <option key={type}>{type}</option>)}</select></label>
+          <label className="text-sm font-medium dark:text-slate-200">Type<select value={form.event_type} onChange={e => set('event_type', e.target.value as CalendarEvent['event_type'])} className="mt-1 block w-full rounded-lg border border-slate-200 bg-transparent px-3 py-2 dark:border-slate-700">{['study','review','quiz','exam','assignment','note','reminder','custom'].map(type => <option key={type}>{type}</option>)}</select></label>
           <label className="text-sm font-medium dark:text-slate-200">Label<select value={form.priority} onChange={e => set('priority', e.target.value as CalendarEvent['priority'])} className="mt-1 block w-full rounded-lg border border-slate-200 bg-transparent px-3 py-2 dark:border-slate-700"><option value="normal">Normal</option><option value="important">Important</option><option value="urgent">Urgent</option></select></label>
         </div>
         <div><p className="mb-2 text-sm font-medium dark:text-slate-200">Color highlight</p><div className="flex flex-wrap gap-2">{(Object.keys(COLORS) as CalendarEvent['color'][]).map(color => <button type="button" key={color} onClick={() => set('color', color)} title={color} className={`h-7 w-7 rounded-full ${COLORS[color]} ${form.color === color ? 'ring-2 ring-offset-2 ring-slate-950 dark:ring-white' : ''}`} />)}</div></div>

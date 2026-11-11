@@ -10,7 +10,7 @@ export type CalendarEvent = {
   starts_at: string
   ends_at: string | null
   all_day: boolean
-  event_type: 'study' | 'review' | 'quiz' | 'exam' | 'assignment' | 'custom'
+  event_type: 'study' | 'review' | 'quiz' | 'exam' | 'assignment' | 'note' | 'reminder' | 'custom'
   color: 'indigo' | 'violet' | 'blue' | 'emerald' | 'amber' | 'rose' | 'slate'
   priority: 'normal' | 'important' | 'urgent'
   completed_at: string | null
@@ -20,7 +20,7 @@ export type CalendarEventInput = Omit<CalendarEvent, 'id' | 'completed_at'> & {
   reminderMinutes?: number | null
 }
 
-const eventTypes = new Set<CalendarEvent['event_type']>(['study', 'review', 'quiz', 'exam', 'assignment', 'custom'])
+const eventTypes = new Set<CalendarEvent['event_type']>(['study', 'review', 'quiz', 'exam', 'assignment', 'note', 'reminder', 'custom'])
 const colors = new Set<CalendarEvent['color']>(['indigo', 'violet', 'blue', 'emerald', 'amber', 'rose', 'slate'])
 const priorities = new Set<CalendarEvent['priority']>(['normal', 'important', 'urgent'])
 
