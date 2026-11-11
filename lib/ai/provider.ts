@@ -24,6 +24,7 @@ export type GenerateRequest = {
   prompt: string;
   messages?: Message[]; // Optional chat history
   responseSchema?: any; // JSON Schema for structured output
+  tools?: any[]; // Array of Gemini Tool declarations
 };
 
 export type GenerateResponse = {
@@ -45,8 +46,8 @@ export class ProviderAdapter {
     };
 
     if (request.responseSchema) {
-      generationConfig.response_mime_type = "application/json";
-      generationConfig.response_schema = request.responseSchema;
+      generationConfig.responseMimeType = "application/json";
+      generationConfig.responseSchema = request.responseSchema;
     }
 
     // Interactions API accepts previous conversation history
@@ -57,11 +58,34 @@ export class ProviderAdapter {
     })) || undefined;
 
     try {
+      if (request.responseSchema) {
+        // Use standard generateContent for structured output as interactions API might not support it yet
+        const response = await client.models.generateContent({
+          model: config.model,
+          contents: request.prompt,
+          config: {
+            systemInstruction: request.systemInstruction,
+            responseMimeType: "application/json",
+            responseSchema: request.responseSchema,
+            maxOutputTokens: generationConfig.max_output_tokens || generationConfig.maxOutputTokens
+          }
+        });
+        return {
+          text: response.text || "",
+          usage: {
+            inputTokens: response.usageMetadata?.promptTokenCount || 0,
+            outputTokens: response.usageMetadata?.candidatesTokenCount || 0,
+            totalTokens: response.usageMetadata?.totalTokenCount || 0,
+          }
+        };
+      }
+
       const interaction = await client.interactions.create({
         model: config.model,
         input: request.prompt,
         system_instruction: request.systemInstruction,
         generation_config: generationConfig,
+        tools: request.tools,
         store: false,
       });
 
@@ -94,6 +118,7 @@ export class ProviderAdapter {
         input: request.prompt,
         system_instruction: request.systemInstruction,
         generation_config: generationConfig,
+        tools: request.tools,
         stream: true,
         store: false,
      });

@@ -128,14 +128,14 @@ export default function StudyHubClient({ initialSummary }: { initialSummary: Doc
         </div>
       </div>
 
-      <div className="mb-6">
-        <h2 className="text-xl font-semibold text-slate-900 dark:text-white mb-6">Study Materials</h2>
-        
-        <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
+      <div className="mb-8">
+        <h2 className="sr-only">Study Materials</h2>
+        <div className="flex flex-col space-y-4">
           
           {/* NOTES CARD */}
           <StudyMaterialCard
             title="Notes"
+            description="Review the key ideas"
             icon={<BrainCircuit className="h-6 w-6 text-indigo-500" />}
             status={notes.status}
             errorMessage={notes.errorMessage}
@@ -148,6 +148,7 @@ export default function StudyHubClient({ initialSummary }: { initialSummary: Doc
           {/* QUIZ CARD */}
           <StudyMaterialCard
             title="Quiz"
+            description="Test your recall"
             icon={<HelpCircle className="h-6 w-6 text-emerald-500" />}
             status={quiz.status}
             errorMessage={quiz.errorMessage}
@@ -157,28 +158,12 @@ export default function StudyHubClient({ initialSummary }: { initialSummary: Doc
             actionLabels={{ ready: 'Start Quiz', generate: 'Generate Quiz' }}
           />
 
-        {/* CHAT CARD */}
-          <div className="flex flex-col rounded-2xl border border-slate-200 bg-white p-6 shadow-sm dark:border-slate-800 dark:bg-slate-900 h-full">
-            <div className="flex items-center space-x-4 mb-4">
-              <div className="flex h-12 w-12 shrink-0 items-center justify-center rounded-xl bg-blue-50 dark:bg-blue-500/10">
-                <MessageSquare className="h-6 w-6 text-blue-500" />
-              </div>
-              <div>
-                <h3 className="font-bold text-slate-900 dark:text-white">Chat</h3>
-                <p className="text-sm font-medium text-blue-600 dark:text-blue-400">Available</p>
-              </div>
-            </div>
-            <div className="flex-grow flex flex-col justify-end mt-4">
-              <Link
-                href={`/chat?documentId=${document.id}`}
-                className="flex w-full items-center justify-center rounded-lg bg-blue-50 px-4 py-2.5 text-sm font-semibold text-blue-700 hover:bg-blue-100 dark:bg-blue-900/30 dark:text-blue-300 dark:hover:bg-blue-900/50 transition-colors"
-              >
-                <MessageSquare className="mr-2 h-4 w-4" />
-                Ask RecallMate
-              </Link>
-            </div>
-          </div>
-
+          {/* CHAT CARD */}
+          <ChatMaterialCard
+            documentId={document.id}
+            status={summary.chat.status}
+            lastDiscussedAt={summary.chat.lastDiscussedAt}
+          />
         </div>
       </div>
     </div>
@@ -187,6 +172,7 @@ export default function StudyHubClient({ initialSummary }: { initialSummary: Doc
 
 function StudyMaterialCard({
   title,
+  description,
   icon,
   status,
   errorMessage,
@@ -196,6 +182,7 @@ function StudyMaterialCard({
   actionLabels
 }: {
   title: string;
+  description: string;
   icon: React.ReactNode;
   status: string;
   errorMessage: string | null;
@@ -210,30 +197,33 @@ function StudyMaterialCard({
   const isNotRequested = status === 'not_requested';
 
   return (
-    <div className={`flex flex-col rounded-2xl border bg-white p-6 shadow-sm dark:bg-slate-900 h-full ${isFailed ? 'border-amber-200 dark:border-amber-900/50' : 'border-slate-200 dark:border-slate-800'}`}>
+    <div className={`flex flex-col sm:flex-row rounded-2xl border bg-white p-6 shadow-sm dark:bg-slate-900 ${isFailed ? 'border-amber-200 dark:border-amber-900/50' : 'border-slate-200 dark:border-slate-800'}`}>
       
-      <div className="flex items-center space-x-4 mb-2">
+      <div className="flex items-start sm:items-center space-x-4 flex-grow mb-4 sm:mb-0">
         <div className="flex h-12 w-12 shrink-0 items-center justify-center rounded-xl bg-slate-50 dark:bg-slate-800">
           {icon}
         </div>
         <div>
           <h3 className="font-bold text-slate-900 dark:text-white">{title}</h3>
-          <p className={`text-sm font-medium ${isReady ? 'text-emerald-600 dark:text-emerald-400' : isProcessing ? 'text-indigo-600 dark:text-indigo-400' : isFailed ? 'text-amber-600 dark:text-amber-400' : 'text-slate-500'}`}>
-            {isReady && 'Ready'}
-            {isProcessing && 'Generating...'}
-            {isFailed && (status === 'inconsistent' ? 'Something needs attention' : 'Generation failed')}
-            {isNotRequested && 'Not generated'}
-          </p>
+          <p className="text-sm text-slate-500 dark:text-slate-400">{description}</p>
+          <div className="mt-1 flex items-center">
+            <span 
+              className={`text-sm font-medium ${isReady ? 'text-emerald-600 dark:text-emerald-400' : isProcessing ? 'text-indigo-600 dark:text-indigo-400' : isFailed ? 'text-amber-600 dark:text-amber-400' : 'text-slate-500'}`}
+              aria-live="polite"
+            >
+              {isReady && 'Ready'}
+              {isProcessing && 'Generating...'}
+              {isFailed && (status === 'inconsistent' ? 'Something needs attention' : 'Generation failed')}
+              {isNotRequested && 'Not generated'}
+            </span>
+          </div>
+          {isFailed && errorMessage && (
+            <p className="mt-2 text-sm text-amber-700 dark:text-amber-300 max-w-sm">{errorMessage}</p>
+          )}
         </div>
       </div>
 
-      <div className="flex-grow mt-2 text-sm text-slate-600 dark:text-slate-400">
-        {isFailed && errorMessage && (
-          <p className="mt-2 text-amber-700 dark:text-amber-300">{errorMessage}</p>
-        )}
-      </div>
-
-      <div className="mt-6 flex flex-col justify-end">
+      <div className="flex flex-col justify-center sm:ml-6 sm:w-48 shrink-0">
         {isReady && readyHref && (
           <Link
             href={readyHref}
@@ -276,6 +266,75 @@ function StudyMaterialCard({
           <div className="flex w-full items-center justify-center rounded-lg bg-slate-50 px-4 py-2.5 text-sm font-semibold text-slate-500 dark:bg-slate-800/50 transition-colors">
             <Loader2 className="mr-2 h-4 w-4 motion-safe:animate-spin" /> Generating...
           </div>
+        )}
+      </div>
+    </div>
+  );
+}
+
+function ChatMaterialCard({
+  documentId,
+  status,
+  lastDiscussedAt
+}: {
+  documentId: string;
+  status: 'ready' | 'not_requested';
+  lastDiscussedAt: string | null;
+}) {
+  const isReady = status === 'ready';
+
+  function formatTimeAgo(dateString: string) {
+    const date = new Date(dateString);
+    const now = new Date();
+    const minutes = Math.floor((now.getTime() - date.getTime()) / 60000);
+    if (minutes < 1) return 'just now';
+    if (minutes < 60) return `${minutes} minute${minutes !== 1 ? 's' : ''} ago`;
+    const hours = Math.floor(minutes / 60);
+    if (hours < 24) return `${hours} hour${hours !== 1 ? 's' : ''} ago`;
+    const days = Math.floor(hours / 24);
+    return `${days} day${days !== 1 ? 's' : ''} ago`;
+  }
+
+  return (
+    <div className={`flex flex-col sm:flex-row rounded-2xl border bg-white p-6 shadow-sm dark:bg-slate-900 border-slate-200 dark:border-slate-800 ${!isReady ? 'opacity-75 grayscale' : ''}`}>
+      <div className="flex items-start sm:items-center space-x-4 flex-grow mb-4 sm:mb-0">
+        <div className="flex h-12 w-12 shrink-0 items-center justify-center rounded-xl bg-blue-50 dark:bg-blue-500/10">
+          <MessageSquare className="h-6 w-6 text-blue-500" />
+        </div>
+        <div>
+          <h3 className="font-bold text-slate-900 dark:text-white">Medea</h3>
+          <p className="text-sm text-slate-500 dark:text-slate-400">Ask questions about this document</p>
+          <div className="mt-1 flex items-center">
+            {lastDiscussedAt ? (
+              <span className="text-sm font-medium text-slate-500 dark:text-slate-400">
+                Last discussed {formatTimeAgo(lastDiscussedAt)}
+              </span>
+            ) : (
+              <span className={`text-sm font-medium ${isReady ? 'text-blue-600 dark:text-blue-400' : 'text-slate-500'}`}>
+                {isReady ? 'Ready' : 'Not available yet'}
+              </span>
+            )}
+          </div>
+        </div>
+      </div>
+
+      <div className="flex flex-col justify-center sm:ml-6 sm:w-48 shrink-0">
+        {isReady ? (
+          <Link
+            href={`/chat?documentId=${documentId}`}
+            className="flex w-full items-center justify-center rounded-lg bg-blue-50 px-4 py-2.5 text-sm font-semibold text-blue-700 hover:bg-blue-100 dark:bg-blue-900/30 dark:text-blue-300 dark:hover:bg-blue-900/50 transition-colors focus:ring-2 focus:ring-blue-500 focus:outline-none"
+            aria-label={lastDiscussedAt ? "Continue conversation with Medea" : "Ask Medea"}
+          >
+            <MessageSquare className="mr-2 h-4 w-4" />
+            {lastDiscussedAt ? "Continue" : "Ask Medea"}
+          </Link>
+        ) : (
+          <button
+            disabled
+            className="flex w-full items-center justify-center rounded-lg border border-slate-200 px-4 py-2.5 text-sm font-semibold text-slate-400 dark:border-slate-800 dark:text-slate-500"
+          >
+            Not Available
+          </button>
         )}
       </div>
     </div>

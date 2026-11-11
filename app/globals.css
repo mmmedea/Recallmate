@@ -90,3 +90,10 @@ html {
     scroll-behavior: auto !important;
   }
 }
+
+/* Ensure large mathematical equations can scroll horizontally without breaking the layout */
+.math-display, .katex-display {
+  overflow-x: auto;
+  overflow-y: hidden;
+  max-width: 100%;
+}

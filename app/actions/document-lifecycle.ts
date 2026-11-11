@@ -23,6 +23,10 @@ export interface DocumentLifecycleSummary {
     outputId: string | null;
     errorMessage: string | null;
   };
+  chat: {
+    status: 'ready' | 'not_requested';
+    lastDiscussedAt: string | null;
+  };
 }
 
 function mapJobStatus(job: any, outputReady: boolean): JobStatus {
@@ -41,7 +45,8 @@ export function computeDocumentLifecycleSummary(
   doc: any,
   jobs: any[],
   notesOutputId: string | null,
-  quizOutputId: string | null
+  quizOutputId: string | null,
+  lastDiscussedAt: string | null = null
 ): DocumentLifecycleSummary {
   const extractJob = jobs.find(j => j.operation === 'extract_text');
   const notesJob = jobs.find(j => j.operation === 'generate_notes');
@@ -68,6 +73,10 @@ export function computeDocumentLifecycleSummary(
       status: mapJobStatus(quizJob, !!quizOutputId),
       outputId: quizOutputId,
       errorMessage: quizJob?.error_message || null
+    },
+    chat: {
+      status: doc.status === 'completed' ? 'ready' : 'not_requested',
+      lastDiscussedAt
     }
   };
 }

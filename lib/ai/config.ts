@@ -1,4 +1,4 @@
-export type AIOperation = 'extract_text' | 'generate_notes' | 'generate_quiz' | 'chat';
+export type AIOperation = 'extract_text' | 'generate_notes' | 'generate_quiz' | 'chat' | 'fast';
 
 export type AIModelConfig = {
   provider: 'google'; // Currently only google is supported, but architecture allows others
@@ -22,6 +22,16 @@ const requireEnvVar = (name: string): string => {
 
 // Model Registry: Defines the configuration for each AI operation.
 export const ModelRegistry: Record<Exclude<AIOperation, 'extract_text'>, AIModelConfig> = {
+  fast: {
+    provider: 'google',
+    model: process.env.GEMINI_MODEL_FAST || process.env.GEMINI_MODEL_CHAT || requireEnvVar('GEMINI_MODEL_CHAT'),
+    operation: 'fast',
+    maxInputTokens: 1_048_576,
+    maxOutputTokens: 2048,
+    timeoutMs: 15000,
+    schemaVersion: 'fast_schema_v1',
+    promptVersion: 'fast_prompt_v1'
+  },
   generate_notes: {
     provider: 'google',
     model: process.env.GEMINI_MODEL_NOTES || requireEnvVar('GEMINI_MODEL_NOTES'), // Will throw if undefined

@@ -20,6 +20,8 @@ export default function FeynmanRechargeModal({
   const [error, setError] = useState("");
   const [success, setSuccess] = useState(false);
   const [mounted, setMounted] = useState(false);
+  const [loading, setLoading] = useState(false);
+  const [earnedCount, setEarnedCount] = useState(1);
   const { addHeart } = useAppStore();
 
   useEffect(() => {
@@ -27,9 +29,6 @@ export default function FeynmanRechargeModal({
   }, []);
 
   if (!open || !mounted) return null;
-
-  const [loading, setLoading] = useState(false);
-  const [earnedCount, setEarnedCount] = useState(1);
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();

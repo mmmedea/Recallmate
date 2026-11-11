@@ -1,0 +1,179 @@
+{
+  "version": "7.12",
+  "locked_at": "2026-08-14T11:17:30.569Z",
+  "description": "Medea architecture baseline at Phase 7.12 final gate",
+  "model_registry": {
+    "chat": {
+      "provider": "google",
+      "model": "gemini-3.6-flash"
+    },
+    "fast": {
+      "provider": "google",
+      "model": "gemini-3.6-flash"
+    },
+    "generate_notes": {
+      "provider": "google",
+      "model": "gemini-3.6-flash"
+    },
+    "generate_quiz": {
+      "provider": "google",
+      "model": "gemini-3.6-flash"
+    }
+  },
+  "tool_limits": {
+    "max_tool_calls_per_interaction": 3,
+    "max_code_payload_length": 5000,
+    "restricted_patterns_count": 10
+  },
+  "intent_fingerprints": [
+    {
+      "label": "simple-explain",
+      "intent": "explain",
+      "domain": "general_academic",
+      "complexity": "simple",
+      "strategy": "direct_explanation",
+      "tools": [],
+      "requiresVerification": false,
+      "reasoningLevel": "low",
+      "responseFormat": "general",
+      "contextBudget": {
+        "maxHistoryTokens": 1000,
+        "maxEvidenceTokens": 2000,
+        "maxChunks": 3,
+        "maxChunkTokens": 500
+      }
+    },
+    {
+      "label": "math-calculation-moderate",
+      "intent": "math_calculation",
+      "domain": "mathematics",
+      "complexity": "moderate",
+      "strategy": "step_by_step",
+      "tools": [
+        "symbolic_math",
+        "code_execution",
+        "calculator"
+      ],
+      "requiresVerification": true,
+      "reasoningLevel": "high",
+      "responseFormat": "math",
+      "contextBudget": {
+        "maxHistoryTokens": 2500,
+        "maxEvidenceTokens": 4000,
+        "maxChunks": 6,
+        "maxChunkTokens": 500
+      }
+    },
+    {
+      "label": "physics-problem-complex",
+      "intent": "physics_problem",
+      "domain": "physics",
+      "complexity": "complex",
+      "strategy": "step_by_step",
+      "tools": [
+        "symbolic_math",
+        "code_execution",
+        "calculator",
+        "unit_check"
+      ],
+      "requiresVerification": true,
+      "reasoningLevel": "high",
+      "responseFormat": "physics",
+      "contextBudget": {
+        "maxHistoryTokens": 5000,
+        "maxEvidenceTokens": 8000,
+        "maxChunks": 10,
+        "maxChunkTokens": 800
+      }
+    },
+    {
+      "label": "chemistry-problem-moderate",
+      "intent": "chemistry_problem",
+      "domain": "chemistry",
+      "complexity": "moderate",
+      "strategy": "step_by_step",
+      "tools": [
+        "symbolic_math",
+        "code_execution",
+        "calculator",
+        "unit_check"
+      ],
+      "requiresVerification": true,
+      "reasoningLevel": "high",
+      "responseFormat": "chemistry",
+      "contextBudget": {
+        "maxHistoryTokens": 2500,
+        "maxEvidenceTokens": 4000,
+        "maxChunks": 6,
+        "maxChunkTokens": 500
+      }
+    },
+    {
+      "label": "check-work-moderate",
+      "intent": "check_work",
+      "domain": "mathematics",
+      "complexity": "moderate",
+      "strategy": "check_work",
+      "tools": [
+        "symbolic_math",
+        "code_execution",
+        "calculator"
+      ],
+      "requiresVerification": true,
+      "reasoningLevel": "medium",
+      "responseFormat": "math",
+      "contextBudget": {
+        "maxHistoryTokens": 2500,
+        "maxEvidenceTokens": 4000,
+        "maxChunks": 6,
+        "maxChunkTokens": 500
+      }
+    },
+    {
+      "label": "hint-simple",
+      "intent": "hint",
+      "domain": "general_academic",
+      "complexity": "simple",
+      "strategy": "hint",
+      "tools": [],
+      "requiresVerification": false,
+      "reasoningLevel": "medium",
+      "responseFormat": "general",
+      "contextBudget": {
+        "maxHistoryTokens": 1000,
+        "maxEvidenceTokens": 2000,
+        "maxChunks": 3,
+        "maxChunkTokens": 500
+      }
+    },
+    {
+      "label": "socratic-moderate",
+      "intent": "socratic",
+      "domain": "general_academic",
+      "complexity": "moderate",
+      "strategy": "socratic",
+      "tools": [],
+      "requiresVerification": false,
+      "reasoningLevel": "medium",
+      "responseFormat": "general",
+      "contextBudget": {
+        "maxHistoryTokens": 2500,
+        "maxEvidenceTokens": 4000,
+        "maxChunks": 6,
+        "maxChunkTokens": 500
+      }
+    }
+  ],
+  "regression_thresholds": {
+    "security_violations_allowed": 0,
+    "billing_double_charges_allowed": 0,
+    "unauthorized_retrieval_allowed": 0,
+    "false_verified_claims_allowed": 0,
+    "invalid_citations_allowed": 0,
+    "ai_quality_pass_rate_minimum": 0.8,
+    "math_correctness_minimum": 0.9,
+    "physics_correctness_minimum": 0.9,
+    "chemistry_correctness_minimum": 0.85
+  },
+  "hard_fail_rule": "A single security violation, unauthorized citation, unauthorized tool execution, or duplicate billing event is an automatic Phase 7 failure regardless of AI quality score."
+}
