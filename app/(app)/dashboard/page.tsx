@@ -186,9 +186,9 @@ export default async function DashboardPage() {
 
 function DocumentCard({ doc }: { doc: DocumentLifecycleSummary }) {
   const { document, notes, quiz } = doc;
-  const isFailed = document.extraction?.status === 'failed' || document.extraction?.status === 'cancelled';
-  const isReady = document.extraction?.status === 'completed';
-  const isProcessing = ['uploaded', 'queued', 'extracting', 'analyzing', 'generating'].includes(document.extraction?.status || '');
+  const isFailed = doc.extraction.status === 'failed' || doc.extraction.status === 'cancelled';
+  const isReady = doc.extraction.status === 'completed';
+  const isProcessing = ['uploaded', 'queued', 'extracting', 'analyzing', 'generating'].includes(doc.extraction.status || '');
   const needsAttention = notes?.status === 'inconsistent' || quiz?.status === 'inconsistent' || notes?.status === 'failed' || quiz?.status === 'failed';
 
   const notesReady = notes?.status === 'ready';
@@ -216,7 +216,7 @@ function DocumentCard({ doc }: { doc: DocumentLifecycleSummary }) {
           {new Date(document.createdAt).toLocaleDateString(undefined, { month: 'short', day: 'numeric', year: 'numeric' })}
         </p>
 
-        {isFailed && document.extraction?.error && (
+        {isFailed && doc.extraction.errorMessage && (
           <p className="mt-3 text-sm text-red-600 dark:text-red-400 line-clamp-2">
             {document.extraction.error}
           </p>
