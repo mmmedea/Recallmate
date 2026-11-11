@@ -7,8 +7,8 @@ const nextConfig = {
   typescript: {
     ignoreBuildErrors: true,
   },
+  output: "standalone",
   experimental: {
-    serverComponentsExternalPackages: ['puppeteer-core'],
     serverActions: {
       bodySizeLimit: '50mb',
     },
