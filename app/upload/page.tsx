@@ -32,6 +32,7 @@ export default function UploadPage() {
   const { isPremium } = useAppStore();
 
   const maxLimit = isPremium ? 50 : 30;
+  const MAX_AI_CHARS = 15000; // The maximum amount of text we need to send to the AI
 
   useEffect(() => {
     const rawContent = sessionStorage.getItem("recallmate-content");
@@ -99,7 +100,7 @@ export default function UploadPage() {
         }
 
         // ==========================================
-        // 1. CLIENT-SIDE EXTRACTION (WITH CORS BYPASS)
+        // 1. CLIENT-SIDE EXTRACTION (WITH EARLY EXIT OPTIMIZATION)
         // ==========================================
         if (arrayBuffer && !clientSideFailed) {
           const runClientExtraction = async (): Promise<string> => {
@@ -134,6 +135,8 @@ export default function UploadPage() {
                     resultText += slideText + "\n";
                   }
                 }
+                // EARLY EXIT: Stop processing slides if we already have enough text
+                if (resultText.length > MAX_AI_CHARS) break; 
               }
             }
             else if (ext === ".pdf") {
@@ -141,15 +144,12 @@ export default function UploadPage() {
                 const pdfjsModule = await import("pdfjs-dist");
                 pdfjsLib = pdfjsModule.default || pdfjsModule;
                 
-                // ULTIMATE SAFARI WORKER BYPASS: 
-                // Fetch the worker as a blob and run it locally to bypass iOS in-app CORS restrictions.
                 try {
                   const workerUrl = `https://cdnjs.cloudflare.com/ajax/libs/pdf.js/${pdfjsLib.version}/pdf.worker.min.js`;
                   const workerRes = await fetch(workerUrl);
                   const workerBlob = await workerRes.blob();
                   pdfjsLib.GlobalWorkerOptions.workerSrc = URL.createObjectURL(workerBlob);
                 } catch (workerErr) {
-                  // If blob fetch fails, fallback to direct URL
                   pdfjsLib.GlobalWorkerOptions.workerSrc = `https://cdnjs.cloudflare.com/ajax/libs/pdf.js/${pdfjsLib.version}/pdf.worker.min.js`;
                 }
               }
@@ -162,7 +162,7 @@ export default function UploadPage() {
               });
 
               const pdf = await loadingTask.promise;
-              const maxPages = Math.min(pdf.numPages, 40);
+              const maxPages = Math.min(pdf.numPages, 100);
               
               for (let i = 1; i <= maxPages; i++) {
                 try {
@@ -171,6 +171,12 @@ export default function UploadPage() {
                   const pageText = textContent.items.map((item: any) => item.str).join(" ");
                   resultText += pageText + "\n";
                   page.cleanup();
+                  
+                  // EARLY EXIT: Stop reading pages immediately once we hit the text limit.
+                  // This allows massive 17MB+ PDFs to process in just a few seconds.
+                  if (resultText.length > MAX_AI_CHARS) {
+                    break;
+                  }
                 } catch (e) {}
               }
               pdf.destroy();
@@ -180,10 +186,11 @@ export default function UploadPage() {
           };
 
           try {
+            // Increased timeout to 60 seconds just as a final failsafe
             extractedTextForFile = await Promise.race([
               runClientExtraction(),
               new Promise<string>((_, reject) => 
-                setTimeout(() => reject(new Error("Extraction timed out")), 30000)
+                setTimeout(() => reject(new Error("Extraction timed out")), 60000)
               )
             ]);
           } catch (clientErr) {
@@ -207,7 +214,6 @@ export default function UploadPage() {
         ) {
           
           if (rawFile.size > 4.5 * 1024 * 1024) {
-            // SPECIFIC ERROR: Tell the user exactly why their >4.5MB PDF failed if it has no text
             if (ext === ".pdf" && isTextEmpty && !clientSideFailed) {
                throw new Error(`"${originalName}" appears to be a scanned document containing only images. It is over the 4.5MB Vercel server limit for image scanning. Please compress the file or upload a text-based PDF.`);
             }
@@ -283,9 +289,8 @@ export default function UploadPage() {
         textToSend = "User generated session content based on previous upload.";
       }
 
-      const MAX_CHARS = 12000; 
-      if (textToSend.length > MAX_CHARS) {
-        textToSend = textToSend.substring(0, MAX_CHARS) + "\n\n[Note: Content truncated for speed.]";
+      if (textToSend.length > MAX_AI_CHARS) {
+        textToSend = textToSend.substring(0, MAX_AI_CHARS) + "\n\n[Note: Content truncated for speed.]";
       }
 
       const controller = new AbortController();
@@ -420,7 +425,7 @@ export default function UploadPage() {
                           : "bg-slate-950 border-slate-800 text-slate-300"
                       }`}
                     >
-                      {level} {level === "hard" && "🔥"}
+                      {level}
                     </button>
                   ))}
                 </div>
