@@ -7,12 +7,14 @@ import { v4 as uuidv4 } from "uuid";
 import { createClient } from "@/utils/supabase/client";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
+import { PasswordInput } from "@/components/ui/password-input";
 import { Label } from "@/components/ui/label";
 import { OTPInput } from "./OTPInput";
 import { ResendButton } from "./ResendButton";
 import { TurnstileCaptcha } from "./CaptchaProvider";
 import { useOTPStore } from "@/lib/store";
 import type { OTPIntent } from "@/lib/types/auth";
+import { AUTH_OTP_LENGTH } from "@/lib/config/auth";
 
 interface EmailOTPFormProps {
   intent: OTPIntent;
@@ -29,7 +31,7 @@ interface EmailOTPFormProps {
 type FormStage = "credentials" | "otp";
 
 const AUTH_ERRORS: Record<string, string> = {
-  invalid: "That code isn't right. Please check it and try again.",
+  invalid: "That code isn't valid or is no longer the newest code. Check it, or request a new verification code.",
   expired: "Your code has expired. Request a new verification code.",
   rate_limited: "Too many attempts. Please wait before trying again.",
   captcha_required: "Please complete the security check to continue.",
@@ -178,7 +180,7 @@ export function EmailOTPForm({
   }, [captchaEnabled, captchaToken, confirmPassword, email, intent, otpFlowContext?.email, password, privacyAgreed, setOTPFlowContext, setOTPState, supabase, username]);
 
   const verifyCode = useCallback(async (code: string) => {
-    if (code.length !== 6 || isLoading) return;
+    if (code.length !== AUTH_OTP_LENGTH || isLoading) return;
     const normalizedEmail = otpFlowContext?.email ?? email.trim().toLowerCase();
     try {
       setIsLoading(true);
@@ -187,7 +189,13 @@ export function EmailOTPForm({
       const { error } = await supabase.auth.verifyOtp({ email: normalizedEmail, token: code, type: "email" });
       if (error) {
         const message = error.message.toLowerCase();
-        const key = message.includes("expired") ? "expired" : message.includes("invalid") ? "invalid" : message.includes("rate") ? "rate_limited" : "error";
+        const key = message.includes("invalid")
+          ? "invalid"
+          : message.includes("expired")
+            ? "expired"
+            : message.includes("rate")
+              ? "rate_limited"
+              : "error";
         setErrorKey(key);
         setOTPState(key as "expired" | "invalid" | "rate_limited" | "error");
         setOtpValue("");
@@ -223,7 +231,7 @@ export function EmailOTPForm({
   if (intent === "signin") {
     return <form onSubmit={handlePasswordSignIn} className="space-y-4" noValidate>
       <div className="space-y-1.5"><Label htmlFor="signin-email">Email</Label><Input id="signin-email" type="email" value={email} onChange={event => setEmail(event.target.value)} placeholder="you@example.com" autoComplete="email" autoFocus disabled={isLoading} required /></div>
-      <div className="space-y-1.5"><Label htmlFor="signin-password">Password</Label><Input id="signin-password" type="password" value={signInPassword} onChange={event => setSignInPassword(event.target.value)} placeholder="Your RecallMate password" autoComplete="current-password" disabled={isLoading} required /></div>
+      <div className="space-y-1.5"><Label htmlFor="signin-password">Password</Label><PasswordInput id="signin-password" value={signInPassword} onChange={event => setSignInPassword(event.target.value)} placeholder="Your RecallMate password" autoComplete="current-password" disabled={isLoading} required /></div>
       {currentError && <p id={errorId} role="alert" className="text-sm text-rose-600 dark:text-rose-400">{currentError}</p>}
       <Button type="submit" className="h-11 w-full bg-indigo-600 font-semibold hover:bg-indigo-700" disabled={isLoading || !email.trim() || !signInPassword}>{isLoading ? <Loader2 className="h-4 w-4 animate-spin" /> : <><LockKeyhole className="h-4 w-4" />Sign in</>}</Button>
     </form>;
@@ -233,8 +241,8 @@ export function EmailOTPForm({
     return <form onSubmit={handleSendOTP} className="space-y-4" noValidate>
       <div className="space-y-1.5"><Label htmlFor="username-input">Username</Label><Input id="username-input" value={username} onChange={event => onUsernameChange?.(event.target.value)} placeholder="your_username" autoComplete="username" disabled={isLoading} required /></div>
       <div className="space-y-1.5"><Label htmlFor="signup-email">Email</Label><Input id="signup-email" type="email" value={email} onChange={event => setEmail(event.target.value)} placeholder="you@gmail.com" autoComplete="email" disabled={isLoading} required /><p className="text-xs text-slate-500 dark:text-slate-400">Gmail and other valid email addresses are supported.</p></div>
-      <div className="space-y-1.5"><Label htmlFor="password-input">Password</Label><Input id="password-input" type="password" value={password} onChange={event => onPasswordChange?.(event.target.value)} placeholder="8+ characters and 1 special symbol" autoComplete="new-password" disabled={isLoading} required /></div>
-      <div className="space-y-1.5"><Label htmlFor="confirm-password-input">Confirm password</Label><Input id="confirm-password-input" type="password" value={confirmPassword} onChange={event => onConfirmPasswordChange?.(event.target.value)} autoComplete="new-password" disabled={isLoading} required /></div>
+      <div className="space-y-1.5"><Label htmlFor="password-input">Password</Label><PasswordInput id="password-input" value={password} onChange={event => onPasswordChange?.(event.target.value)} placeholder="8+ characters and 1 special symbol" autoComplete="new-password" disabled={isLoading} required /></div>
+      <div className="space-y-1.5"><Label htmlFor="confirm-password-input">Confirm password</Label><PasswordInput id="confirm-password-input" value={confirmPassword} onChange={event => onConfirmPasswordChange?.(event.target.value)} autoComplete="new-password" disabled={isLoading} required /></div>
       {captchaEnabled && <TurnstileCaptcha onVerify={setCaptchaToken} onExpire={() => setCaptchaToken(null)} onError={() => { setCaptchaToken(null); setErrorKey("captcha_failed"); }} />}
       {currentError && <p id={errorId} role="alert" className="text-sm text-rose-600 dark:text-rose-400">{currentError}</p>}
       <Button type="submit" className="h-11 w-full bg-indigo-600 font-semibold hover:bg-indigo-700" disabled={isLoading || !email.trim()}>{isLoading ? <Loader2 className="h-4 w-4 animate-spin" /> : <><Mail className="h-4 w-4" />Create account & send code</>}</Button>
@@ -249,13 +257,13 @@ export function EmailOTPForm({
     <div className="space-y-2 text-center">
       <p className="text-sm text-slate-600 dark:text-slate-400">Enter the verification code sent to</p>
       <p className="text-sm font-semibold text-slate-900 dark:text-white">{maskedEmail}</p>
-      <p className="text-xs text-slate-500 dark:text-slate-400">Check your inbox for your six-digit RecallMate code. Resend becomes available after one minute.</p>
+      <p className="text-xs text-slate-500 dark:text-slate-400">Check your inbox for your {AUTH_OTP_LENGTH}-digit RecallMate code. Use only the newest code if you requested more than one. Resend becomes available after one minute.</p>
       <p className="rounded-xl border border-amber-300/70 bg-amber-50 px-3 py-2 text-xs font-medium leading-relaxed text-amber-900 dark:border-amber-400/25 dark:bg-amber-400/10 dark:text-amber-200">
         No code yet? Check your Spam or Junk folder. If you find it there, mark it as not spam so future RecallMate codes reach your inbox.
       </p>
     </div>
-    <div className="space-y-3"><OTPInput value={otpValue} onChange={value => { setOtpValue(value); if (value.length === 6) void verifyCode(value); }} disabled={isLoading} hasError={Boolean(currentError)} aria-describedby={currentError ? errorId : undefined} />{currentError && <p id={errorId} role="alert" aria-live="assertive" className="text-center text-sm text-rose-600 dark:text-rose-400">{currentError}</p>}</div>
-    <Button type="submit" className="h-11 w-full bg-indigo-600 font-semibold hover:bg-indigo-700" disabled={isLoading || otpValue.length !== 6}>{isLoading ? <Loader2 className="h-4 w-4 animate-spin" /> : "Verify code & continue"}</Button>
+    <div className="space-y-3"><OTPInput length={AUTH_OTP_LENGTH} value={otpValue} onChange={value => { setOtpValue(value); if (value.length === AUTH_OTP_LENGTH) void verifyCode(value); }} disabled={isLoading} hasError={Boolean(currentError)} aria-describedby={currentError ? errorId : undefined} />{currentError && <p id={errorId} role="alert" aria-live="assertive" className="text-center text-sm text-rose-600 dark:text-rose-400">{currentError}</p>}</div>
+    <Button type="submit" className="h-11 w-full bg-indigo-600 font-semibold hover:bg-indigo-700" disabled={isLoading || otpValue.length !== AUTH_OTP_LENGTH}>{isLoading ? <Loader2 className="h-4 w-4 animate-spin" /> : "Verify code & continue"}</Button>
     <div className="flex items-center justify-between text-sm"><ResendButton onResend={handleResend} disabled={isLoading} /><button type="button" onClick={changeEmail} className="rounded text-slate-500 transition-colors hover:text-indigo-600 dark:text-slate-400">Change email</button></div>
   </form>;
 }

@@ -12,7 +12,7 @@ interface OTPInputProps {
   "aria-describedby"?: string;
 }
 
-// Six visual fields that behave as one logical accessible control.
+// Visual fields that behave as one logical accessible control.
 // - role="group" + aria-label on wrapper = one semantic unit for screen readers
 // - Single status announcement per error/success (via aria-describedby)
 // - Auto-advance, backspace navigation, paste-from-clipboard supported
@@ -85,7 +85,7 @@ export const OTPInput = forwardRef<{ focus: () => void }, OTPInputProps>(
     return (
       <div
         role="group"
-        aria-label="Verification code, 6 digits"
+        aria-label={`Verification code, ${length} digits`}
         aria-describedby={ariaDescribedBy}
         className="flex items-center gap-2 justify-center"
         onPaste={handlePaste}
