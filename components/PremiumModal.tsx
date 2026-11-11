@@ -13,7 +13,7 @@ export default function PremiumModal({ open, onClose }: { open: boolean; onClose
 
   const handleUnlock = (e: React.FormEvent) => {
     e.preventDefault();
-    if (code.trim() === "PREMIUM2026" || code.trim() === "RECALLMATE") {
+    if (code.trim() === "030124") {
       setPremium(true);
       setError("");
       onClose();
