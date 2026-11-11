@@ -3,7 +3,8 @@ import { requireUser } from "@/lib/security"
 import { redirect, notFound } from "next/navigation"
 import StudyHubClient from "./StudyHubClient"
 
-export default async function StudyHubPage({ params }: { params: { id: string } }) {
+export default async function StudyHubPage({ params }: { params: Promise<{ id: string }> }) {
+  const { id } = await params;
   // Authorize User
   try {
     await requireUser()
@@ -12,7 +13,7 @@ export default async function StudyHubPage({ params }: { params: { id: string } 
   }
 
   // Fetch canonical lifecycle state
-  const { success, data, status } = await getDocumentLifecycle(params.id)
+  const { success, data, status } = await getDocumentLifecycle(id)
 
   // Explicit non-disclosure convention (404 for unauthorized)
   if (!success || !data) {
