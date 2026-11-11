@@ -59,43 +59,55 @@ export default function UploadPage() {
         fileNames.push(file.name);
         const fileName = file.name.toLowerCase();
         let extractedTextForFile = "";
+        let clientSideFailed = false;
 
         // ==========================================
-        // 1. CLIENT-SIDE EXTRACTION (Bypasses Vercel Limits)
+        // 1. CLIENT-SIDE EXTRACTION (With iOS Crash Protection)
         // ==========================================
-        if (fileName.endsWith(".txt") || fileName.endsWith(".md") || fileName.endsWith(".csv")) {
-          // Read plain text instantly
-          extractedTextForFile = await file.text();
-        } 
-        else if (fileName.endsWith(".docx") || fileName.endsWith(".doc")) {
-          // Read Word Documents in the browser
-          const mammoth = (await import("mammoth")).default;
-          const arrayBuffer = await file.arrayBuffer();
-          const result = await mammoth.extractRawText({ arrayBuffer });
-          extractedTextForFile = result.value;
-        } 
-        else if (fileName.endsWith(".pdf")) {
-          // Read PDFs in the browser
-          const pdfjsLib = await import("pdfjs-dist");
-          
-          // Connect to the correct worker version dynamically via CDN to prevent Next.js build errors
-          pdfjsLib.GlobalWorkerOptions.workerSrc = `//unpkg.com/pdfjs-dist@${pdfjsLib.version}/build/pdf.worker.min.mjs`;
-          
-          const arrayBuffer = await file.arrayBuffer();
-          const pdf = await pdfjsLib.getDocument({ data: arrayBuffer }).promise;
-          
-          for (let i = 1; i <= pdf.numPages; i++) {
-            const page = await pdf.getPage(i);
-            const textContent = await page.getTextContent();
-            const pageText = textContent.items.map((item: any) => item.str).join(" ");
-            extractedTextForFile += pageText + "\n";
+        try {
+          if (fileName.endsWith(".txt") || fileName.endsWith(".md") || fileName.endsWith(".csv")) {
+            extractedTextForFile = await file.text();
+          } 
+          else if (fileName.endsWith(".docx") || fileName.endsWith(".doc")) {
+            const mammoth = (await import("mammoth")).default;
+            const arrayBuffer = await file.arrayBuffer();
+            const result = await mammoth.extractRawText({ arrayBuffer });
+            extractedTextForFile = result.value;
+          } 
+          else if (fileName.endsWith(".pdf")) {
+            const pdfjsLib = await import("pdfjs-dist");
+            
+            // Safer CDN specifically for iOS Safari (uses .js instead of .mjs)
+            pdfjsLib.GlobalWorkerOptions.workerSrc = `https://cdnjs.cloudflare.com/ajax/libs/pdf.js/${pdfjsLib.version}/pdf.worker.min.js`;
+            
+            const arrayBuffer = await file.arrayBuffer();
+            // CRITICAL FIX: Convert ArrayBuffer to Uint8Array so Safari doesn't crash
+            const uint8Array = new Uint8Array(arrayBuffer); 
+            
+            const pdf = await pdfjsLib.getDocument({ data: uint8Array }).promise;
+            
+            for (let i = 1; i <= pdf.numPages; i++) {
+              const page = await pdf.getPage(i);
+              const textContent = await page.getTextContent();
+              const pageText = textContent.items.map((item: any) => item.str).join(" ");
+              extractedTextForFile += pageText + "\n";
+            }
           }
-        } 
+        } catch (clientErr) {
+          console.warn("Client browser failed to read file, routing to server backend...", clientErr);
+          clientSideFailed = true; // Trigger fallback
+        }
+
         // ==========================================
-        // 2. SERVER-SIDE FALLBACK (Images, PPTX, Media)
+        // 2. SERVER-SIDE FALLBACK 
         // ==========================================
-        else {
-          // Vercel limit check ONLY applies to files we actually send to the server now
+        // Runs for Images, PPTX, or if the client-side extraction failed above
+        if (
+          clientSideFailed || 
+          (!fileName.endsWith(".txt") && !fileName.endsWith(".md") && !fileName.endsWith(".csv") && 
+           !fileName.endsWith(".docx") && !fileName.endsWith(".doc") && !fileName.endsWith(".pdf"))
+        ) {
+          
           if (file.size > 4.5 * 1024 * 1024) {
             throw new Error(`"${file.name}" is too large. Images and Presentations must be under 4.5MB.`);
           }
@@ -266,7 +278,7 @@ export default function UploadPage() {
                           : "bg-slate-50 border-slate-200 text-slate-700 dark:bg-slate-950 dark:border-slate-800 dark:text-slate-300"
                       }`}
                     >
-                      {level} {level === "hard" && "🔥"}
+                      {level} {level === "hard" && " "}
                     </button>
                   ))}
                 </div>
