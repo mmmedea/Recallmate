@@ -6,7 +6,7 @@ import { Loader2, Sparkles, BrainCircuit, BookOpen, ArrowLeft } from "lucide-rea
 import { useAppStore } from "@/lib/store";
 import FileUploader from "@/components/FileUploader";
 
-// ULTIMATE iOS FIX: Legacy file reader bypasses WebKit memory crashes
+// ULTIMATE iOS/ANDROID FIX: Legacy file reader bypasses WebKit memory crashes
 const readFileSafely = (file: File): Promise<ArrayBuffer> => {
   return new Promise((resolve, reject) => {
     const reader = new FileReader();
@@ -52,6 +52,9 @@ export default function UploadPage() {
     }
   }, []);
 
+  const isMediaFile = (file: File) =>
+    file.type.startsWith("video/") || file.type.startsWith("audio/");
+
   const processFiles = async (files: File[]) => {
     if (files.length === 0) return;
     setError("");
@@ -65,20 +68,40 @@ export default function UploadPage() {
       let mammothLib: any = null;
 
       for (const rawFile of files) {
-        // Save original name for UI, but NEVER trust it for backend processes
-        const originalName = rawFile.name || "upload";
-        fileNames.push(originalName);
-        const fileName = originalName.toLowerCase();
+        let originalName = rawFile.name || "upload";
+        let tempFileName = originalName.toLowerCase();
         
-        // Extract a safe extension
-        const extMatch = fileName.match(/\.[0-9a-z]+$/i);
-        const ext = extMatch ? extMatch[0] : ".bin";
+        // Attempt to extract the extension
+        let extMatch = tempFileName.match(/\.[0-9a-z]+$/i);
+        let ext = extMatch ? extMatch[0] : "";
+
+        // ==========================================
+        // 🔴 ANDROID/DRIVE FIX: Restore Missing Extensions
+        // Mobile file pickers often hide the extension. We MUST rebuild it using the hidden MIME type.
+        // ==========================================
+        const mime = (rawFile.type || "").toLowerCase();
+        if (!ext || !['.txt','.md','.csv','.doc','.docx','.pdf','.pptx','.jpg','.jpeg','.png','.webp','.mp4','.mp3'].includes(ext)) {
+          if (mime.includes("pdf")) ext = ".pdf";
+          else if (mime.includes("presentation") || mime.includes("powerpoint")) ext = ".pptx";
+          else if (mime.includes("word") || mime.includes("document")) ext = ".docx";
+          else if (mime.includes("text/plain")) ext = ".txt";
+          else if (mime.includes("csv")) ext = ".csv";
+          else if (mime.includes("image/jpeg")) ext = ".jpg";
+          else if (mime.includes("image/png")) ext = ".png";
+          else ext = ".bin"; // Genuinely unknown file
+          
+          tempFileName = `upload${ext}`;
+        }
+
+        // Now that the extension is fixed, save the proper names
+        fileNames.push(originalName);
+        const fileName = tempFileName;
         const safeFileName = `file_${Date.now()}${ext}`;
 
         let extractedTextForFile = "";
         let clientSideFailed = false;
 
-        // CRITICAL FIX 1: Instantly convert to ArrayBuffer. We completely decouple from the Apple File object.
+        // Decouple from the buggy OS File object immediately
         const arrayBuffer = await readFileSafely(rawFile);
 
         // ==========================================
@@ -178,15 +201,18 @@ export default function UploadPage() {
             throw new Error(`"${originalName}" is too large. Server extraction limit is 4.5MB.`);
           }
 
-          // CRITICAL FIX 2: We construct a pristine Blob with a hardcoded valid MIME type.
-          // This strips all corrupted Apple metadata and prevents FormData from crashing.
+          // Assign correct MIME type dynamically based on the verified extension
           let safeMime = "application/octet-stream";
           if (ext === ".jpg" || ext === ".jpeg") safeMime = "image/jpeg";
           else if (ext === ".png") safeMime = "image/png";
           else if (ext === ".webp") safeMime = "image/webp";
           else if (ext === ".mp4") safeMime = "video/mp4";
           else if (ext === ".mp3") safeMime = "audio/mpeg";
+          else if (ext === ".pdf") safeMime = "application/pdf";
+          else if (ext === ".pptx") safeMime = "application/vnd.openxmlformats-officedocument.presentationml.presentation";
+          else if (ext === ".docx") safeMime = "application/vnd.openxmlformats-officedocument.wordprocessingml.document";
 
+          // Construct pristine Blob with hardcoded MIME type to prevent network crashes
           const pristineBlob = new Blob([arrayBuffer], { type: safeMime });
           const form = new FormData();
           form.append("file", pristineBlob, safeFileName);
