@@ -348,9 +348,21 @@ export default function OmniChatDrawer() {
                       </span>
                     )}
                   </h2>
-                  <p className="text-xs text-slate-500 dark:text-slate-400">
-                    Interactive Tutor & Smart Dictionary
-                  </p>
+                  <div className="mt-1 flex items-center bg-slate-200/50 dark:bg-slate-800 rounded-lg p-0.5 w-fit">
+                    {["tutor", "dictionary", "socratic"].map((m) => (
+                      <button
+                        key={m}
+                        onClick={() => setMode(m as any)}
+                        className={`px-2 py-0.5 text-[9px] font-bold rounded-md uppercase tracking-wider transition-colors ${
+                          mode === m
+                            ? "bg-white dark:bg-slate-700 text-indigo-600 dark:text-indigo-400 shadow-sm"
+                            : "text-slate-500 hover:text-slate-700 dark:hover:text-slate-300"
+                        }`}
+                      >
+                        {m}
+                      </button>
+                    ))}
+                  </div>
                 </div>
               </div>
 
@@ -515,13 +527,24 @@ export default function OmniChatDrawer() {
                 <Youtube className="w-4 h-4" />
               </button>
 
-              <input
-                type="text"
+              <textarea
                 value={input}
-                onChange={(e) => setInput(e.target.value)}
+                onChange={(e) => {
+                  setInput(e.target.value);
+                  e.target.style.height = 'auto';
+                  e.target.style.height = Math.min(e.target.scrollHeight, 150) + 'px';
+                }}
+                onKeyDown={(e) => {
+                  if (e.key === 'Enter' && !e.shiftKey) {
+                    e.preventDefault();
+                    handleSend();
+                  }
+                }}
+                rows={1}
                 placeholder={loading ? "Medea is writing..." : "Ask Medea a question..."}
                 disabled={loading || uploading}
-                className="flex-1 px-4 py-3 rounded-xl bg-slate-100 dark:bg-slate-800 border border-slate-200 dark:border-slate-700 text-slate-900 dark:text-white placeholder-slate-400 focus:outline-none focus:ring-2 focus:ring-indigo-500 font-medium text-sm transition-colors disabled:opacity-60 disabled:cursor-not-allowed"
+                className="flex-1 px-4 py-3 rounded-xl bg-slate-100 dark:bg-slate-800 border border-slate-200 dark:border-slate-700 text-slate-900 dark:text-white placeholder-slate-400 focus:outline-none focus:ring-2 focus:ring-indigo-500 font-medium text-sm transition-colors disabled:opacity-60 disabled:cursor-not-allowed resize-none overflow-y-auto"
+                style={{ maxHeight: '150px' }}
               />
 
               {loading ? (
