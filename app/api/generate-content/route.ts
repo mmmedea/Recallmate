@@ -31,6 +31,37 @@ function applyInputGuardrails(text: string): { safe: boolean; reason?: string } 
   return { safe: true };
 }
 
+// Helper to shuffle option positions and prevent positional or length bias
+function shuffleQuestionOptions(questions: any[]) {
+  return questions.map(q => {
+    if (!q.options || !q.correctAnswer) return q;
+
+    const optionEntries = Object.entries(q.options) as [string, string][];
+    const correctText = q.options[q.correctAnswer];
+
+    // Randomize array order
+    const shuffled = [...optionEntries].sort(() => Math.random() - 0.5);
+
+    const newOptions: Record<string, string> = {};
+    let newCorrectKey = "A";
+    const keys = ["A", "B", "C", "D"];
+
+    shuffled.forEach(([_, val], idx) => {
+      const newKey = keys[idx];
+      newOptions[newKey] = val;
+      if (val === correctText) {
+        newCorrectKey = newKey;
+      }
+    });
+
+    return {
+      ...q,
+      options: newOptions,
+      correctAnswer: newCorrectKey
+    };
+  });
+}
+
 export async function POST(req: NextRequest) {
   try {
     // 1. RATE LIMITING RAIL
@@ -60,7 +91,6 @@ export async function POST(req: NextRequest) {
       return NextResponse.json({ error: inputValidation.reason }, { status: 400 });
     }
 
-    // Enforce strict question limits based on premium status
     const maxAllowed = isPremium ? 50 : 30;
     const requestedCount = Math.min(Math.max(Number(count) || 10, 5), maxAllowed);
 
@@ -92,7 +122,7 @@ export async function POST(req: NextRequest) {
       return bScore - aScore;
     });
 
-    // 3. SECURE PROMPT RAIL (Enforcing strict schema & hard-mode constraints)
+    // 3. SECURE PROMPT RAIL (Anti-bias, equal lengths, hard scenarios)
     const prompt = `Review the material from "${fileName || "Uploaded Files"}".
 Extracted Content:
 """${text.slice(0, 12000)}"""
@@ -101,8 +131,10 @@ Instructions:
 1. Generate detailed, comprehensive notes that are extremely easy for students to understand. Include clear explanations and practical examples derived STRICTLY from the file content.
 2. Generate exactly ${requestedCount} multiple-choice questions at the "${difficulty}" difficulty level.
 
-IMPORTANT RULES FOR QUESTIONS:
-- If difficulty is "hard", DO NOT ask simple recall or definition questions. Make the questions significantly harder by turning them into complex scenario-based, analytical, or multi-step logic problems that require critical thinking to solve.
+CRITICAL RULES FOR QUESTIONS & CHOICES (ANTI-BIAS):
+- LENGTH & DETAIL EQUALITY: All 4 choices (A, B, C, D) MUST be roughly equal in length, sentence structure, and level of descriptive detail. DO NOT make the correct answer longer or more descriptive than the distractors. 
+- PLAUSIBLE DISTRACTORS: Wrong choices must represent realistic technical misconceptions, close variations, or plausible errors so they are not obvious.
+- If difficulty is "hard", DO NOT ask simple recall or definition questions. Make questions complex scenario-based, analytical, or multi-step logic problems requiring deep critical thinking.
 - Return a SINGLE valid JSON object. Do not wrap in markdown or backticks.
 
 {
@@ -116,10 +148,10 @@ IMPORTANT RULES FOR QUESTIONS:
       "id": "q1",
       "question": "Scenario or logic-based question string?",
       "options": {
-        "A": "Option 1",
-        "B": "Option 2",
-        "C": "Option 3",
-        "D": "Option 4"
+        "A": "Option 1 text of balanced length",
+        "B": "Option 2 text of balanced length",
+        "C": "Option 3 text of balanced length",
+        "D": "Option 4 text of balanced length"
       },
       "correctAnswer": "A",
       "explanation": "Detailed breakdown explaining why this choice is correct through logical reasoning.",
@@ -131,7 +163,6 @@ IMPORTANT RULES FOR QUESTIONS:
 
 Rules:
 - Generate ALL ${requestedCount} questions under the "questions" array.
-- All questions must match the "${difficulty}" difficulty level.
 - Escape all double quotes inside strings properly.`;
 
     let rawText = "";
@@ -147,7 +178,7 @@ Rules:
           contents: [{ parts: [{ text: prompt }] }],
           generationConfig: {
             responseMimeType: "application/json",
-            temperature: 0.2
+            temperature: 0.3
           }
         }),
       });
@@ -166,7 +197,7 @@ Rules:
       return NextResponse.json({ error: lastErrorMsg }, { status: 500 });
     }
 
-    // 4. OUTPUT RAIL VALIDATION (Strict Schema Parsing)
+    // 4. OUTPUT RAIL VALIDATION & OPTION SHUFFLING
     try {
       const firstBrace = rawText.indexOf("{");
       const lastBrace = rawText.lastIndexOf("}");
@@ -178,10 +209,12 @@ Rules:
       const cleanJson = rawText.substring(firstBrace, lastBrace + 1);
       const parsedData = JSON.parse(cleanJson);
 
-      // Verify required keys exist
       if (!parsedData.summary || !parsedData.notes || !parsedData.questions) {
         throw new Error("Output failed schema validation check.");
       }
+
+      // PROGRAMMATICALLY SHUFFLE OPTIONS TO PREVENT BIAS
+      parsedData.questions = shuffleQuestionOptions(parsedData.questions);
 
       return NextResponse.json({ fileName, difficulty, ...parsedData });
     } catch (parseErr) {
