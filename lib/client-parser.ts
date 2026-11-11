@@ -168,7 +168,8 @@ export const processFileClientSide = async (rawFile: File): Promise<string> => {
         if (!pdfjsLib) {
           const pdfjsModule = await import("pdfjs-dist");
           pdfjsLib = pdfjsModule.default || pdfjsModule;
-          pdfjsLib.GlobalWorkerOptions.workerSrc = "/pdf.worker.min.js";
+          // Use CDN for worker to prevent relative path/CORS issues in mobile in-app browsers
+          pdfjsLib.GlobalWorkerOptions.workerSrc = `https://cdnjs.cloudflare.com/ajax/libs/pdf.js/${pdfjsLib.version}/pdf.worker.min.js`;
         }
         
         const uint8Array = new Uint8Array(arrayBuffer!);
@@ -204,7 +205,7 @@ export const processFileClientSide = async (rawFile: File): Promise<string> => {
       extractedTextForFile = await Promise.race([
         runClientExtraction(),
         new Promise<string>((_, reject) => 
-          setTimeout(() => reject(new Error("Extraction timed out")), 180000)
+          setTimeout(() => reject(new Error("Extraction timed out")), 45000)
         )
       ]);
     } catch (clientErr) {
@@ -245,7 +246,7 @@ export const processFileClientSide = async (rawFile: File): Promise<string> => {
           throw new Error(`"${originalName}" is a scanned document and too large to compress automatically. Please use an online PDF compressor first.`);
       }
       if (clientSideFailed) {
-        throw new Error(`"${originalName}" timed out while processing on your device. Please open this site in normal Safari/Chrome!`);
+        throw new Error(`"${originalName}" is too large for the server, and your browser failed to process it locally. Please try uploading on a desktop or compress the file first.`);
       }
       throw new Error(`"${originalName}" is too large. Server extraction limit is 4.5MB.`);
     }
