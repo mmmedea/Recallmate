@@ -7,11 +7,9 @@ import { useAppStore } from "@/lib/store";
 import FileUploader from "@/components/FileUploader";
 
 const readFileSafely = async (file: File): Promise<ArrayBuffer> => {
-  // Use modern native arrayBuffer if available (highly optimized for memory)
   if (typeof file.arrayBuffer === "function") {
     return await file.arrayBuffer();
   }
-  // Fallback for older browsers
   return new Promise((resolve, reject) => {
     const reader = new FileReader();
     reader.onload = () => resolve(reader.result as ArrayBuffer);
@@ -20,7 +18,6 @@ const readFileSafely = async (file: File): Promise<ArrayBuffer> => {
   });
 };
 
-// Compress standard images
 const compressImage = (file: File | Blob): Promise<Blob> => {
   return new Promise((resolve, reject) => {
     const img = new Image();
@@ -51,7 +48,6 @@ const compressImage = (file: File | Blob): Promise<Blob> => {
   });
 };
 
-// NEW: Visual PDF Compressor. Converts massive scanned PDFs into a single lightweight JPEG
 const compressPdfToImage = async (buffer: ArrayBuffer, pdfjsLib: any): Promise<Blob> => {
   if (!pdfjsLib) {
     const pdfjsModule = await import("pdfjs-dist");
@@ -62,7 +58,6 @@ const compressPdfToImage = async (buffer: ArrayBuffer, pdfjsLib: any): Promise<B
   const loadingTask = pdfjsLib.getDocument({ data: new Uint8Array(buffer), isEvalSupported: false });
   const pdf = await loadingTask.promise;
   
-  // Compress the first 4 pages (more than enough text to generate a great quiz)
   const maxPages = Math.min(pdf.numPages, 4); 
   const canvases = [];
   let totalHeight = 0;
@@ -100,7 +95,7 @@ const compressPdfToImage = async (buffer: ArrayBuffer, pdfjsLib: any): Promise<B
     masterCanvas.toBlob((blob) => {
       if (blob) resolve(blob);
       else reject(new Error("PDF to Image compression failed"));
-    }, "image/jpeg", 0.6); // 60% quality highly compresses it while keeping text readable
+    }, "image/jpeg", 0.6); 
   });
 };
 
@@ -185,9 +180,6 @@ export default function UploadPage() {
           clientSideFailed = true;
         }
 
-        // ==========================================
-        // 1. CLIENT-SIDE EXTRACTION
-        // ==========================================
         if (arrayBuffer && !clientSideFailed) {
           const runClientExtraction = async (): Promise<string> => {
             let resultText = "";
@@ -283,10 +275,6 @@ export default function UploadPage() {
           clientSideFailed = true;
         }
 
-        // ==========================================
-        // 2. AUTO-COMPRESSORS & SERVER FALLBACK
-        // ==========================================
-        
         const isTextEmpty = !extractedTextForFile.trim();
 
         if (
@@ -298,16 +286,14 @@ export default function UploadPage() {
           let fileToSend: File | Blob = rawFile;
           let finalExt = ext;
 
-          // MEGA-FIX: If the file is huge, apply the correct Auto-Compressor before it hits Vercel
           if (rawFile.size > 4.5 * 1024 * 1024) {
             if ([".jpg", ".jpeg", ".png", ".webp"].includes(ext)) {
                try { fileToSend = await compressImage(rawFile); } catch (e) {}
             } 
             else if (ext === ".pdf" && isTextEmpty && arrayBuffer) {
-               // The file is a massive scanned PDF > 4.5MB. Auto-compress it into a JPEG!
                try {
                  fileToSend = await compressPdfToImage(arrayBuffer, pdfjsLib);
-                 finalExt = ".jpg"; // Disguise it as an image so the backend processes it via OCR
+                 finalExt = ".jpg"; 
                  safeFileName = `compressed_scan_${Date.now()}.jpg`;
                } catch (e) {
                  console.error("PDF Visual Compression Failed", e);
@@ -315,7 +301,6 @@ export default function UploadPage() {
             }
           }
 
-          // Check if compression failed or if it's an uncompressible >4.5MB file (like heavy PPTX)
           if (fileToSend.size > 4.5 * 1024 * 1024) {
             if (ext === ".pdf" && isTextEmpty && !clientSideFailed) {
                throw new Error(`"${originalName}" is a scanned document and too large to compress automatically. Please use an online PDF compressor first.`);
@@ -394,7 +379,8 @@ export default function UploadPage() {
       }
 
       const controller = new AbortController();
-      const timeoutId = setTimeout(() => controller.abort(), 22000);
+      // FIX: Increased from 22 seconds to 60 seconds to give the AI plenty of time to type the quiz
+      const timeoutId = setTimeout(() => controller.abort(), 60000); 
 
       try {
         const genRes = await fetch("/api/generate-content", {
