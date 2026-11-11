@@ -14,33 +14,26 @@ export default function Navbar() {
 
   return (
     <>
-      <header className="sticky top-0 z-40 border-b border-gray-100 dark:border-slate-800 bg-white/80 dark:bg-slate-900/80 backdrop-blur-md transition-colors duration-200">
-        <div className="mx-auto flex max-w-6xl items-center justify-between px-4 py-3">
-          <Link href="/" className="flex items-center gap-2 font-extrabold text-gray-900 dark:text-white">
-            <div className="flex h-8 w-8 items-center justify-center rounded-xl bg-gradient-to-br from-indigo-500 to-violet-600">
-              <Sparkles className="h-4 w-4 text-white" />
-            </div>
-            RecallMate
+      <header className="sticky top-0 z-40 border-b border-slate-800/90 bg-[#0b1325]/95 text-white backdrop-blur-xl">
+        <div className="mx-auto flex min-h-[77px] max-w-[1480px] items-center justify-between gap-4 px-5 sm:px-8">
+          <Link href="/" className="flex shrink-0 items-center gap-2.5 font-extrabold tracking-tight text-white">
+            <span className="flex h-10 w-10 items-center justify-center rounded-2xl bg-gradient-to-br from-indigo-500 to-violet-600 shadow-lg shadow-indigo-950/40">
+              <Sparkles className="h-5 w-5 text-white" />
+            </span>
+            <span className="text-lg">RecallMate</span>
           </Link>
-
-          <div className="flex items-center gap-3">
+          <nav aria-label="Main navigation" className="flex items-center gap-2 sm:gap-3">
             <HeartsDisplay />
             <ThemeToggle />
-            <Link
-              href="/login"
-              className="rounded-full border border-slate-200 dark:border-slate-700 px-4 py-1.5 text-sm font-semibold text-slate-700 dark:text-slate-300 hover:bg-slate-100 dark:hover:bg-slate-800 transition-colors"
-            >
+            <Link href="/login" className="rounded-full border border-slate-700 bg-slate-900/40 px-4 py-2 text-sm font-semibold text-slate-200 transition-colors hover:border-slate-500 hover:bg-slate-800 sm:px-5">
               Sign in
             </Link>
             {!isPremium && (
-              <button
-                onClick={() => setPremiumOpen(true)}
-                className="rounded-full bg-gray-900 dark:bg-indigo-600 px-4 py-1.5 text-sm font-semibold text-white hover:bg-gray-800 dark:hover:bg-indigo-500 transition-colors"
-              >
+              <button onClick={() => setPremiumOpen(true)} className="rounded-full bg-indigo-600 px-5 py-2 text-sm font-extrabold text-white shadow-lg shadow-indigo-950/30 transition-colors hover:bg-indigo-500">
                 Go Premium
               </button>
             )}
-          </div>
+          </nav>
         </div>
       </header>
       <PremiumModal open={premiumOpen} onClose={() => setPremiumOpen(false)} />
