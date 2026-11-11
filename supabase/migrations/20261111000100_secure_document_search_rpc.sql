@@ -24,6 +24,11 @@ BEGIN
         RAISE EXCEPTION 'Unauthorized';
     END IF;
 
+    IF length(COALESCE(p_query, '')) > 1000
+       OR cardinality(COALESCE(p_authorized_document_ids, ARRAY[]::uuid[])) > 20 THEN
+        RAISE EXCEPTION 'Search request exceeds allowed limits';
+    END IF;
+
     IF p_query IS NULL OR p_query = '' THEN
         RETURN QUERY
         SELECT dc.id, dc.document_id, dc.chunk_index, dc.content,
