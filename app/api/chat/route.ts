@@ -8,7 +8,7 @@ import { BillingService } from "@/lib/ai/billing";
 import { ProviderAdapter } from "@/lib/ai/provider";
 import { buildBoundedMemoryPrompt, ChatMessage } from "@/lib/ai/memory";
 import { checkRateLimit } from "@/lib/security";
-import { createUIMessageStreamResponse } from "ai";
+import { createUIMessageStream, createUIMessageStreamResponse } from "ai";
 import {
   buildMedeaGeneralPrompt,
   MEDEA_GENERAL_SYSTEM_PROMPT,
@@ -130,7 +130,8 @@ export async function POST(req: NextRequest) {
     if (existingInteraction.status === 'completed') {
       // Re-stream the recovered response
       return createUIMessageStreamResponse({
-        execute: async (dataStream) => {
+        stream: createUIMessageStream({
+          execute: async (dataStream) => {
           const { data: reply } = await serviceClient
             .from("chat_messages")
             .select("content, id")
@@ -148,7 +149,8 @@ export async function POST(req: NextRequest) {
              dataStream.writeMessageAnnotation({ type: 'citations', data: citations });
           }
           dataStream.writeText(reply?.content || "");
-        }
+          }
+        })
       });
     } else if (existingInteraction.status === 'generating') {
       return NextResponse.json({ error: "Request is currently generating" }, { status: 409 });
@@ -209,7 +211,8 @@ export async function POST(req: NextRequest) {
   });
 
   return createUIMessageStreamResponse({
-    execute: async (dataStream) => {
+    stream: createUIMessageStream({
+      execute: async (dataStream) => {
       try {
         dataStream.writeMessageAnnotation({ type: 'data-tutor-status', data: { label: 'Retrieving context...' } });
 
@@ -296,6 +299,7 @@ export async function POST(req: NextRequest) {
         
         throw err;
       }
-    }
+      }
+    })
   });
 }
