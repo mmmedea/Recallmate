@@ -240,10 +240,11 @@ Rules:
       );
     }
   } catch (err: any) {
-    console.error("Study content generation failed:", err?.message || "Unknown error");
+    const status = Number.isInteger(err?.status) ? err.status : 500;
+    if (status >= 500) console.error("Study content generation failed:", err?.message || "Unknown error");
     return NextResponse.json(
-      { error: "Failed to generate study content safely." },
-      { status: 500 }
+      { error: status === 429 ? "Rate limit exceeded. Please try again later." : status === 503 ? "Study content generation is temporarily unavailable." : "Failed to generate study content safely." },
+      { status }
     );
   }
 }
