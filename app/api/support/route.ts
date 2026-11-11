@@ -2,6 +2,7 @@ import { NextRequest, NextResponse } from "next/server";
 import { createClient as createAdminClient } from "@supabase/supabase-js";
 import { z } from "zod";
 import { createClient } from "@/utils/supabase/server";
+import { checkRateLimit } from "@/lib/security";
 
 export const runtime = "nodejs";
 
@@ -47,6 +48,13 @@ export async function POST(request: NextRequest) {
   const { data: { user }, error: authError } = await supabase.auth.getUser();
   if (authError || !user?.email) return NextResponse.json({ error: "Sign in before contacting support." }, { status: 401 });
 
+  try {
+    await checkRateLimit(`support:${user.id}`, { limit: 5, windowSeconds: 3600 });
+  } catch (error: any) {
+    const status = Number.isInteger(error?.status) ? error.status : error?.message === 'Rate limit exceeded' ? 429 : 503;
+    return NextResponse.json({ error: status === 429 ? "You've sent several messages recently. Please try again in an hour." : "Support is temporarily unavailable." }, { status });
+  }
+
   let payload: z.infer<typeof supportRequestSchema>;
   try {
     payload = supportRequestSchema.parse(await request.json());
@@ -59,9 +67,7 @@ export async function POST(request: NextRequest) {
   if (!url || !serviceKey) return NextResponse.json({ error: "RecallMate support is not configured." }, { status: 503 });
   const admin = createAdminClient(url, serviceKey, { auth: { autoRefreshToken: false, persistSession: false } });
 
-  const oneHourAgo = new Date(Date.now() - 60 * 60 * 1000).toISOString();
-  const { count } = await admin.from("support_submissions").select("id", { count: "exact", head: true }).eq("user_id", user.id).gte("created_at", oneHourAgo);
-  if ((count ?? 0) >= 5) return NextResponse.json({ error: "You've sent several messages recently. Please try again in an hour." }, { status: 429 });
+
 
   const { data: submission, error: insertError } = await admin.from("support_submissions").insert({
     user_id: user.id,
