@@ -111,8 +111,8 @@ describe('Signup Page Component', () => {
   });
 
   it('safe next redirect survives OAuth', () => {
-    render(authMocks.searchParams = '?next=%2Fnotes';
-    render(<SignupPage />););
+    authMocks.searchParams = '?next=%2Fnotes';
+    render(<SignupPage />);
     expect(screen.getByLabelText('Continue with Google')).toBeDefined();
   });
 
