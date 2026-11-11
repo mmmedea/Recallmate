@@ -2,13 +2,25 @@
 
 import { useState, useRef, ChangeEvent, DragEvent } from "react";
 import { useRouter } from "next/navigation";
-import { Loader2, CloudUpload, FileText, Video } from "lucide-react";
+import { Loader2, CloudUpload, FileText, Settings, Sparkles } from "lucide-react";
+import { useAppStore } from "@/lib/store";
 
 export default function UploadPage() {
+  const [step, setStep] = useState<"upload" | "configure">("upload");
   const [status, setStatus] = useState<"idle" | "extracting" | "generating">("idle");
+  const [extractedText, setExtractedText] = useState("");
+  const [fileName, setFileName] = useState("");
+  
+  // Configuration options
+  const [questionCount, setQuestionCount] = useState(10);
+  const [selectedDifficulty, setSelectedDifficulty] = useState<"easy" | "medium" | "hard">("easy");
+  
   const [error, setError] = useState("");
   const router = useRouter();
   const fileInputRef = useRef<HTMLInputElement>(null);
+  const { isPremium } = useAppStore();
+
+  const maxLimit = isPremium ? 50 : 30;
 
   const isMediaFile = (file: File) =>
     file.type.startsWith("video/") || file.type.startsWith("audio/");
@@ -22,7 +34,6 @@ export default function UploadPage() {
       let combinedText = "";
       const fileNames = [];
 
-      // Loop through every uploaded file and extract text sequentially
       for (const file of files) {
         fileNames.push(file.name);
         const form = new FormData();
@@ -36,19 +47,36 @@ export default function UploadPage() {
           throw new Error(extractData.error || `Failed to read ${file.name}`);
         }
         
-        // Append text with a divider so the AI knows where one file ends and another begins
         combinedText += `\n\n--- Content from ${file.name} ---\n\n${extractData.text}`;
       }
 
-      setStatus("generating");
-      
-      // Send the combined payload to the AI
+      setExtractedText(combinedText);
+      setFileName(fileNames.join(", "));
+      setStatus("idle");
+      setStep("configure"); // Move to configuration step!
+    } catch (err) {
+      setError(err instanceof Error ? err.message : "Something went wrong.");
+      setStatus("idle");
+    }
+  };
+
+  const handleGenerateQuiz = async () => {
+    setStatus("generating");
+    setError("");
+
+    try {
       const genRes = await fetch("/api/generate-content", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ text: combinedText, fileName: fileNames.join(", ") })
+        body: JSON.stringify({
+          text: extractedText,
+          fileName: fileName,
+          count: questionCount,
+          difficulty: selectedDifficulty,
+          isPremium: isPremium
+        })
       });
-      
+
       const genData = await genRes.json();
 
       if (!genRes.ok) {
@@ -63,69 +91,118 @@ export default function UploadPage() {
     }
   };
 
-  const handleDrop = (e: DragEvent<HTMLDivElement>) => {
-    e.preventDefault();
-    if (status !== "idle") return;
-    const droppedFiles = Array.from(e.dataTransfer.files);
-    processFiles(droppedFiles);
-  };
-
-  const handleFileSelect = (e: ChangeEvent<HTMLInputElement>) => {
-    if (!e.target.files || status !== "idle") return;
-    processFiles(Array.from(e.target.files));
-  };
-
   return (
     <div className="mx-auto max-w-3xl py-12 px-4 transition-colors duration-200">
       
       <div className="mb-8 text-center sm:text-left px-2">
         <h1 className="text-3xl font-black text-slate-900 dark:text-white">
-          Upload your materials
+          {step === "upload" ? "Upload your materials" : "Customize Your Quiz"}
         </h1>
         <p className="mt-2 text-base font-medium text-slate-600 dark:text-slate-400">
-          Select multiple PDFs, documents, or media files. We'll combine them into one study session.
+          {step === "upload" 
+            ? "Select files to begin your AI study session." 
+            : "Choose your preferred difficulty and number of questions before generating."}
         </p>
       </div>
 
-      <div className="relative">
-        {/* Native Dropzone built directly into the page */}
-        <div 
-          onDragOver={(e) => e.preventDefault()}
-          onDrop={handleDrop}
-          onClick={() => status === "idle" && fileInputRef.current?.click()}
-          className={`bg-white dark:bg-slate-900 border-2 border-dashed ${status === "idle" ? "border-slate-300 dark:border-slate-700 hover:border-indigo-500 dark:hover:border-indigo-400 cursor-pointer" : "border-slate-200 dark:border-slate-800 opacity-70 cursor-not-allowed"} rounded-3xl p-10 text-center transition-colors`}
-        >
-          <div className="mx-auto w-16 h-16 bg-indigo-50 dark:bg-indigo-950/60 text-indigo-600 dark:text-indigo-400 rounded-2xl flex items-center justify-center mb-6">
-            <CloudUpload className="w-8 h-8" />
-          </div>
-          <h3 className="text-xl font-bold text-slate-900 dark:text-white mb-2">
-            Drop files or click to upload
-          </h3>
-          <p className="text-sm text-slate-500 dark:text-slate-400 mb-6">
-            Upload as many files as you need at the same time
-          </p>
-          <div className="flex justify-center gap-4 text-xs font-semibold text-slate-500 dark:text-slate-400">
-            <span className="flex items-center gap-1.5"><FileText className="w-4 h-4"/> Documents</span>
-            <span className="flex items-center gap-1.5"><Video className="w-4 h-4"/> Video / Audio</span>
+      {step === "upload" ? (
+        <>
+          <div 
+            onDragOver={(e) => e.preventDefault()}
+            onDrop={(e) => { e.preventDefault(); processFiles(Array.from(e.dataTransfer.files)); }}
+            onClick={() => status === "idle" && fileInputRef.current?.click()}
+            className="bg-white dark:bg-slate-900 border-2 border-dashed border-slate-300 dark:border-slate-700 hover:border-indigo-500 rounded-3xl p-10 text-center cursor-pointer transition-colors"
+          >
+            <div className="mx-auto w-16 h-16 bg-indigo-50 dark:bg-indigo-950/60 text-indigo-600 dark:text-indigo-400 rounded-2xl flex items-center justify-center mb-6">
+              <CloudUpload className="w-8 h-8" />
+            </div>
+            <h3 className="text-xl font-bold text-slate-900 dark:text-white mb-2">
+              Drop files or click to upload
+            </h3>
+            <p className="text-sm text-slate-500 dark:text-slate-400 mb-6">
+              Supports PDFs, Documents, and Media files
+            </p>
+            <input 
+              type="file" 
+              multiple 
+              ref={fileInputRef} 
+              onChange={(e) => e.target.files && processFiles(Array.from(e.target.files))} 
+              className="hidden" 
+            />
           </div>
 
-          <input 
-            type="file" 
-            multiple 
-            ref={fileInputRef} 
-            onChange={handleFileSelect} 
-            className="hidden" 
-            disabled={status !== "idle"}
-          />
-        </div>
-      </div>
+          {status === "extracting" && (
+            <div className="mt-6 flex items-center justify-center gap-3 rounded-2xl bg-white/60 dark:bg-slate-900/60 backdrop-blur-md px-6 py-4 text-sm font-bold text-indigo-600 dark:text-indigo-400 border border-slate-200/60 dark:border-slate-700/60 shadow-sm animate-pulse">
+              <Loader2 className="h-5 w-5 animate-spin" />
+              Extracting text from your files...
+            </div>
+          )}
+        </>
+      ) : (
+        /* CONFIGURATION STEP */
+        <div className="bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-800 rounded-3xl p-8 space-y-8 shadow-sm">
+          
+          {/* Difficulty Selection */}
+          <div>
+            <label className="block text-sm font-bold text-slate-900 dark:text-white mb-3">
+              Select Quiz Difficulty
+            </label>
+            <div className="grid grid-cols-3 gap-3">
+              {(["easy", "medium", "hard"] as const).map((level) => (
+                <button
+                  key={level}
+                  onClick={() => setSelectedDifficulty(level)}
+                  className={`py-3 px-4 rounded-xl font-bold capitalize border-2 transition-all ${
+                    selectedDifficulty === level
+                      ? "bg-indigo-600 border-indigo-600 text-white dark:bg-indigo-500 dark:border-indigo-500"
+                      : "bg-slate-50 border-slate-200 text-slate-700 dark:bg-slate-950 dark:border-slate-800 dark:text-slate-300"
+                  }`}
+                >
+                  {level}
+                </button>
+              ))}
+            </div>
+          </div>
 
-      {status !== "idle" && (
-        <div className="mt-6 flex items-center justify-center gap-3 rounded-2xl bg-white/60 dark:bg-slate-900/60 backdrop-blur-md px-6 py-4 text-sm font-bold text-indigo-600 dark:text-indigo-400 border border-slate-200/60 dark:border-slate-700/60 shadow-sm animate-pulse">
-          <Loader2 className="h-5 w-5 animate-spin" />
-          {status === "extracting" 
-            ? "Extracting text from all files..." 
-            : "Generating combined notes and questions..."}
+          {/* Question Count Slider */}
+          <div>
+            <div className="flex justify-between items-center mb-3">
+              <label className="text-sm font-bold text-slate-900 dark:text-white">
+                Number of Questions ({questionCount})
+              </label>
+              <span className="text-xs font-semibold text-slate-500 dark:text-slate-400">
+                Max limit: {maxLimit} questions {!isPremium && "(Upgrade to Premium for up to 50)"}
+              </span>
+            </div>
+            <input 
+              type="range" 
+              min="5" 
+              max={maxLimit} 
+              step="5"
+              value={questionCount}
+              onChange={(e) => setQuestionCount(Number(e.target.value))}
+              className="w-full accent-indigo-600 cursor-pointer"
+            />
+          </div>
+
+          {/* Generate Button */}
+          <button
+            onClick={handleGenerateQuiz}
+            disabled={status === "generating"}
+            className="w-full py-4 bg-indigo-600 hover:bg-indigo-700 dark:bg-indigo-500 dark:hover:bg-indigo-600 text-white rounded-2xl font-black text-lg flex items-center justify-center gap-3 shadow-lg transition-all"
+          >
+            {status === "generating" ? (
+              <>
+                <Loader2 className="w-5 h-5 animate-spin" />
+                Generating your custom quiz...
+              </>
+            ) : (
+              <>
+                <Sparkles className="w-5 h-5" />
+                Generate Quiz Session
+              </>
+            )}
+          </button>
         </div>
       )}
 

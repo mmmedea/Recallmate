@@ -2,21 +2,42 @@ import { NextRequest, NextResponse } from "next/server";
 
 export const runtime = "nodejs";
 
+// Simple in-memory rate limiter map (IP -> timestamp)
+const rateLimitMap = new Map<string, number>();
+const RATE_LIMIT_WINDOW_MS = 60000; // 1 minute window
+
 export async function POST(req: NextRequest) {
   try {
+    // 1. RATE LIMITING FOR SAFETY
+    const ip = req.headers.get("x-forwarded-for") || "127.0.0.1";
+    const now = Date.now();
+    const lastRequestTime = rateLimitMap.get(ip) || 0;
+
+    if (now - lastRequestTime < RATE_LIMIT_WINDOW_MS) {
+      const waitSeconds = Math.ceil((RATE_LIMIT_WINDOW_MS - (now - lastRequestTime)) / 1000);
+      return NextResponse.json(
+        { error: `Rate limit reached. Please wait ${waitSeconds} seconds before generating another quiz.` },
+        { status: 429 }
+      );
+    }
+    rateLimitMap.set(ip, now);
+
     const apiKey = process.env.GEMINI_API_KEY;
-    
     if (!apiKey) {
       return NextResponse.json({ error: "Server Configuration Error: GEMINI_API_KEY is not set." }, { status: 500 });
     }
 
-    const { text, fileName } = await req.json();
+    const { text, fileName, count = 10, difficulty = "easy", isPremium = false } = await req.json();
 
     if (!text || text.trim().length < 10) {
       return NextResponse.json({ error: "Not enough content extracted from this file." }, { status: 400 });
     }
 
-    // 1. AUTO-DISCOVERY: Fetch available models
+    // Enforce strict question limits based on premium status
+    const maxAllowed = isPremium ? 50 : 30;
+    const requestedCount = Math.min(Math.max(Number(count) || 10, 5), maxAllowed);
+
+    // AUTO-DISCOVERY of valid models
     const listUrl = `https://generativelanguage.googleapis.com/v1beta/models?key=${apiKey}`;
     const listRes = await fetch(listUrl);
     const listData = await listRes.json();
@@ -25,89 +46,64 @@ export async function POST(req: NextRequest) {
       return NextResponse.json({ error: "Invalid API Key or blocked access by Google." }, { status: 500 });
     }
 
-    // 2. STRICT FILTER: Block 2.0 and 2.5 because free tiers often have a limit of 0 for them.
     let validModels = (listData.models || []).filter((m: any) => 
       m.supportedGenerationMethods?.includes("generateContent") && 
       !m.name.includes("preview") &&
       !m.name.includes("robotics") &&
       !m.name.includes("vision") &&
       !m.name.includes("2.5") &&
-      !m.name.includes("2.0") // Blocks the exact model that caused your quota error
+      !m.name.includes("2.0")
     );
 
     if (validModels.length === 0) {
-      return NextResponse.json({ error: "Your API key does not have access to any compatible free-tier models." }, { status: 500 });
+      return NextResponse.json({ error: "No compatible models found for this API key." }, { status: 500 });
     }
 
-    // Sort to prioritize "flash" and "1.5"
     validModels.sort((a: any, b: any) => {
       const aScore = (a.name.includes("flash") ? 2 : 0) + (a.name.includes("1.5") ? 1 : 0);
       const bScore = (b.name.includes("flash") ? 2 : 0) + (b.name.includes("1.5") ? 1 : 0);
       return bScore - aScore;
     });
 
+    // PROMPT tailored to user's exact difficulty and count choices
     const prompt = `Review the material from "${fileName || "Uploaded Files"}".
 Extracted Content:
-"""${text.slice(0, 10000)}"""
+"""${text.slice(0, 12000)}"""
 
-Return a SINGLE valid JSON object. Do not wrap in markdown or backticks. Do not include any conversational text.
+Instructions:
+Generate exactly ${requestedCount} multiple-choice questions specifically at the "${difficulty}" difficulty level.
+Return a SINGLE valid JSON object. Do not wrap in markdown or backticks.
 
 {
   "summary": "Concise 2 sentence overview.",
   "notes": ["Key point 1", "Key point 2"],
-  "questions": {
-    "easy": [
-      {
-        "id": "e1",
-        "question": "Easy question?",
-        "options": {
-          "A": "Option 1",
-          "B": "Option 2",
-          "C": "Option 3",
-          "D": "Option 4"
-        },
-        "correctAnswer": "A",
-        "explanation": "Brief explanation.",
-        "sourceCitation": "Short quote",
-        "pageNumber": "1"
-      }
-    ],
-    "medium": [
-      {
-        "id": "m1",
-        "question": "Medium question?",
-        "options": { "A": "1", "B": "2", "C": "3", "D": "4" },
-        "correctAnswer": "A",
-        "explanation": "Brief explanation.",
-        "sourceCitation": "Short quote",
-        "pageNumber": "1"
-      }
-    ],
-    "hard": [
-      {
-        "id": "h1",
-        "question": "Hard question?",
-        "options": { "A": "1", "B": "2", "C": "3", "D": "4" },
-        "correctAnswer": "A",
-        "explanation": "Brief explanation.",
-        "sourceCitation": "Short quote",
-        "pageNumber": "1"
-      }
-    ]
-  }
+  "questions": [
+    {
+      "id": "q1",
+      "question": "Question string?",
+      "options": {
+        "A": "Option 1",
+        "B": "Option 2",
+        "C": "Option 3",
+        "D": "Option 4"
+      },
+      "correctAnswer": "A",
+      "explanation": "Detailed explanation.",
+      "sourceCitation": "Short quote",
+      "pageNumber": "1"
+    }
+  ]
 }
 
 Rules:
-- Provide EXACTLY 1 question per difficulty level. Do not provide more.
+- Generate ALL ${requestedCount} questions under the "questions" array.
+- All questions must match the "${difficulty}" difficulty level.
 - Escape all double quotes inside strings properly.`;
 
     let rawText = "";
     let lastErrorMsg = "All attempted models failed.";
 
-    // 3. BULLETPROOF RETRY LOOP: If a model throws a Quota error, instantly try the next one.
     for (const model of validModels) {
-      console.log(`Attempting generation with: ${model.name}`);
-      
       const generateUrl = `https://generativelanguage.googleapis.com/v1beta/${model.name}:generateContent?key=${apiKey}`;
       
       const response = await fetch(generateUrl, {
@@ -117,7 +113,7 @@ Rules:
           contents: [{ parts: [{ text: prompt }] }],
           generationConfig: {
             responseMimeType: "application/json",
-            temperature: 0.1
+            temperature: 0.2
           }
         }),
       });
@@ -126,43 +122,32 @@ Rules:
 
       if (response.ok) {
         rawText = aiData.candidates?.[0]?.content?.parts?.[0]?.text || "";
-        if (rawText) {
-          console.log(`Success! Data generated using: ${model.name}`);
-          break; // Stop the loop, we got our JSON!
-        }
+        if (rawText) break;
       } else {
-        console.warn(`Model ${model.name} failed:`, aiData.error?.message);
         lastErrorMsg = aiData.error?.message || `Failed on ${model.name}`;
-        // The loop naturally continues to the next model in the array here
       }
     }
 
-    // If we exhausted every single model and still have no text, throw the last error
     if (!rawText) {
       return NextResponse.json({ error: lastErrorMsg }, { status: 500 });
     }
 
-    // 4. SAFE JSON PARSING
     try {
       const firstBrace = rawText.indexOf("{");
       const lastBrace = rawText.lastIndexOf("}");
       
       if (firstBrace === -1 || lastBrace === -1) {
-        throw new Error("No JSON braces found in the output.");
+        throw new Error("No JSON braces found.");
       }
 
       const cleanJson = rawText.substring(firstBrace, lastBrace + 1);
       const parsedData = JSON.parse(cleanJson);
 
-      return NextResponse.json({ fileName, ...parsedData });
+      return NextResponse.json({ fileName, difficulty, ...parsedData });
     } catch (parseErr) {
-      console.error("JSON Parsing Failed. Raw text was:", rawText);
-      return NextResponse.json({ 
-        error: "The AI generated a malformed response. Please try again." 
-      }, { status: 500 });
+      return NextResponse.json({ error: "The AI generated a malformed response. Please try again." }, { status: 500 });
     }
   } catch (err: any) {
-    console.error("Unhandled Error:", err);
     return NextResponse.json({ error: "Failed to generate study content." }, { status: 500 });
   }
 }

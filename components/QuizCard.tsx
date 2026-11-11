@@ -6,7 +6,6 @@ import { CheckCircle2, XCircle, AlertCircle, ArrowRight } from "lucide-react";
 export default function QuizCard({ item, difficulty, onResult }: any) {
   const [selectedChoice, setSelectedChoice] = useState<string | null>(null);
 
-  // Instantly reset the selected answer whenever a new question is passed in
   useEffect(() => {
     setSelectedChoice(null);
   }, [item.id]);
@@ -15,33 +14,33 @@ export default function QuizCard({ item, difficulty, onResult }: any) {
   const isCorrect = selectedChoice === item.correctAnswer;
 
   const handleSelect = (key: string) => {
-    if (isAnswered) return; // Prevent changing answer
+    if (isAnswered) return;
     setSelectedChoice(key);
   };
 
   const handleNext = () => {
     if (!isAnswered) return;
-    onResult(isCorrect); // Tells the parent page to subtract a heart if wrong, and move to next question
+    onResult(isCorrect);
   };
 
   return (
     <div className="bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-800 rounded-3xl p-6 md:p-8 shadow-sm transition-colors">
       
-      {/* Badge & Question */}
+      {/* Static Non-Clickable Badge */}
       <div className="mb-6">
         <span className={`inline-block px-3 py-1 text-xs font-bold uppercase rounded-full mb-4 ${
           difficulty === 'easy' ? 'bg-emerald-100 text-emerald-700 dark:bg-emerald-950/50 dark:text-emerald-400' :
           difficulty === 'medium' ? 'bg-amber-100 text-amber-700 dark:bg-amber-950/50 dark:text-amber-400' :
           'bg-rose-100 text-rose-700 dark:bg-rose-950/50 dark:text-rose-400'
         }`}>
-          {difficulty}
+          {difficulty} Level
         </span>
         <h3 className="text-xl font-bold text-slate-900 dark:text-white leading-snug">
           {item.question}
         </h3>
       </div>
 
-      {/* Multiple Choice Options Grid */}
+      {/* Options Grid */}
       <div className="grid grid-cols-1 sm:grid-cols-2 gap-3 mb-6">
         {Object.entries(item.options || {}).map(([key, value]) => {
           let btnStyle = "bg-slate-50 border-slate-200 text-slate-700 hover:border-indigo-400 hover:bg-indigo-50 dark:bg-slate-950/50 dark:border-slate-800 dark:text-slate-300 dark:hover:border-indigo-500 dark:hover:bg-slate-800";
@@ -72,7 +71,7 @@ export default function QuizCard({ item, difficulty, onResult }: any) {
         })}
       </div>
 
-      {/* Explanation & Next Button (Revealed only after answering) */}
+      {/* Explanation & Continue Button */}
       {isAnswered && (
         <div className="animate-in fade-in slide-in-from-top-2 duration-300">
           <div className={`p-5 rounded-2xl border ${isCorrect ? 'bg-emerald-50/50 border-emerald-100 dark:bg-emerald-950/20 dark:border-emerald-900/50' : 'bg-rose-50/50 border-rose-100 dark:bg-rose-950/20 dark:border-rose-900/50'}`}>
@@ -96,7 +95,7 @@ export default function QuizCard({ item, difficulty, onResult }: any) {
           
           <button 
             onClick={handleNext}
-            className="mt-6 w-full py-3.5 px-4 bg-indigo-600 hover:bg-indigo-700 dark:bg-indigo-500 dark:hover:bg-indigo-600 text-white rounded-xl font-bold flex items-center justify-center gap-2 transition-colors shadow-md"
+            className="mt-6 w-full py-3.5 px-4 bg-indigo-600 hover:bg-indigo-700 dark:bg-indigo-500 dark:hover:bg-indigo-600 text-white rounded-xl font-bold flex items-center justify-center gap-2 transition-colors shadow-md cursor-pointer"
           >
             Continue <ArrowRight className="w-5 h-5" />
           </button>
