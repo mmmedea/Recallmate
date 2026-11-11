@@ -34,55 +34,58 @@ export default function CookieConsent() {
   return (
     <>
       {showBanner && !showPreferences && (
-        <aside aria-label="Cookie consent" className="fixed inset-x-0 bottom-0 z-[60] px-4 pb-0 pt-4 sm:px-6 sm:pb-0">
-          <div className="mx-auto flex max-w-7xl flex-col items-start justify-between gap-6 rounded-t-[22px] border border-[#a78bfa]/20 bg-[#17131f] p-6 shadow-[0_-18px_60px_rgba(0,0,0,0.45)] sm:p-7 md:flex-row md:items-center">
-            <div className="max-w-3xl space-y-2">
-              <h2 className="font-fredoka text-lg font-semibold tracking-tight text-white">We value your privacy</h2>
-              <p className="font-nunito text-sm leading-relaxed text-[#b9b1c6] sm:text-base">
+        <aside aria-label="Cookie consent" className="fixed inset-x-0 bottom-0 z-[60] px-4 pb-0 pt-4 sm:px-6">
+          <div className="relative mx-auto flex max-w-7xl flex-col items-start justify-between gap-6 overflow-hidden rounded-t-[22px] border border-[#a78bfa]/25 bg-[#100d18]/95 p-6 shadow-[0_-18px_70px_rgba(0,0,0,0.58)] backdrop-blur-2xl sm:p-7 md:flex-row md:items-center">
+            <div aria-hidden="true" className="pointer-events-none absolute inset-x-0 top-0 h-px bg-gradient-to-r from-transparent via-[#c4a7ff] to-[#ff526b]" />
+            <div aria-hidden="true" className="pointer-events-none absolute -right-20 -top-28 h-64 w-64 rounded-full bg-[#ff526b]/10 blur-3xl" />
+            <div className="relative max-w-3xl space-y-2">
+              <p className="font-pixelify text-[10px] uppercase tracking-[0.2em] text-[#ff8293]">Your data, your choice</p>
+              <h2 className="font-fredoka text-xl font-semibold tracking-tight text-white sm:text-2xl">We value your privacy</h2>
+              <p className="font-nunito text-sm leading-relaxed text-[#c7bfd2] sm:text-base">
                 We use essential cookies to keep RecallMate secure and keep you signed in. With your permission, we may also use optional cookies to understand product usage and improve the experience.
               </p>
             </div>
-            <div className="flex w-full shrink-0 flex-col gap-3 sm:flex-row md:w-auto">
-              <Button variant="outline" onClick={() => setShowPreferences(true)} className="h-12 whitespace-nowrap rounded-xl border-[#a78bfa]/30 bg-[#0c0a12] px-5 font-nunito font-bold text-[#f4efff] hover:bg-[#282033] hover:text-white">Manage Preferences</Button>
-              <Button variant="outline" onClick={() => saveConsent({ essential: true, analytics: false, marketing: false })} className="h-12 whitespace-nowrap rounded-xl border-[#a78bfa]/30 bg-[#0c0a12] px-5 font-nunito font-bold text-[#f4efff] hover:bg-[#282033] hover:text-white">Deny All</Button>
-              <Button onClick={() => saveConsent({ essential: true, analytics: true, marketing: true })} className="h-12 whitespace-nowrap rounded-xl bg-[#a78bfa] px-5 font-nunito font-extrabold text-[#120d1d] hover:bg-[#c4a7ff]">Accept All</Button>
+            <div className="relative flex w-full shrink-0 flex-col gap-3 sm:flex-row md:w-auto">
+              <Button variant="outline" onClick={() => setShowPreferences(true)} className="h-12 whitespace-nowrap rounded-xl border-[#a78bfa]/35 bg-[#09070e] px-5 font-quicksand font-bold text-[#f4efff] transition-colors hover:border-[#c4a7ff] hover:bg-[#21182d] hover:text-white">Manage Preferences</Button>
+              <Button variant="outline" onClick={() => saveConsent({ essential: true, analytics: false, marketing: false })} className="h-12 whitespace-nowrap rounded-xl border-[#ff526b]/35 bg-[#160b12] px-5 font-quicksand font-bold text-[#ffdce2] transition-colors hover:border-[#ff8293] hover:bg-[#32101d] hover:text-white">Deny All</Button>
+              <Button onClick={() => saveConsent({ essential: true, analytics: true, marketing: true })} className="h-12 whitespace-nowrap rounded-xl bg-gradient-to-r from-[#a78bfa] to-[#c4a7ff] px-5 font-quicksand font-extrabold text-[#100a19] shadow-[0_7px_25px_rgba(167,139,250,0.22)] transition-all hover:-translate-y-0.5 hover:from-[#c4a7ff] hover:to-[#ff8293]">Accept All</Button>
             </div>
           </div>
         </aside>
       )}
 
       <Dialog open={showPreferences} onOpenChange={setShowPreferences}>
-        <DialogContent className="sm:max-w-md">
+        <DialogContent className="border-[#a78bfa]/25 bg-[#100d18] text-white sm:max-w-md">
           <DialogHeader>
-            <DialogTitle>Cookie Preferences</DialogTitle>
-            <DialogDescription>Manage your cookie settings. Essential cookies cannot be disabled because they are required for the application to function.</DialogDescription>
+            <DialogTitle className="font-fredoka text-xl">Cookie Preferences</DialogTitle>
+            <DialogDescription className="font-nunito text-[#c7bfd2]">Manage your cookie settings. Essential cookies cannot be disabled because they are required for the application to function.</DialogDescription>
           </DialogHeader>
-          <div className="space-y-6 py-4">
+          <div className="space-y-6 py-4 font-nunito">
             <div className="flex items-start space-x-3">
               <Checkbox id="essential" checked disabled />
               <div className="space-y-1 leading-none">
-                <Label htmlFor="essential" className="font-semibold">Essential Cookies (Required)</Label>
-                <p className="text-xs text-slate-500">Used for authentication, session management, and security.</p>
+                <Label htmlFor="essential" className="font-semibold text-white">Essential Cookies (Required)</Label>
+                <p className="text-xs text-[#aaa0b8]">Used for authentication, session management, and security.</p>
               </div>
             </div>
             <div className="flex items-start space-x-3">
               <Checkbox id="analytics" checked={preferences.analytics} onCheckedChange={(checked) => setPreferences((current) => ({ ...current, analytics: !!checked }))} />
               <div className="space-y-1 leading-none">
-                <Label htmlFor="analytics" className="font-semibold">Analytics Cookies</Label>
-                <p className="text-xs text-slate-500">Help us understand how people use RecallMate so we can improve it.</p>
+                <Label htmlFor="analytics" className="font-semibold text-white">Analytics Cookies</Label>
+                <p className="text-xs text-[#aaa0b8]">Help us understand how people use RecallMate so we can improve it.</p>
               </div>
             </div>
             <div className="flex items-start space-x-3">
               <Checkbox id="marketing" checked={preferences.marketing} onCheckedChange={(checked) => setPreferences((current) => ({ ...current, marketing: !!checked }))} />
               <div className="space-y-1 leading-none">
-                <Label htmlFor="marketing" className="font-semibold">Marketing Cookies</Label>
-                <p className="text-xs text-slate-500">Used to measure relevant campaign performance.</p>
+                <Label htmlFor="marketing" className="font-semibold text-white">Marketing Cookies</Label>
+                <p className="text-xs text-[#aaa0b8]">Used to measure relevant campaign performance.</p>
               </div>
             </div>
           </div>
           <DialogFooter className="mt-2 flex-col gap-2 sm:flex-row">
-            <Button variant="outline" onClick={() => setShowPreferences(false)}>Cancel</Button>
-            <Button onClick={() => saveConsent(preferences)} className="bg-[#a78bfa] text-[#120d1d] hover:bg-[#c4a7ff]">Save Preferences</Button>
+            <Button variant="outline" onClick={() => setShowPreferences(false)} className="font-quicksand border-[#a78bfa]/35 bg-[#09070e] text-white hover:bg-[#21182d] hover:text-white">Cancel</Button>
+            <Button onClick={() => saveConsent(preferences)} className="font-quicksand bg-gradient-to-r from-[#a78bfa] to-[#c4a7ff] font-bold text-[#100a19] hover:from-[#c4a7ff] hover:to-[#ff8293]">Save Preferences</Button>
           </DialogFooter>
         </DialogContent>
       </Dialog>
