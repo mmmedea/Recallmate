@@ -72,7 +72,7 @@ export function ReviewerMakerDialog({
         window.open(data.signedUrl, '_blank');
       }
     } catch (err: any) {
-      setError(\`Download failed: \${err.message}\`);
+      setError(`Download failed: ${err.message}`);
     }
   };
 
