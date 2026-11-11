@@ -27,10 +27,10 @@ export default function SignupPage({ searchParams }: { searchParams: Promise<{ n
   let next = "/dashboard";
   if (
     resolvedSearchParams.next &&
-    searchParams.next.startsWith("/") &&
-    !searchParams.next.startsWith("//")
+    resolvedSearchParams.next.startsWith("/") &&
+    !resolvedSearchParams.next.startsWith("//")
   ) {
-    next = searchParams.next;
+    next = resolvedSearchParams.next;
   }
 
   return (
