@@ -29,7 +29,7 @@ export default async function StudyHubPage({ params }: { params: Promise<{ id: s
   // If extraction isn't ready, the document isn't usable.
   // We allow failed extraction to pass through so the user can see the recovery state.
   if (extraction.status !== 'completed' && extraction.status !== 'failed') {
-    redirect(`/documents/${params.id}/process`)
+    redirect(`/documents/${id}/process`)
   }
 
   return <StudyHubClient initialSummary={data} />
