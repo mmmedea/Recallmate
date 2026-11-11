@@ -1,22 +1,14 @@
 import { NextRequest, NextResponse } from "next/server";
-import { GoogleGenerativeAI } from "@google/generative-ai";
+import { GoogleGenAI } from "@google/genai";
 
 export const runtime = "nodejs";
 
 const apiKey = process.env.GEMINI_API_KEY || "";
-const genAI = new GoogleGenerativeAI(apiKey);
-
-// Model fallback candidate list
-const CANDIDATE_MODELS = [
-  "gemini-2.5-flash",
-  "gemini-1.5-flash",
-  "gemini-2.5-pro",
-  "gemini-pro"
-];
+const ai = new GoogleGenAI({ apiKey });
 
 export async function POST(req: NextRequest) {
   try {
-    // 1. Guard check for missing API Key
+    // 1. Guard check for missing API key
     if (!apiKey) {
       console.error("SERVER ERROR: GEMINI_API_KEY environment variable is missing.");
       return NextResponse.json(
@@ -37,7 +29,7 @@ export async function POST(req: NextRequest) {
 
     const prompt = `You are an expert study assistant reviewing material from "${fileName || "Uploaded File"}".
 Extracted File Content:
-"""${text.slice(0, 18000)}"""
+"""${text.slice(0, 20000)}"""
 
 Instructions:
 1. Focus STRICTLY on the facts presented in the uploaded file text above. Do NOT include outside knowledge or unreferenced facts.
@@ -74,36 +66,22 @@ Rules:
 - Options must be labeled A, B, C, and D.
 - Include exact quote/source text and page/section number for "sourceCitation" and "pageNumber".`;
 
-    let rawText = "";
-    let lastError: any = null;
+    // 2. Call Gemini using the modern @google/genai SDK
+    const response = await ai.models.generateContent({
+      model: "gemini-2.5-flash",
+      contents: prompt,
+    });
 
-    // 2. Fallback loop across available models
-    for (const modelName of CANDIDATE_MODELS) {
-      try {
-        console.log(`Attempting generation with model: ${modelName}`);
-        const model = genAI.getGenerativeModel({ model: modelName });
-        const result = await model.generateContent(prompt);
-        const response = await result.response;
-        rawText = response.text();
-        if (rawText && rawText.length > 0) {
-          console.log(`Successfully generated content using model: ${modelName}`);
-          break;
-        }
-      } catch (err: any) {
-        console.warn(`Model candidate ${modelName} failed:`, err?.message || err);
-        lastError = err;
-      }
-    }
+    const rawText = response.text || "";
 
     if (!rawText) {
-      console.error("All Gemini model candidates failed. Last error:", lastError);
       return NextResponse.json(
-        { error: "AI service failed to generate content. Please check model permissions." },
+        { error: "AI service returned an empty response. Please try again." },
         { status: 500 }
       );
     }
 
-    // 3. Robust JSON Extraction Cleaning
+    // 3. Extract and parse JSON output safely
     const jsonMatch = rawText.match(/\{[\s\S]*\}/);
     const cleanedJsonString = jsonMatch ? jsonMatch[0] : rawText.trim();
 
