@@ -1,6 +1,7 @@
 "use client";
 
 import { useState } from "react";
+import { useSearchParams } from "next/navigation";
 import { AuthCard } from "@/components/auth/AuthCard";
 import { OAuthButtons } from "@/components/auth/OAuthButtons";
 import { EmailOTPForm } from "@/components/auth/EmailOTPForm";
@@ -17,11 +18,8 @@ import { Button } from "@/components/ui/button";
 import { PrivacyContent } from "@/components/legal/PrivacyContent";
 import { TermsContent } from "@/components/legal/TermsContent";
 
-export default function SignupPage({
-  searchParams,
-}: {
-  searchParams: { next?: string };
-}) {
+export default function SignupPage() {
+  const searchParams = useSearchParams();
   const [privacyAgreed, setPrivacyAgreed] = useState(false);
   const [username, setUsername] = useState("");
   const [password, setPassword] = useState("");
