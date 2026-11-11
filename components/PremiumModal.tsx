@@ -8,7 +8,7 @@ export default function PremiumModal({ open, onClose }: { open: boolean; onClose
   const [code, setCode] = useState("");
   const [error, setError] = useState("");
   const [success, setSuccess] = useState(false);
-  const { setPremium } = useAppStore();
+  const { unlockPremium } = useAppStore();
 
   if (!open) return null;
 
@@ -16,9 +16,9 @@ export default function PremiumModal({ open, onClose }: { open: boolean; onClose
     e.preventDefault();
     setError("");
     
-    // Strict match for the new code 030124
-    if (code.trim() === "030124") {
-      setPremium(true);
+    const isSuccess = unlockPremium(code);
+
+    if (isSuccess) {
       setSuccess(true);
       setTimeout(() => {
         setSuccess(false);
@@ -57,8 +57,9 @@ export default function PremiumModal({ open, onClose }: { open: boolean; onClose
                 <Sparkles className="w-6 h-6" />
               </div>
               <h3 className="text-xl font-black text-slate-900 dark:text-white">Unlock Premium</h3>
+              {/* NOTE: Code is completely removed from the text instructions below */}
               <p className="text-sm text-slate-600 dark:text-slate-400">
-                Enter code <span className="font-mono font-bold text-indigo-600 dark:text-indigo-400">030124</span> to activate unlimited hearts and remove all limits.
+                Enter your secret access code to activate unlimited hearts and remove all limits.
               </p>
             </div>
 
@@ -69,7 +70,7 @@ export default function PremiumModal({ open, onClose }: { open: boolean; onClose
                   type="text"
                   value={code}
                   onChange={(e) => setCode(e.target.value)}
-                  placeholder="Enter code (e.g. 030124)"
+                  placeholder="Enter code"
                   autoFocus
                   className="w-full pl-11 pr-4 py-3 rounded-xl bg-slate-50 dark:bg-slate-800 border border-slate-200 dark:border-slate-700 text-slate-900 dark:text-white placeholder-slate-400 focus:outline-none focus:ring-2 focus:ring-indigo-500 font-medium text-sm transition-colors"
                 />
