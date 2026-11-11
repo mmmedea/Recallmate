@@ -1,22 +1,27 @@
 "use client";
 
 import { useRef, useState } from "react";
-import { CheckCircle2, Download, FileUp, Loader2, ShieldCheck } from "lucide-react";
-import { downloadReviewerPdf, readReviewerFile } from "@/lib/reviewer/browser-reviewer";
+import { CheckCircle2, Download, FileText, FileUp, Loader2, ShieldCheck } from "lucide-react";
+import { createReviewerArtifacts, downloadReviewerArtifact, readReviewerFile, REVIEWER_THEMES, type ReviewerArtifacts, type ReviewerSection } from "@/lib/reviewer/browser-reviewer";
 
 export default function ReviewerPdfMaker() {
   const inputRef = useRef<HTMLInputElement>(null);
   const [busy, setBusy] = useState(false);
   const [status, setStatus] = useState("");
   const [error, setError] = useState("");
+  const [artifacts, setArtifacts] = useState<ReviewerArtifacts | null>(null);
+  const [preview, setPreview] = useState<ReviewerSection[]>([]);
+  const [themeIndex, setThemeIndex] = useState(0);
 
   const createReviewer = async (file: File) => {
-    setBusy(true); setError(""); setStatus("Reading every lesson section and picture…");
+    setBusy(true); setError(""); setArtifacts(null); setPreview([]); setStatus("Reading every lesson section and picture…");
     try {
       const sections = await readReviewerFile(file);
-      setStatus(`Building a two-column PDF from ${sections.length} retained section${sections.length === 1 ? "" : "s"}…`);
-      await downloadReviewerPdf(file, sections);
-      setStatus("Reviewer PDF downloaded. Course, learning-outcome, and thank-you sections were excluded.");
+      setPreview(sections);
+      setStatus(`Formatting ${sections.length} retained section${sections.length === 1 ? "" : "s"} into true two-column Word and PDF files…`);
+      const ready = await createReviewerArtifacts(file, sections, REVIEWER_THEMES[themeIndex]);
+      setArtifacts(ready);
+      setStatus("Your reviewer is ready. Choose PDF or Word below; nothing downloads until you click.");
     } catch (cause) {
       setError(cause instanceof Error ? cause.message : "The reviewer could not be created.");
       setStatus("");
@@ -27,26 +32,32 @@ export default function ReviewerPdfMaker() {
     <div className="grid md:grid-cols-[0.9fr_1.1fr]">
       <div className="bg-slate-950 p-6 text-white sm:p-8">
         <p className="text-xs font-black uppercase tracking-[0.22em] text-slate-400">Reviewer maker</p>
-        <h2 className="mt-2 text-3xl font-black">Detailed, printable, two-column PDF</h2>
+        <h2 className="mt-2 text-3xl font-black">Detailed two-column reviewer</h2>
         <p className="mt-4 text-sm leading-6 text-slate-300">RecallMate keeps the lesson’s full readable detail and embedded pictures. It removes only course-information, learning-outcome/objective, and thank-you sections.</p>
         <ul className="mt-6 space-y-3 text-sm text-slate-200">
-          <li className="flex gap-2"><CheckCircle2 className="mt-0.5 h-4 w-4 shrink-0" />Black-and-white academic layout</li>
-          <li className="flex gap-2"><CheckCircle2 className="mt-0.5 h-4 w-4 shrink-0" />Two readable columns on A4 pages</li>
+          <li className="flex gap-2"><CheckCircle2 className="mt-0.5 h-4 w-4 shrink-0" />Black-and-white, dense academic layout</li>
+          <li className="flex gap-2"><CheckCircle2 className="mt-0.5 h-4 w-4 shrink-0" />True continuous columns with running headers and page numbers</li>
           <li className="flex gap-2"><CheckCircle2 className="mt-0.5 h-4 w-4 shrink-0" />PDF, PPT, and PPTX input</li>
           <li className="flex gap-2"><ShieldCheck className="mt-0.5 h-4 w-4 shrink-0" />PPTX and PDF processing stays in this browser</li>
         </ul>
       </div>
       <div className="flex flex-col justify-center p-6 sm:p-8">
+        <fieldset className="mb-5"><legend className="text-sm font-black text-slate-950 dark:text-white">Choose an accent color</legend><p className="mt-1 text-xs text-slate-500">Headings remain black. Color is used only for lines, borders, and callout backgrounds.</p><div className="mt-3 flex flex-wrap gap-2">{REVIEWER_THEMES.map((theme, index) => <button key={theme.name} type="button" aria-label={`${theme.name} reviewer accents`} aria-pressed={themeIndex === index} onClick={() => setThemeIndex(index)} className={`inline-flex min-h-10 items-center gap-2 rounded-xl border px-3 text-xs font-black transition ${themeIndex === index ? "border-slate-950 ring-2 ring-slate-400 dark:border-white" : "border-slate-200 hover:border-slate-400 dark:border-slate-700"}`}><span className="h-4 w-4 rounded-full border border-black/10" style={{ backgroundColor: `#${theme.accent}` }} />{theme.name}</button>)}</div></fieldset>
         <input ref={inputRef} type="file" accept=".pdf,.ppt,.pptx,application/pdf,application/vnd.ms-powerpoint,application/vnd.openxmlformats-officedocument.presentationml.presentation" className="sr-only" onChange={event => { const file = event.target.files?.[0]; if (file) void createReviewer(file); event.target.value = ""; }} />
         <button type="button" disabled={busy} onClick={() => inputRef.current?.click()} className="group min-h-56 rounded-3xl border-2 border-dashed border-slate-300 bg-slate-50 p-6 text-center transition hover:-translate-y-1 hover:border-slate-950 hover:bg-white disabled:cursor-wait disabled:opacity-70 dark:border-slate-700 dark:bg-slate-950/50 dark:hover:border-white dark:hover:bg-slate-950">
           {busy ? <Loader2 className="mx-auto h-12 w-12 animate-spin text-indigo-500" /> : <span className="mx-auto grid h-16 w-16 place-items-center rounded-2xl bg-slate-950 text-white shadow-lg dark:bg-white dark:text-slate-950"><FileUp className="h-8 w-8" /></span>}
           <span className="mt-5 block text-xl font-black text-slate-950 dark:text-white">{busy ? "Creating your reviewer…" : "Choose lesson file"}</span>
-          <span className="mt-2 block text-sm text-slate-500">PDF, PPT, or PPTX • download as PDF</span>
+          <span className="mt-2 block text-sm text-slate-500">PDF, PPT, or PPTX • prepare PDF and Word</span>
         </button>
         {status && <p role="status" className="mt-4 flex items-start gap-2 rounded-xl bg-emerald-50 px-4 py-3 text-sm font-semibold text-emerald-900 dark:bg-emerald-500/10 dark:text-emerald-100"><Download className="mt-0.5 h-4 w-4 shrink-0" />{status}</p>}
+        {artifacts && <div className="mt-4 grid gap-3 sm:grid-cols-2">
+          <button type="button" onClick={() => downloadReviewerArtifact(artifacts.pdf, `${artifacts.baseName}-reviewer.pdf`)} className="inline-flex min-h-12 items-center justify-center gap-2 rounded-xl bg-slate-950 px-4 text-sm font-black text-white shadow-lg transition hover:-translate-y-0.5 dark:bg-white dark:text-slate-950"><Download className="h-4 w-4" />Download PDF</button>
+          <button type="button" onClick={() => downloadReviewerArtifact(artifacts.docx, `${artifacts.baseName}-reviewer.docx`)} className="inline-flex min-h-12 items-center justify-center gap-2 rounded-xl border border-slate-300 bg-white px-4 text-sm font-black text-slate-900 transition hover:-translate-y-0.5 hover:bg-slate-50 dark:border-slate-700 dark:bg-slate-950 dark:text-white"><FileText className="h-4 w-4" />Download Word</button>
+        </div>}
         {error && <p role="alert" className="mt-4 rounded-xl bg-rose-50 px-4 py-3 text-sm font-semibold text-rose-800 dark:bg-rose-500/10 dark:text-rose-200">{error}</p>}
         <p className="mt-4 text-xs leading-5 text-slate-500">For old .ppt files, text is preserved through secure extraction. Save as .pptx first when you need every embedded picture preserved exactly.</p>
       </div>
     </div>
+    {preview.length > 0 && <div className="border-t border-slate-200 bg-slate-50 p-6 dark:border-slate-800 dark:bg-slate-950/40 sm:p-8"><div className="mb-4 flex items-end justify-between gap-4"><div><p className="text-xs font-black uppercase tracking-[0.2em] text-indigo-600">Content preview</p><h3 className="mt-1 text-xl font-black text-slate-950 dark:text-white">What RecallMate kept</h3></div><span className="text-xs font-bold text-slate-500">{preview.length} sections</span></div><div className="grid gap-3 sm:grid-cols-2">{preview.slice(0, 6).map((section, index) => <article key={`${section.title}-${index}`} className="rounded-2xl border border-slate-200 bg-white p-4 dark:border-slate-800 dark:bg-slate-900"><h4 className="font-black text-slate-950 dark:text-white">{section.title}</h4><p className="mt-2 line-clamp-3 text-xs leading-5 text-slate-500">{section.text || `${section.images.length} preserved figure${section.images.length === 1 ? "" : "s"}`}</p></article>)}</div></div>}
   </section>;
 }

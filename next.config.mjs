@@ -8,6 +8,7 @@ const nextConfig = {
     ignoreBuildErrors: true,
   },
   experimental: {
+    serverComponentsExternalPackages: ['officeparser', 'pdfjs-dist'],
     serverActions: {
       bodySizeLimit: '50mb',
     },

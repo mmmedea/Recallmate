@@ -20,6 +20,7 @@ import {
 import Link from "next/link";
 import { getDocumentLifecycle, retryDocumentExtraction, retryStudyGeneration } from "@/app/actions/document-actions";
 import { ReviewerMakerDialog } from "@/components/reviewer/ReviewerMakerDialog";
+import { useAppStore } from "@/lib/store";
 
 export default function StudyHubClient({ initialSummary }: { initialSummary: DocumentLifecycleSummary }) {
   const [summary, setSummary] = useState<DocumentLifecycleSummary>(initialSummary);
@@ -297,6 +298,7 @@ function ChatMaterialCard({
   lastDiscussedAt: string | null;
 }) {
   const isReady = status === 'ready';
+  const openMedea = useAppStore(state => state.setChatDrawerOpen);
 
   function formatTimeAgo(dateString: string) {
     const date = new Date(dateString);
@@ -335,14 +337,15 @@ function ChatMaterialCard({
 
       <div className="flex flex-col justify-center sm:ml-6 sm:w-48 shrink-0">
         {isReady ? (
-          <Link
-            href={`/chat?documentId=${documentId}`}
+          <button
+            type="button"
+            onClick={() => openMedea(true)}
             className="flex w-full items-center justify-center rounded-lg bg-blue-50 px-4 py-2.5 text-sm font-semibold text-blue-700 hover:bg-blue-100 dark:bg-blue-900/30 dark:text-blue-300 dark:hover:bg-blue-900/50 transition-colors focus:ring-2 focus:ring-blue-500 focus:outline-none"
             aria-label={lastDiscussedAt ? "Continue conversation with Medea" : "Ask Medea"}
           >
             <MessageSquare className="mr-2 h-4 w-4" />
             {lastDiscussedAt ? "Continue" : "Ask Medea"}
-          </Link>
+          </button>
         ) : (
           <button
             disabled

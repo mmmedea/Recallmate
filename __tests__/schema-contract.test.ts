@@ -9,4 +9,12 @@ describe("document schema contract", () => {
     expect(migration).toMatch(/add column if not exists content_type text/i);
     expect(migration).toMatch(/add column if not exists title text/i);
   });
+
+  it("allows authenticated students to insert only their own document rows", () => {
+    const migration = readFileSync(resolve(process.cwd(), "supabase/migrations/20260830070000_documents_owner_write_policies.sql"), "utf8");
+    expect(migration).toMatch(/for insert to authenticated/i);
+    expect(migration).toMatch(/auth\.uid\(\)\) = user_id/i);
+    expect(migration).toMatch(/for update to authenticated/i);
+    expect(migration).toMatch(/for delete to authenticated/i);
+  });
 });

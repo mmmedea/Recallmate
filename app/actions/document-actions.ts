@@ -9,7 +9,7 @@ export async function createDocumentUploadSession(payload: { fileName: string; f
   try {
     const { supabase, user } = await requireUser()
     const validatedData = UploadDocumentSchema.parse(payload)
-    const { isPremium } = await requireEntitlement()
+    await requireEntitlement()
 
     await checkRateLimit(user.id) 
 
@@ -42,7 +42,10 @@ export async function createDocumentUploadSession(payload: { fileName: string; f
     if (error instanceof SecurityError) {
       return { error: error.message, status: error.status }
     }
-    return { error: 'Internal Server Error', status: 500 }
+    if (error?.code === '42501') {
+      return { error: 'Your account could not create this upload. Please refresh your session and try again.', status: 403 }
+    }
+    return { error: error?.message || 'The upload could not be created.', status: 500 }
   }
 }
 

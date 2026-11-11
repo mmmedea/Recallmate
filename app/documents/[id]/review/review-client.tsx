@@ -1,12 +1,16 @@
 "use client";
 
 import React, { useState, useEffect } from "react";
+import { useRouter } from "next/navigation";
+import { useAppStore } from "@/lib/store";
 
 interface ReviewClientProps {
   documentId: string;
 }
 
 export default function ReviewClient({ documentId }: ReviewClientProps) {
+  const router = useRouter();
+  const openMedea = useAppStore(state => state.setChatDrawerOpen);
   const [items, setItems] = useState<any[]>([]);
   const [sessionId, setSessionId] = useState<string | null>(null);
   const [currentIndex, setCurrentIndex] = useState(0);
@@ -139,8 +143,8 @@ export default function ReviewClient({ documentId }: ReviewClientProps) {
             </div>
             
             <div className="mt-6 flex justify-center space-x-4">
-              <button className="text-sm text-gray-500 hover:text-gray-900 underline">Review Notes</button>
-              <button className="text-sm text-gray-500 hover:text-gray-900 underline">Ask Medea</button>
+              <button onClick={() => router.push(`/notes/${documentId}`)} className="text-sm text-gray-500 hover:text-gray-900 underline">Review Notes</button>
+              <button onClick={() => openMedea(true)} className="text-sm text-gray-500 hover:text-gray-900 underline">Ask Medea</button>
             </div>
           </div>
         </div>
