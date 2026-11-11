@@ -30,17 +30,17 @@
   "rewrites": [
     {
       "source": "/tutor",
-      "destination": "https://recallmate.vercel.app/"
+      "destination": "/"
     },
     {
       "source": "/tutor/:path*",
-      "destination": "https://recallmate.vercel.app/:path*"
+      "destination": "/:path*"
     }
   ],
   "redirects": [
     {
       "source": "/old-study-tool/:path*",
-      "destination": "https://recallmate.vercel.app/:path*",
+      "destination": "/:path*",
       "permanent": true
     }
   ],
