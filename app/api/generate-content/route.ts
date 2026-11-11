@@ -1,24 +1,21 @@
 import { NextRequest, NextResponse } from "next/server";
-import { GoogleGenAI } from "@google/genai";
 
 export const runtime = "nodejs";
 
-const apiKey = process.env.GEMINI_API_KEY || "";
-const ai = new GoogleGenAI({ apiKey });
-
 export async function POST(req: NextRequest) {
   try {
-    // 1. Guard check for missing API key
+    const apiKey = process.env.GEMINI_API_KEY;
+    
+    // 1. Guard check for missing API Key
     if (!apiKey) {
-      console.error("SERVER ERROR: GEMINI_API_KEY environment variable is missing.");
+      console.error("SERVER ERROR: GEMINI_API_KEY is missing.");
       return NextResponse.json(
-        { error: "Server Configuration Error: GEMINI_API_KEY is not set in Vercel." },
+        { error: "Server Configuration Error: GEMINI_API_KEY is not set." },
         { status: 500 }
       );
     }
 
-    const body = await req.json();
-    const { text, fileName } = body;
+    const { text, fileName } = await req.json();
 
     if (!text || text.trim().length < 20) {
       return NextResponse.json(
@@ -29,13 +26,11 @@ export async function POST(req: NextRequest) {
 
     const prompt = `You are an expert study assistant reviewing material from "${fileName || "Uploaded File"}".
 Extracted File Content:
-"""${text.slice(0, 20000)}"""
+"""${text.slice(0, 15000)}"""
 
 Instructions:
-1. Focus STRICTLY on the facts presented in the uploaded file text above. Do NOT include outside knowledge or unreferenced facts.
-2. Return ONLY a single raw JSON object matching the exact structure below (no markdown formatting, no code fences).
+Return ONLY a single raw JSON object matching the exact structure below. Do NOT wrap it in markdown blockquotes.
 
-JSON Structure required:
 {
   "summary": "Concise 3-5 sentence overview of the file.",
   "notes": ["bullet point 1", "bullet point 2"],
@@ -66,28 +61,46 @@ Rules:
 - Options must be labeled A, B, C, and D.
 - Include exact quote/source text and page/section number for "sourceCitation" and "pageNumber".`;
 
-    // 2. Call Gemini using the modern @google/genai SDK
-    const response = await ai.models.generateContent({
-      model: "gemini-2.5-flash",
-      contents: prompt,
+    // 2. Direct REST API Call (Bypasses SDK issues)
+    const url = `https://generativelanguage.googleapis.com/v1beta/models/gemini-1.5-flash:generateContent?key=${apiKey}`;
+    
+    const response = await fetch(url, {
+      method: "POST",
+      headers: {
+        "Content-Type": "application/json",
+      },
+      body: JSON.stringify({
+        contents: [{ parts: [{ text: prompt }] }],
+        generationConfig: {
+          responseMimeType: "application/json", // Forces strict JSON output
+        }
+      }),
     });
 
-    const rawText = response.text || "";
+    const aiData = await response.json();
 
-    if (!rawText) {
+    // 3. Catch API-level errors (like invalid keys or quotas)
+    if (!response.ok) {
+      console.error("Gemini API Error:", aiData);
       return NextResponse.json(
-        { error: "AI service returned an empty response. Please try again." },
+        { error: aiData.error?.message || "Google API rejected the request." },
         { status: 500 }
       );
     }
 
-    // 3. Extract and parse JSON output safely
-    const jsonMatch = rawText.match(/\{[\s\S]*\}/);
-    const cleanedJsonString = jsonMatch ? jsonMatch[0] : rawText.trim();
+    const rawText = aiData.candidates?.[0]?.content?.parts?.[0]?.text || "";
 
-    let data;
+    if (!rawText) {
+      return NextResponse.json(
+        { error: "AI service returned an empty response." },
+        { status: 500 }
+      );
+    }
+
+    // 4. Safe JSON Parsing
+    let parsedData;
     try {
-      data = JSON.parse(cleanedJsonString);
+      parsedData = JSON.parse(rawText.trim());
     } catch (parseErr) {
       console.error("JSON Parsing Failed. Raw text received from AI:", rawText);
       return NextResponse.json(
@@ -96,7 +109,7 @@ Rules:
       );
     }
 
-    return NextResponse.json({ fileName, ...data });
+    return NextResponse.json({ fileName, ...parsedData });
   } catch (err: any) {
     console.error("Unhandled Error in /api/generate-content:", err?.stack || err);
     return NextResponse.json(
