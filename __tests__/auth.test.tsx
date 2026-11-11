@@ -17,6 +17,7 @@ import { OAUTH_PROVIDERS } from '@/lib/config/auth';
 import { useOTPStore } from '@/lib/store';
 
 const authMocks = vi.hoisted(() => ({
+  searchParams: '',
   signInWithOAuth: vi.fn().mockResolvedValue({ data: {}, error: null }),
   signInWithOtp: vi.fn().mockResolvedValue({ data: {}, error: null }),
   signInWithPassword: vi.fn().mockResolvedValue({ data: {}, error: null }),
@@ -29,6 +30,7 @@ const availabilityFetch = vi.fn();
 beforeEach(() => {
   vi.clearAllMocks();
   useOTPStore.setState({ otpState: 'idle', otpFlowContext: null });
+  authMocks.searchParams = '';
   availabilityFetch.mockReset();
   availabilityFetch.mockResolvedValue({
     ok: true,
@@ -45,7 +47,7 @@ vi.mock('next/navigation', () => ({
     replace: vi.fn(),
     refresh: vi.fn(),
   }),
-  useSearchParams: () => new URLSearchParams(),
+  useSearchParams: () => new URLSearchParams(authMocks.searchParams),
 }));
 
 // Mock Supabase Client
@@ -89,14 +91,14 @@ describe('OAuthButtons Component', () => {
 
 describe('Signup Page Component', () => {
   it('initializes privacy state to false (unchecked)', () => {
-    render(<SignupPage searchParams={{}} />);
+    render(<SignupPage />);
     const checkbox = screen.getByRole('checkbox', { name: /I have read and agree to the/i }) as HTMLInputElement;
     expect(checkbox.checked).toBe(false);
   });
 
   it('allows details first, then requires legal consent on submit', async () => {
     authMocks.signInWithOtp.mockClear();
-    render(<SignupPage searchParams={{}} />);
+    render(<SignupPage />);
     fireEvent.change(screen.getByLabelText('Username'), { target: { value: 'student_18' } });
     fireEvent.change(screen.getByLabelText('Email'), { target: { value: 'student@gmail.com' } });
     fireEvent.change(screen.getByLabelText(/^Password$/), { target: { value: 'Strong!Pass1' } });
@@ -109,12 +111,13 @@ describe('Signup Page Component', () => {
   });
 
   it('safe next redirect survives OAuth', () => {
-    render(<SignupPage searchParams={{ next: '/notes' }} />);
+    render(authMocks.searchParams = '?next=%2Fnotes';
+    render(<SignupPage />););
     expect(screen.getByLabelText('Continue with Google')).toBeDefined();
   });
 
   it('Privacy Policy opens modal and does not toggle checkbox', async () => {
-    render(<SignupPage searchParams={{}} />);
+    render(<SignupPage />);
     
     const checkbox = screen.getByRole('checkbox') as HTMLInputElement;
     expect(checkbox.checked).toBe(false);
@@ -139,7 +142,7 @@ describe('Signup Page Component', () => {
   });
 
   it('Terms opens modal and does not toggle checkbox', async () => {
-    render(<SignupPage searchParams={{}} />);
+    render(<SignupPage />);
     
     const checkbox = screen.getByRole('checkbox') as HTMLInputElement;
     expect(checkbox.checked).toBe(false);
@@ -160,9 +163,14 @@ describe('Signup Page Component', () => {
 
 import LoginPage from '@/app/(auth)/login/page';
 
+const renderLoginPage = async (params: { next?: string } = {}) => {
+  const page = await LoginPage({ searchParams: Promise.resolve(params) });
+  return render(page);
+};
+
 describe('Login Page Component', () => {
-  it('Sign-in works without privacy checkbox', () => {
-    render(<LoginPage searchParams={{}} />);
+  it('Sign-in works without privacy checkbox', async () => {
+    await renderLoginPage();
     
     // Ensure Google button exists
     expect(screen.getByLabelText('Continue with Google')).toBeDefined();
@@ -173,7 +181,7 @@ describe('Login Page Component', () => {
   });
 
   it('uses email and password for an existing RecallMate account', async () => {
-    render(<LoginPage searchParams={{}} />);
+    await renderLoginPage();
     fireEvent.change(screen.getByLabelText('Email'), { target: { value: 'student@example.com' } });
     fireEvent.change(screen.getByLabelText('Password'), { target: { value: 'Strong!Pass1' } });
     fireEvent.click(screen.getByRole('button', { name: /^Sign in$/i }));
