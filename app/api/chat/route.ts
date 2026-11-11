@@ -46,14 +46,8 @@ const responseSchema = {
       description:
         "The final, beautifully polished, warm humanized tutoring response. Clean markdown and LaTeX ONLY ($...$ inline, $$...$$ block). Zero internal thought leaks.",
     },
-    recommended_questions: {
-      type: SchemaType.ARRAY,
-      items: { type: SchemaType.STRING },
-      description:
-        "Exactly 3 to 4 contextually relevant study follow-up questions for the student.",
-    },
   },
-  required: ["internal_reasoning", "clean_response", "recommended_questions"],
+  required: ["internal_reasoning", "clean_response"],
 };
 
 // ── Medea system persona ──────────────────────────────────────────────────────
@@ -73,7 +67,9 @@ Rules for clean_response:
 - When giving examples, ALWAYS start a new paragraph and use clean bullet points. Do not scramble examples together into a single paragraph.
 - Use appropriate, clean symbols for lists and ensure the formatting is pristine and not messy.
 - Follow elite Coherence, Cohesion, and Organizational patterns (combining Description, Chronological/Sequence, and Cause & Effect structures).
-- Never echo "internal_reasoning" content, never say "Constraint 1:", never output "* User says...".`;
+- Never echo "internal_reasoning" content, never say "Constraint 1:", never output "* User says...".
+- **Strict Paragraph Structure**: When writing explanations, strictly follow standard academic paragraph structure. Every paragraph must have a single main idea consisting of a topic sentence, supporting details/evidence, and a concluding wrap-up sentence. Maintain pristine grammar at all times.
+- **Strict Context Adherence**: If the student's message is unrelated to the uploaded document, answer their question directly. Do NOT force or invent a connection to the uploaded document.`;
 
 // ── Groq system prompt (adapted for JSON mode without strict schema) ───────────
 const GROQ_SYSTEM_PROMPT = `${MEDEA_PERSONA}
@@ -81,15 +77,13 @@ const GROQ_SYSTEM_PROMPT = `${MEDEA_PERSONA}
 IMPORTANT: You MUST respond with ONLY a valid JSON object in this exact shape:
 {
   "internal_reasoning": "<your private step-by-step thinking — never shown to students>",
-  "clean_response": "<your final warm tutoring response with LaTeX where needed>",
-  "recommended_questions": ["question 1", "question 2", "question 3"]
+  "clean_response": "<your final warm tutoring response with LaTeX where needed>"
 }
 No text outside the JSON object. No markdown code fences.`;
 
 // ── Shared JSON parser used by both providers ─────────────────────────────────
 function parseStructuredResponse(rawText: string): {
   cleanResponse: string;
-  recommendedQuestions: string[];
 } {
   try {
     // 1. LaTeX Normalization: Convert \( \) and \[ \] to $ and $$, and fix common unescaped math commands
@@ -117,16 +111,10 @@ function parseStructuredResponse(rawText: string): {
     const parsed = JSON.parse(patchedText);
     // internal_reasoning is extracted and permanently DISCARDED server-side
     const cleanResponse = (parsed.clean_response || "").trim();
-    const recommendedQuestions = Array.isArray(parsed.recommended_questions)
-      ? parsed.recommended_questions.filter(
-          (q: unknown): q is string =>
-            typeof q === "string" && q.trim().length > 0
-        )
-      : [];
-    return { cleanResponse, recommendedQuestions };
+    return { cleanResponse };
   } catch {
     // Graceful fallback: treat raw text as the response
-    return { cleanResponse: rawText.trim(), recommendedQuestions: [] };
+    return { cleanResponse: rawText.trim() };
   }
 }
 
@@ -209,8 +197,7 @@ In your clean_response you MUST:
 2. Strip all conversational greetings, redundant "Hellos", and internal planning monologues.
 3. Follow elite Coherence, Cohesion, and Organizational patterns.
 4. Structure the summary strictly combining Description, Chronological/Sequence, and Cause & Effect structures using Roman Numerals (I, II, III).
-5. For example: "I. Conceptual Overview (Description Pattern)", "II. Step-by-Step... (Sequence Pattern)", "III. Scientific Implications (Cause and Effect Pattern)".
-Your recommended_questions MUST be directly relevant to the video topic.`
+5. For example: "I. Conceptual Overview (Description Pattern)", "II. Step-by-Step... (Sequence Pattern)", "III. Scientific Implications (Cause and Effect Pattern)".`
       : "";
 
     // ── ASSEMBLE FULL PROMPT ──────────────────────────────────────────────────
@@ -266,7 +253,7 @@ ${lastUserMessage}`,
     );
 
     // ── PARSE STRUCTURED JSON ─────────────────────────────────────────────────
-    const { cleanResponse, recommendedQuestions } = parseStructuredResponse(rawText);
+    const { cleanResponse } = parseStructuredResponse(rawText);
 
     if (!cleanResponse) {
       return NextResponse.json(
@@ -276,14 +263,9 @@ ${lastUserMessage}`,
     }
 
     // ── BUILD FINAL CLIENT PAYLOAD ────────────────────────────────────────────
-    const questionsBlock =
-      recommendedQuestions.length > 0
-        ? `\n\n### 💡 Recommended Next Questions\n${recommendedQuestions.map((q) => `- ${q}`).join("\n")}`
-        : "";
-
     return NextResponse.json({
       role: "assistant",
-      content: `${cleanResponse}${questionsBlock}`,
+      content: cleanResponse,
     });
   } catch (err: any) {
     console.error("Chat API error:", err?.message || err);
