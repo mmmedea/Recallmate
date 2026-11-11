@@ -1,6 +1,5 @@
 import { createClient } from '@/utils/supabase/server'
-import { Ratelimit } from '@upstash/ratelimit'
-import { Redis } from '@upstash/redis'
+import { createClient as createAdminClient } from '@supabase/supabase-js'
 import type { SupabaseClient } from '@supabase/supabase-js'
 
 export class SecurityError extends Error {
@@ -69,32 +68,47 @@ export async function requireEntitlement() {
   return { supabase, user, isPremium }
 }
 
-let ratelimit: Ratelimit | null = null;
-const redisUrl = process.env.UPSTASH_REDIS_REST_URL || process.env.KV_REST_API_URL;
-const redisToken = process.env.UPSTASH_REDIS_REST_TOKEN || process.env.KV_REST_API_TOKEN;
-if (redisUrl && redisToken) {
-  const redis = new Redis({ url: redisUrl, token: redisToken });
+let rateLimitClient: ReturnType<typeof createAdminClient> | null = null
 
-  ratelimit = new Ratelimit({
-    redis: redis,
-    limiter: Ratelimit.slidingWindow(10, '10 s'),
-    analytics: true,
-  });
+function getRateLimitClient() {
+  const url = process.env.NEXT_PUBLIC_SUPABASE_URL
+  const serviceKey = process.env.SUPABASE_SERVICE_ROLE_KEY
+  if (!url || !serviceKey) {
+    throw new SecurityError('Rate limiting is not configured', 503)
+  }
+  if (!rateLimitClient) {
+    rateLimitClient = createAdminClient(url, serviceKey, {
+      auth: { autoRefreshToken: false, persistSession: false },
+    })
+  }
+  return rateLimitClient
 }
 
-export async function checkRateLimit(ip: string) {
-  if (!ratelimit) {
-    if (process.env.NODE_ENV === 'production') {
-      throw new SecurityError('Rate limiting is not configured', 503)
-    }
-    return true
+export async function checkRateLimit(
+  key: string,
+  options: { limit?: number; windowSeconds?: number } = {}
+) {
+  if (typeof key !== 'string' || key.length < 1 || key.length > 512) {
+    throw new SecurityError('Invalid rate-limit key', 400)
   }
-  
-  const { success } = await ratelimit.limit(ip);
-  if (!success) {
+
+  const limit = options.limit ?? 10
+  const windowSeconds = options.windowSeconds ?? 10
+  const admin = getRateLimitClient()
+  const { data, error } = await admin.rpc('consume_rate_limit', {
+    p_key: key,
+    p_limit: limit,
+    p_window_seconds: windowSeconds,
+  })
+
+  if (error || typeof data !== 'boolean') {
+    console.error('[security] database rate limiter unavailable:', error?.message)
+    throw new SecurityError('Rate limiting is temporarily unavailable', 503)
+  }
+  if (!data) {
     throw new SecurityError('Rate limit exceeded', 429)
   }
-  return true;
+  return true
 }
 
 export async function getOrCreateIdempotentJob(supabase: SupabaseClient, userId: string, idempotencyKey: string, documentId: string, operation: string) {
