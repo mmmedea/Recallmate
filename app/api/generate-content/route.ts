@@ -1,10 +1,13 @@
 import { NextRequest, NextResponse } from "next/server";
+import { Redis } from "@upstash/redis";
 
 export const runtime = "nodejs";
 
-// In-memory rate limiter map (IP -> timestamp)
-const rateLimitMap = new Map<string, number>();
-const RATE_LIMIT_WINDOW_MS = 60000; // 1 minute window
+// Initialize global Redis client using Vercel's KV environment variables
+const redis = new Redis({
+  url: process.env.KV_REST_API_URL || process.env.UPSTASH_REDIS_REST_URL || "",
+  token: process.env.KV_REST_API_TOKEN || process.env.UPSTASH_REDIS_REST_TOKEN || "",
+});
 
 // Guardrail: Jailbreak & Prompt Injection Blacklist Patterns
 const DANGEROUS_PATTERNS = [
@@ -64,19 +67,21 @@ function shuffleQuestionOptions(questions: any[]) {
 
 export async function POST(req: NextRequest) {
   try {
-    // 1. RATE LIMITING RAIL
+    // 1. GLOBAL RATE LIMITING RAIL VIA UPSTASH REDIS
     const ip = req.headers.get("x-forwarded-for") || "127.0.0.1";
-    const now = Date.now();
-    const lastRequestTime = rateLimitMap.get(ip) || 0;
+    const rateLimitKey = `ratelimit:${ip}`;
 
-    if (now - lastRequestTime < RATE_LIMIT_WINDOW_MS) {
-      const waitSeconds = Math.ceil((RATE_LIMIT_WINDOW_MS - (now - lastRequestTime)) / 1000);
+    const requests = await redis.incr(rateLimitKey);
+    if (requests === 1) {
+      await redis.expire(rateLimitKey, 60); // 1 minute window expiration
+    }
+
+    if (requests > 5) {
       return NextResponse.json(
-        { error: `Rate limit reached. Please wait ${waitSeconds} seconds before generating another session.` },
+        { error: "Rate limit reached. Please wait a minute before generating another quiz session." },
         { status: 429 }
       );
     }
-    rateLimitMap.set(ip, now);
 
     const apiKey = process.env.GEMINI_API_KEY;
     if (!apiKey) {
