@@ -213,7 +213,7 @@ export function EmailOTPForm({
       <div className="space-y-1.5"><Label htmlFor="confirm-password-input">Confirm password</Label><Input id="confirm-password-input" type="password" value={confirmPassword} onChange={event => onConfirmPasswordChange?.(event.target.value)} autoComplete="new-password" disabled={isLoading} required /></div>
       {captchaEnabled && <TurnstileCaptcha onVerify={setCaptchaToken} onExpire={() => setCaptchaToken(null)} onError={() => { setCaptchaToken(null); setErrorKey("captcha_failed"); }} />}
       {currentError && <p id={errorId} role="alert" className="text-sm text-rose-600 dark:text-rose-400">{currentError}</p>}
-      <Button type="submit" className="h-11 w-full bg-indigo-600 font-semibold hover:bg-indigo-700" disabled={isLoading || !email.trim()}>{isLoading ? <Loader2 className="h-4 w-4 animate-spin" /> : <><Mail className="h-4 w-4" />Create account & send code</>}</Button>
+      <Button type="submit" className="h-11 w-full bg-indigo-600 font-semibold hover:bg-indigo-700" disabled={isLoading || !email.trim() || !privacyAgreed}>{isLoading ? <Loader2 className="h-4 w-4 animate-spin" /> : <><Mail className="h-4 w-4" />Create account & send code</>}</Button>
     </form>;
   }
 
