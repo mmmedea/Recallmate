@@ -17,7 +17,10 @@ export function ChatMessage({
   const isAssistant = message.role === "assistant";
   
   // Extract annotations
-  const annotations = ((message.metadata?.annotations || message.annotations) as MedeaStreamPart[]) || [];\n  const messageText = Array.isArray(message.parts)\n    ? message.parts.filter((part: any) => part.type === 'text').map((part: any) => part.text).join('')\n    : message.content || '';
+  const annotations = ((message.metadata?.annotations || message.annotations) as MedeaStreamPart[]) || [];
+  const messageText = Array.isArray(message.parts)
+    ? message.parts.filter((part: any) => part.type === 'text').map((part: any) => part.text).join('')
+    : message.content || '';
   
   const statusAnnotations = annotations.filter(a => a.type === "data-tutor-status");
   const latestStatus = statusAnnotations.length > 0 ? statusAnnotations[statusAnnotations.length - 1].data : null;
