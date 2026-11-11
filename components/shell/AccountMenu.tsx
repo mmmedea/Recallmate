@@ -2,7 +2,7 @@
 
 import { useState } from "react";
 import { useRouter } from "next/navigation";
-import { User, Settings, LogOut, Loader2 } from "lucide-react";
+import { User, Settings, LogOut, Loader2, HelpCircle } from "lucide-react";
 import { createClient } from "@/utils/supabase/client";
 import {
   DropdownMenu,
@@ -57,6 +57,12 @@ export function AccountMenu({ user }: { user: AuthenticatedUser }) {
           <Link href="/settings">
           <Settings className="mr-2 h-4 w-4" />
           <span>Settings</span>
+          </Link>
+        </DropdownMenuItem>
+        <DropdownMenuItem asChild className="cursor-pointer">
+          <Link href="/help">
+            <HelpCircle className="mr-2 h-4 w-4" />
+            <span>Help center</span>
           </Link>
         </DropdownMenuItem>
         <DropdownMenuSeparator />

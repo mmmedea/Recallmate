@@ -1,5 +1,7 @@
 import { NextResponse } from "next/server";
 import { createClient } from "@/utils/supabase/server";
+import { createClient as createServiceClient } from "@supabase/supabase-js";
+import { syncEventsToGoogle, type GoogleSyncEvent } from "@/lib/integrations/google-calendar";
 
 function safeInternalPath(value: string | null) {
   return value?.startsWith("/") && !value.startsWith("//") ? value : "/dashboard";
@@ -15,8 +17,8 @@ export async function GET(request: Request) {
   }
 
   const supabase = await createClient();
-  const { error } = await supabase.auth.exchangeCodeForSession(code);
-  if (error) {
+  const { data: exchange, error } = await supabase.auth.exchangeCodeForSession(code);
+  if (error || !exchange.session) {
     return NextResponse.redirect(new URL("/auth/auth-code-error", url.origin));
   }
 
@@ -32,6 +34,43 @@ export async function GET(request: Request) {
     const onboarding = new URL("/onboarding", url.origin);
     onboarding.searchParams.set("next", destination);
     return NextResponse.redirect(onboarding);
+  }
+
+  if (url.searchParams.get("integration") === "google-calendar") {
+    const resultUrl = new URL("/calendar", url.origin);
+    try {
+      if (!exchange.session.provider_token || !user) throw new Error("Google did not provide Calendar access");
+      const service = createServiceClient(
+        process.env.NEXT_PUBLIC_SUPABASE_URL!,
+        process.env.SUPABASE_SERVICE_ROLE_KEY!,
+        { auth: { persistSession: false, autoRefreshToken: false } },
+      );
+      const { data: events, error: eventsError } = await service
+        .from("calendar_events")
+        .select("id,title,description,starts_at,ends_at,all_day,event_type,priority,google_event_id")
+        .eq("user_id", user.id)
+        .order("starts_at");
+      if (eventsError) throw eventsError;
+
+      const sync = await syncEventsToGoogle({
+        accessToken: exchange.session.provider_token,
+        events: (events ?? []) as GoogleSyncEvent[],
+      });
+      for (const mapping of sync.mappings) {
+        const { error: updateError } = await service
+          .from("calendar_events")
+          .update({ google_event_id: mapping.googleEventId, google_synced_at: new Date().toISOString() })
+          .eq("id", mapping.recallmateEventId)
+          .eq("user_id", user.id);
+        if (updateError) throw updateError;
+      }
+      resultUrl.searchParams.set("google", "connected");
+      resultUrl.searchParams.set("synced", String(sync.synced));
+    } catch (syncError) {
+      console.error("Google Calendar sync failed:", syncError instanceof Error ? syncError.message : "Unknown error");
+      resultUrl.searchParams.set("google", "error");
+    }
+    return NextResponse.redirect(resultUrl);
   }
 
   return NextResponse.redirect(new URL(destination, url.origin));
