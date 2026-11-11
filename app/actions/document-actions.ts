@@ -12,7 +12,7 @@ export async function createDocumentUploadSession(payload: { fileName: string; f
     const validatedData = UploadDocumentSchema.parse(payload)
     await requireEntitlement()
 
-    await checkRateLimit(user.id) 
+    await checkRateLimit(`document-upload:${user.id}`, { limit: 10, windowSeconds: 60 }) 
 
     const documentId = uuidv4()
     
