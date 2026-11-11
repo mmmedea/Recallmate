@@ -81,7 +81,7 @@ export default function StudyHubClient({ initialSummary }: { initialSummary: Doc
   };
 
   const { document, extraction, notes, quiz } = summary;
-  const extractionFailed = extraction.status === 'failed' || extraction.status === 'cancelled' || extraction.status === 'inconsistent';
+  const extractionFailed = extraction.status === 'failed' || extraction.status === 'cancelled';
   
   if (extractionFailed) {
     return (
