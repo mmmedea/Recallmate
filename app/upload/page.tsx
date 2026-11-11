@@ -65,32 +65,36 @@ export default function UploadPage() {
         let clientSideFailed = false;
 
         // ==========================================
-        // 1. CLIENT-SIDE EXTRACTION (Bypasses Vercel Limits)
+        // 1. CLIENT-SIDE EXTRACTION (In-App Browser Safe)
         // ==========================================
         try {
           if (fileName.endsWith(".txt") || fileName.endsWith(".md") || fileName.endsWith(".csv")) {
             extractedTextForFile = await file.text();
           } 
           else if (fileName.endsWith(".docx") || fileName.endsWith(".doc")) {
-            if (!mammothLib) mammothLib = (await import("mammoth")).default;
+            if (!mammothLib) {
+              const mammothModule = await import("mammoth");
+              // Fix for Next.js dynamic import inconsistencies
+              mammothLib = mammothModule.default || mammothModule;
+            }
             const arrayBuffer = await file.arrayBuffer();
             const result = await mammothLib.extractRawText({ arrayBuffer });
             extractedTextForFile = result.value;
           }
-          // NEW: High-Speed Client-Side PPTX Extraction!
+          // PPTX Extraction specifically fixed for Messenger/iOS
           else if (fileName.endsWith(".pptx")) {
-            const JSZip = (await import("jszip")).default;
-            const zip = new JSZip();
+            const zipModule = await import("jszip");
+            // Bulletproof import fallback to prevent "not a constructor" crashes
+            const JSZip = zipModule.default || zipModule;
+            const zip = new (JSZip as any)();
             const loadedZip = await zip.loadAsync(file);
             
-            // Loop through the zipped XML files to find the slide content
             for (const [relativePath, zipEntry] of Object.entries(loadedZip.files)) {
               if (relativePath.startsWith("ppt/slides/slide") && relativePath.endsWith(".xml")) {
-                const xmlContent = await zipEntry.async("string");
-                // Extract text from the <a:t> XML tags where PowerPoint stores text
+                const xmlContent = await (zipEntry as any).async("string");
                 const textMatches = xmlContent.match(/<a:t>([\s\S]*?)<\/a:t>/g);
                 if (textMatches) {
-                  const slideText = textMatches.map(match => match.replace(/<\/?a:t>/g, '')).join(" ");
+                  const slideText = textMatches.map((match: string) => match.replace(/<\/?a:t>/g, '')).join(" ");
                   extractedTextForFile += slideText + "\n";
                 }
               }
@@ -101,7 +105,8 @@ export default function UploadPage() {
           }
           else if (fileName.endsWith(".pdf")) {
             if (!pdfjsLib) {
-              pdfjsLib = await import("pdfjs-dist");
+              const pdfjsModule = await import("pdfjs-dist");
+              pdfjsLib = pdfjsModule.default || pdfjsModule;
               pdfjsLib.GlobalWorkerOptions.workerSrc = `https://cdnjs.cloudflare.com/ajax/libs/pdf.js/${pdfjsLib.version}/pdf.worker.min.js`;
             }
             
@@ -116,7 +121,7 @@ export default function UploadPage() {
               const batchPromises = [];
               for (let j = i; j < i + batchSize && j <= maxPages; j++) {
                 batchPromises.push(
-                  pdf.getPage(j).then(async (page) => {
+                  pdf.getPage(j).then(async (page: any) => {
                     try {
                       const textContent = await page.getTextContent();
                       const text = textContent.items.map((item: any) => item.str).join(" ");
@@ -142,14 +147,13 @@ export default function UploadPage() {
             }
           }
         } catch (clientErr) {
-          console.warn("Client browser failed to read file, routing to server backend...", clientErr);
+          console.error("Client browser failed to read file, routing to server backend...", clientErr);
           clientSideFailed = true; 
         }
 
         // ==========================================
         // 2. SERVER-SIDE FALLBACK 
         // ==========================================
-        // Notice we added .pptx to the ignored list here so it doesn't trigger the 4.5MB error
         if (
           clientSideFailed || 
           (!fileName.endsWith(".txt") && !fileName.endsWith(".md") && !fileName.endsWith(".csv") && 
