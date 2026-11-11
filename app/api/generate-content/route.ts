@@ -93,7 +93,7 @@ export async function POST(req: NextRequest) {
     const requestedCount = Math.min(Math.max(Number(count) || 10, 5), maxAllowed);
 
     // 6: Rate Limit
-    await checkRateLimit(user.id);
+    await checkRateLimit(`generate-content:${user.id}`, { limit: 5, windowSeconds: 60 });
 
     // 7: Check Idempotency (if an idempotency key is provided)
     if (idempotencyKey && documentId) {
