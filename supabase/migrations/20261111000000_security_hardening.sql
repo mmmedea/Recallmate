@@ -24,6 +24,12 @@ DECLARE
     v_source_chunk_index integer;
     v_first_source_chunk_id uuid;
 BEGIN
+    IF length(COALESCE(p_summary, '')) > 50000
+       OR COALESCE(cardinality(p_key_points), 0) > 100
+       OR COALESCE(cardinality(p_topics), 0) > 100 THEN
+        RAISE EXCEPTION 'Generated notes exceed allowed limits';
+    END IF;
+
     IF NOT EXISTS (
         SELECT 1
         FROM public.ai_jobs j
@@ -37,10 +43,9 @@ BEGIN
         RAISE EXCEPTION 'Unauthorized or invalid generation job';
     END IF;
 
-    INSERT INTO public.notes (document_id, user_id, content)
+    INSERT INTO public.notes (document_id, content)
     VALUES (
         p_document_id,
-        p_user_id,
         '# Summary' || E'\n' || COALESCE(p_summary, '') ||
         E'\n\n' || '# Key Points' || E'\n' ||
         array_to_string(COALESCE(p_key_points, ARRAY[]::text[]), E'\n- ')
@@ -56,6 +61,12 @@ BEGIN
         WHERE dc.document_id = p_document_id
           AND dc.chunk_index = v_source_chunk_index
         LIMIT 1;
+
+        IF v_first_source_chunk_id IS NULL
+           OR length(COALESCE(v_topic->>'name', '')) NOT BETWEEN 1 AND 200
+           OR length(COALESCE(v_topic->>'description', '')) > 10000 THEN
+            RAISE EXCEPTION 'Invalid generated topic or source citation';
+        END IF;
 
         INSERT INTO public.topics (document_id, name, description, source_chunk_id)
         VALUES (
@@ -97,6 +108,10 @@ DECLARE
     v_correct_answer_text text;
     v_correct_answer_index integer;
 BEGIN
+    IF COALESCE(cardinality(p_questions), 0) NOT BETWEEN 5 AND 100 THEN
+        RAISE EXCEPTION 'Generated quiz question count is outside allowed limits';
+    END IF;
+
     IF NOT EXISTS (
         SELECT 1
         FROM public.ai_jobs j
@@ -120,6 +135,12 @@ BEGIN
           AND dc.chunk_index = v_source_chunk_index
         LIMIT 1;
 
+        IF v_first_source_chunk_id IS NULL
+           OR length(COALESCE(v_question->>'questionText', '')) NOT BETWEEN 1 AND 2000
+           OR length(COALESCE(v_question->>'explanation', '')) > 10000 THEN
+            RAISE EXCEPTION 'Invalid generated question or source citation';
+        END IF;
+
         SELECT array_agg(x)
         INTO v_options_array
         FROM jsonb_array_elements_text(v_question->'options') AS x;
@@ -129,7 +150,8 @@ BEGIN
         IF v_options_array IS NULL
            OR cardinality(v_options_array) <> 4
            OR v_correct_answer_index < 0
-           OR v_correct_answer_index > 3 THEN
+           OR v_correct_answer_index > 3
+           OR EXISTS (SELECT 1 FROM unnest(v_options_array) option_text WHERE length(option_text) NOT BETWEEN 1 AND 500) THEN
             RAISE EXCEPTION 'Invalid generated question options';
         END IF;
 
@@ -142,7 +164,7 @@ BEGIN
         VALUES (
             p_document_id,
             v_question->>'questionText',
-            v_options_array,
+            to_jsonb(v_options_array),
             v_correct_answer_text,
             v_question->>'explanation',
             'medium',
