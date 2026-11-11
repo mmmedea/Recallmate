@@ -1,9 +1,9 @@
 /** @type {import('next').NextConfig} */
 const nextConfig = {
+  serverExternalPackages: ['officeparser', 'pdfjs-dist'],
   experimental: {
-    serverComponentsExternalPackages: ['officeparser', 'pdfjs-dist'],
     serverActions: {
-      bodySizeLimit: '50mb',
+      bodySizeLimit: '10mb',
     },
   },
   
