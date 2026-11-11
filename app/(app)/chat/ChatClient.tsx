@@ -1,7 +1,8 @@
 "use client";
 
 import { useChat } from "@ai-sdk/react";
-import { useState, useRef, useEffect } from "react";
+import { DefaultChatTransport } from "ai";
+import { useState, useRef, useEffect, useMemo } from "react";
 import { v4 as uuidv4 } from "uuid";
 import { ChatHeader } from "@/components/chat/ChatHeader";
 import { ChatComposer } from "@/components/chat/ChatComposer";
@@ -16,8 +17,8 @@ export default function ChatClient({
   documentTitle: string;
   initialMessages: any[];
 }) {
-  const [requestId, setRequestId] = useState(uuidv4());
   const [input, setInput] = useState("");
+  const transport = useMemo(() => new DefaultChatTransport({ api: "/api/chat" }), []);
 
   const {
     messages,
@@ -27,9 +28,8 @@ export default function ChatClient({
     regenerate,
     stop,
   } = useChat({
-    api: "/api/chat",
+    transport,
     messages: initialMessages,
-    body: { documentId, requestId },
     onError: (err) => {
       console.error("Chat Error:", err);
     },
@@ -42,7 +42,6 @@ export default function ChatClient({
     if (!text || isLoading) return;
 
     const nextRequestId = uuidv4();
-    setRequestId(nextRequestId);
     void sendMessage(
       { text },
       { body: { documentId, message: text, requestId: nextRequestId } }
@@ -88,7 +87,6 @@ export default function ChatClient({
   const handleRetry = () => {
     if (!lastUserText) return;
     const nextRequestId = uuidv4();
-    setRequestId(nextRequestId);
     void regenerate({
       body: { documentId, message: lastUserText, requestId: nextRequestId },
     });
