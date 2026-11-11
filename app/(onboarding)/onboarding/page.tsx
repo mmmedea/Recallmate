@@ -63,9 +63,9 @@ export default function OnboardingPage() {
       <form onSubmit={submit} className="space-y-5 rounded-3xl border border-white/70 bg-white/90 p-7 shadow-2xl shadow-indigo-950/15 backdrop-blur-xl dark:border-slate-700/70 dark:bg-slate-900/90 sm:p-9">
         <div className="space-y-2 text-center">
           <span className="mx-auto grid h-12 w-12 place-items-center rounded-2xl bg-gradient-to-br from-indigo-500 to-fuchsia-500 text-white shadow-lg shadow-indigo-500/25"><CheckCircle2 className="h-6 w-6" /></span>
-          <p className="text-xs font-bold uppercase tracking-[0.22em] text-indigo-600 dark:text-indigo-400">Verified with Google</p>
+          <p className="text-xs font-bold uppercase tracking-[0.22em] text-indigo-600 dark:text-indigo-400">Email verified</p>
           <h1 id="onboarding-title" className="text-2xl font-black tracking-tight text-slate-950 dark:text-white">Create your RecallMate account</h1>
-          <p className="text-sm leading-6 text-slate-500 dark:text-slate-400">Your Google identity is verified. Complete these required details before entering the dashboard.</p>
+          <p className="text-sm leading-6 text-slate-500 dark:text-slate-400">Your email identity is verified. Complete these required details before entering the dashboard.</p>
         </div>
         <div className="space-y-1.5"><Label htmlFor="verified-email">Verified email</Label><Input id="verified-email" value={email} readOnly className="bg-slate-100 text-slate-500 dark:bg-slate-800" /></div>
         <div className="space-y-1.5"><Label htmlFor="onboarding-username">Username</Label><div className="relative"><UserRound className="absolute left-3 top-3 h-4 w-4 text-slate-400" /><Input id="onboarding-username" value={username} onChange={event => setUsername(event.target.value)} className="pl-9" placeholder="your_username" autoComplete="username" required /></div></div>

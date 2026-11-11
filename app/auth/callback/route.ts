@@ -24,10 +24,11 @@ export async function GET(request: Request) {
     data: { user },
   } = await supabase.auth.getUser();
   const username = user?.user_metadata?.username;
+  const accountCompleted = user?.user_metadata?.recallmate_account_completed === true;
 
   // Google can authenticate an identity, but it cannot bypass creation of the
   // student's RecallMate profile. New social users must finish onboarding.
-  if (!username || typeof username !== "string" || username.trim().length < 3) {
+  if (!username || typeof username !== "string" || username.trim().length < 3 || !accountCompleted) {
     const onboarding = new URL("/onboarding", url.origin);
     onboarding.searchParams.set("next", destination);
     return NextResponse.redirect(onboarding);
