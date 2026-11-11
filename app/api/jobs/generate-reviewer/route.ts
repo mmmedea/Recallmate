@@ -25,7 +25,7 @@ export async function POST(req: NextRequest) {
     const supabase = createClient(supabaseUrl, serviceRoleKey, { auth: { autoRefreshToken: false, persistSession: false } });
     const { data: { user }, error: userError } = await supabase.auth.getUser(token);
     if (userError || !user) return NextResponse.json({ error: 'Unauthorized' }, { status: 401 });
-    await checkRateLimit(user.id);
+    await checkRateLimit(`reviewer-generation:${user.id}`, { limit: 3, windowSeconds: 60 });
 
     // 2. Billing Check (Reserve 50 credits per reviewer generation)
     const billingService = new BillingService(supabase);
