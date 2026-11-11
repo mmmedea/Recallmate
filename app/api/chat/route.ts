@@ -7,7 +7,7 @@ import { LexicalRetriever } from "@/lib/ai/retriever";
 import { BillingService } from "@/lib/ai/billing";
 import { ProviderAdapter } from "@/lib/ai/provider";
 import { buildBoundedMemoryPrompt, ChatMessage } from "@/lib/ai/memory";
-import { rateLimitAdapter } from "@/lib/ai/ratelimit";
+import { checkRateLimit } from "@/lib/security";
 import { createUIMessageStreamResponse } from "ai";
 import {
   buildMedeaGeneralPrompt,
@@ -31,9 +31,10 @@ export async function POST(req: NextRequest) {
   }
 
   try {
-    await rateLimitAdapter.checkChatRateLimit(user.id);
+    await checkRateLimit(`chat:${user.id}`, { limit: 10, windowSeconds: 60 });
   } catch (err: any) {
-    return NextResponse.json({ error: err.message }, { status: 429 });
+    const status = Number.isInteger(err?.status) ? err.status : err?.message === 'Rate limit exceeded' ? 429 : 503;
+    return NextResponse.json({ error: status === 429 ? 'Rate limit exceeded. Please try again later.' : 'Chat service is temporarily unavailable.' }, { status });
   }
 
   let body;
