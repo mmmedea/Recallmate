@@ -348,21 +348,9 @@ export default function OmniChatDrawer() {
                       </span>
                     )}
                   </h2>
-                  <div className="mt-1 flex items-center bg-slate-200/50 dark:bg-slate-800 rounded-lg p-0.5 w-fit">
-                    {["tutor", "dictionary", "socratic"].map((m) => (
-                      <button
-                        key={m}
-                        onClick={() => setMode(m as any)}
-                        className={`px-2 py-0.5 text-[9px] font-bold rounded-md uppercase tracking-wider transition-colors ${
-                          mode === m
-                            ? "bg-white dark:bg-slate-700 text-indigo-600 dark:text-indigo-400 shadow-sm"
-                            : "text-slate-500 hover:text-slate-700 dark:hover:text-slate-300"
-                        }`}
-                      >
-                        {m}
-                      </button>
-                    ))}
-                  </div>
+                  <p className="text-xs text-slate-500 dark:text-slate-400">
+                    Interactive Tutor & Smart Dictionary
+                  </p>
                 </div>
               </div>
 
