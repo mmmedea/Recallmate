@@ -1,7 +1,7 @@
 "use client";
 
 import { useRef, useState } from "react";
-import { UploadCloud, FileText, Video } from "lucide-react";
+import { UploadCloud, FileText, Image as ImageIcon } from "lucide-react";
 
 export default function FileUploader({
   onFileSelected,
@@ -31,27 +31,40 @@ export default function FileUploader({
         handleFiles(e.dataTransfer.files);
       }}
       onClick={() => !disabled && inputRef.current?.click()}
-      className={`flex cursor-pointer flex-col items-center justify-center rounded-3xl border-2 border-dashed p-12 text-center transition ${
-        isDragging ? "border-indigo-400 bg-indigo-50" : "border-gray-200 bg-white"
+      className={`flex cursor-pointer flex-col items-center justify-center rounded-3xl border-2 border-dashed p-10 text-center transition-all duration-200 ${
+        isDragging
+          ? "border-indigo-500 bg-indigo-50/80 dark:bg-indigo-950/40"
+          : "border-slate-300 dark:border-slate-800 bg-white dark:bg-slate-900 hover:border-indigo-400 dark:hover:border-indigo-500"
       } ${disabled ? "pointer-events-none opacity-60" : ""}`}
     >
       <input
         ref={inputRef}
         type="file"
-        hidden
-        accept=".pdf,.docx,.txt,.md,video/*,audio/*"
+        className="hidden"
+        accept=".pdf,.ppt,.pptx,.doc,.docx,image/png,image/jpeg,image/jpg"
         onChange={(e) => handleFiles(e.target.files)}
+        disabled={disabled}
       />
-      <div className="mb-4 flex h-14 w-14 items-center justify-center rounded-2xl bg-indigo-50">
-        <UploadCloud className="h-7 w-7 text-indigo-500" />
+
+      <div className="mb-4 flex h-14 w-14 items-center justify-center rounded-2xl bg-indigo-50 dark:bg-indigo-950/80 text-indigo-600 dark:text-indigo-400">
+        <UploadCloud className="h-7 w-7" />
       </div>
-      <p className="font-semibold text-gray-900">Drop a file or click to upload</p>
-      <p className="mt-1 text-sm text-gray-400">
-        PDF, DOCX, TXT, or video/audio for automatic transcription
+
+      <p className="text-base font-bold text-slate-900 dark:text-white">
+        Drop a file or click to upload
       </p>
-      <div className="mt-4 flex items-center gap-4 text-xs text-gray-400">
-        <span className="flex items-center gap-1"><FileText className="h-3.5 w-3.5" /> Documents</span>
-        <span className="flex items-center gap-1"><Video className="h-3.5 w-3.5" /> Video / Audio</span>
+      
+      <p className="mt-1 text-xs font-medium text-slate-500 dark:text-slate-400">
+        Supports PDF, PPT, PPTX, DOCX, PNG, or JPEG
+      </p>
+
+      <div className="mt-5 flex items-center gap-6 text-xs font-semibold text-slate-400 dark:text-slate-500">
+        <span className="flex items-center gap-1.5">
+          <FileText className="h-4 w-4 text-indigo-500" /> Documents
+        </span>
+        <span className="flex items-center gap-1.5">
+          <ImageIcon className="h-4 w-4 text-purple-500" /> Images
+        </span>
       </div>
     </div>
   );
