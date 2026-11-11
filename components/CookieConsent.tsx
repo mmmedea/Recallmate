@@ -42,7 +42,7 @@ export default function CookieConsent() {
               <p className="font-pixelify text-[10px] uppercase tracking-[0.2em] text-[#ff8293]">Your data, your choice</p>
               <h2 className="font-fredoka text-xl font-semibold tracking-tight text-white sm:text-2xl">We value your privacy</h2>
               <p className="font-nunito text-sm leading-relaxed text-[#c7bfd2] sm:text-base">
-                We use essential cookies to keep RecallMate secure and keep you signed in. With your permission, we may also use optional cookies to understand product usage and improve the experience.
+                We use essential cookies to keep RecallMate secure and keep you signed in. Optional analytics and marketing technologies are only used when configured and with your permission.
               </p>
             </div>
             <div className="relative flex w-full shrink-0 flex-col gap-3 sm:flex-row md:w-auto">
@@ -72,14 +72,14 @@ export default function CookieConsent() {
               <Checkbox id="analytics" checked={preferences.analytics} onCheckedChange={(checked) => setPreferences((current) => ({ ...current, analytics: !!checked }))} />
               <div className="space-y-1 leading-none">
                 <Label htmlFor="analytics" className="font-semibold text-white">Analytics Cookies</Label>
-                <p className="text-xs text-[#aaa0b8]">Help us understand how people use RecallMate so we can improve it.</p>
+                <p className="text-xs text-[#aaa0b8]">If enabled and implemented, helps us understand product usage and improve RecallMate.</p>
               </div>
             </div>
             <div className="flex items-start space-x-3">
               <Checkbox id="marketing" checked={preferences.marketing} onCheckedChange={(checked) => setPreferences((current) => ({ ...current, marketing: !!checked }))} />
               <div className="space-y-1 leading-none">
                 <Label htmlFor="marketing" className="font-semibold text-white">Marketing Cookies</Label>
-                <p className="text-xs text-[#aaa0b8]">Used to measure relevant campaign performance.</p>
+                <p className="text-xs text-[#aaa0b8]">If enabled and implemented, may help measure campaign performance.</p>
               </div>
             </div>
           </div>
