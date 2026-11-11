@@ -11,13 +11,23 @@ if (typeof window !== 'undefined') {
 }
 
 import { OAuthButtons } from '@/components/auth/OAuthButtons';
+import { EmailOTPForm } from '@/components/auth/EmailOTPForm';
 import SignupPage from '@/app/(auth)/signup/page';
 import { OAUTH_PROVIDERS } from '@/lib/config/auth';
+
+const authMocks = vi.hoisted(() => ({
+  signInWithOAuth: vi.fn().mockResolvedValue({ data: {}, error: null }),
+  signInWithOtp: vi.fn().mockResolvedValue({ data: {}, error: null }),
+  signInWithPassword: vi.fn().mockResolvedValue({ data: {}, error: null }),
+  verifyOtp: vi.fn().mockResolvedValue({ data: {}, error: null }),
+  updateUser: vi.fn().mockResolvedValue({ data: {}, error: null }),
+}));
 
 // Mock Next.js router & navigation
 vi.mock('next/navigation', () => ({
   useRouter: () => ({
     push: vi.fn(),
+    replace: vi.fn(),
     refresh: vi.fn(),
   }),
   useSearchParams: () => new URLSearchParams(),
@@ -26,10 +36,7 @@ vi.mock('next/navigation', () => ({
 // Mock Supabase Client
 vi.mock('@/utils/supabase/client', () => ({
   createClient: () => ({
-    auth: {
-      signInWithOAuth: vi.fn().mockResolvedValue({ data: {}, error: null }),
-      signInWithOtp: vi.fn().mockResolvedValue({ data: {}, error: null }),
-    },
+    auth: authMocks,
   }),
 }));
 
@@ -140,6 +147,40 @@ describe('Login Page Component', () => {
     const checkbox = screen.queryByRole('checkbox');
     expect(checkbox).toBeNull();
   });
+
+  it('uses email and password for an existing RecallMate account', async () => {
+    render(<LoginPage searchParams={{}} />);
+    fireEvent.change(screen.getByLabelText('Email'), { target: { value: 'student@example.com' } });
+    fireEvent.change(screen.getByLabelText('Password'), { target: { value: 'Strong!Pass1' } });
+    fireEvent.click(screen.getByRole('button', { name: /^Sign in$/i }));
+
+    await vi.waitFor(() => {
+      expect(authMocks.signInWithPassword).toHaveBeenCalledWith({
+        email: 'student@example.com',
+        password: 'Strong!Pass1',
+      });
+    });
+  });
+
+  it('allows Gmail addresses in the verified email signup flow', async () => {
+    render(
+      <EmailOTPForm
+        intent="signup"
+        privacyAgreed
+        username="student_18"
+        password="Strong!Pass1"
+        confirmPassword="Strong!Pass1"
+      />
+    );
+    fireEvent.change(screen.getByLabelText('Email'), { target: { value: 'student@gmail.com' } });
+    fireEvent.click(screen.getByRole('button', { name: /Create account & send code/i }));
+
+    await vi.waitFor(() => {
+      expect(authMocks.signInWithOtp).toHaveBeenCalledWith(
+        expect.objectContaining({ email: 'student@gmail.com' })
+      );
+    });
+  });
 });
 
 import PrivacyPage from '@/app/privacy/page';
@@ -195,4 +236,3 @@ describe('Cookie Consent Banner', () => {
     expect(stored.marketing).toBe(true);
   });
 });
-

@@ -60,11 +60,11 @@ export async function requireEntitlement() {
 
   const { data, error } = await supabase
     .from('user_entitlements')
-    .select('premium_status')
+    .select('tier')
     .eq('user_id', user.id)
     .single()
 
-  const isPremium = data?.premium_status === 'active'
+  const isPremium = data?.tier === 'premium' || data?.tier === 'pro'
 
   return { supabase, user, isPremium }
 }
