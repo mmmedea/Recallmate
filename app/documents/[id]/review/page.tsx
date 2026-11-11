@@ -3,7 +3,8 @@ import { createClient } from "@/utils/supabase/server";
 import { notFound } from "next/navigation";
 import ReviewClient from "./review-client";
 
-export default async function DocumentReviewPage({ params }: { params: { id: string } }) {
+export default async function DocumentReviewPage({ params }: { params: Promise<{ id: string }> }) {
+  const { id } = await params;
   const supabase = await createClient();
   const { data: { user } } = await supabase.auth.getUser();
 
@@ -15,7 +16,7 @@ export default async function DocumentReviewPage({ params }: { params: { id: str
   const { data: doc, error } = await supabase
     .from("documents")
     .select("id, filename, status")
-    .eq("id", params.id)
+    .eq("id", id)
     .single();
 
   if (error || !doc) {
