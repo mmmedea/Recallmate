@@ -2,6 +2,7 @@ import { NextRequest, NextResponse } from "next/server";
 import { createClient } from "@/utils/supabase/server";
 import { createClient as createServiceClient } from "@supabase/supabase-js";
 import { z } from "zod";
+import { checkRateLimit } from "@/lib/security";
 
 export const runtime = "nodejs";
 
@@ -21,6 +22,7 @@ export async function POST(req: NextRequest) {
     if (authError || !user) {
       return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
     }
+    await checkRateLimit(`learning-session:${user.id}`, { limit: 10, windowSeconds: 60 });
 
     const body = await req.json();
     const parsed = StartSessionRequestSchema.safeParse(body);
@@ -140,7 +142,8 @@ export async function POST(req: NextRequest) {
     });
 
   } catch (err: any) {
-    console.error("Learning Session Error:", err);
-    return NextResponse.json({ error: err.message }, { status: 500 });
+    const status = Number.isInteger(err?.status) ? err.status : 500;
+    if (status >= 500) console.error("Learning Session Error:", err?.message || "Unknown error");
+    return NextResponse.json({ error: status === 429 ? "Rate limit exceeded. Please try again later." : status === 503 ? "Learning service is temporarily unavailable." : "Could not start the learning session." }, { status });
   }
 }
