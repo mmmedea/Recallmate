@@ -24,33 +24,22 @@ export async function POST(req: NextRequest) {
 
     const systemInstruction = isFeynmanEvaluation
       ? `You are Medea, evaluating a student's explanation using the Feynman Technique.
-Your goal: Read the student's explanation of a concept.
-Rules:
-1. Rate their clarity and semantic accuracy from 1 to 3 hearts:
-   - 3 Hearts: Outstanding, accurate, easy-to-understand explanation with analogies.
-   - 2 Hearts: Good attempt, mostly correct with minor omissions.
-   - 1 Heart: Basic attempt, needs clarification.
-2. Provide a 2-sentence encouraging review.
-3. End your output with EXACT JSON at the bottom: {"heartsEarned": 1|2|3}`
-      : `You are Medea, an exceptionally friendly, clear, and engaging AI Tutor for RecallMate.
-Current Mode: ${mode.toUpperCase()}
-${
-  documentContext
-    ? `Student's Study Document Context:\n"""${documentContext.slice(0, 8000)}"""\n`
-    : ""
-}
-RESPONSE STRUCTURE & RULES (STRICT):
-1. ABSOLUTELY NO INTERNAL REASONING OR META-THOUGHTS: Output ONLY your final response directly to the student. DO NOT output rule checklists, thought process text, or self-evaluations (e.g. NEVER output "* User asks..." or "* Persona: Medea...").
-2. EXTREMELY EASY TO UNDERSTAND: Break down every concept into simple, plain language. Use relatable, real-world analogies so anyone can grasp it easily.
-3. CONCRETE EXAMPLES: Provide clear, practical examples for every explanation.
-4. MATH & SCIENCE FORMULAS: Format mathematical equations or chemical reactions in valid inline LaTeX \\( ... \\) or block LaTeX \\[ ... \\].
-5. SCHOLARLY RAG & SEARCH RESTRICTION: Ground all facts strictly in verified academic sources (.edu, .gov, .org, arXiv, PubMed) and user documents. Strictly NEVER cite Wikipedia or unverified wikis.
-6. PREDICTIVE FOLLOW-UP QUESTIONS: At the VERY END of every response, predict what the student will want to understand next to master the topic. Provide 3 recommended questions under the exact header below:
+Rate clarity and semantic accuracy from 1 to 3 hearts. End with EXACT JSON: {"heartsEarned": 1|2|3}`
+      : `You are Medea, a warm, clear, and engaging AI Tutor for RecallMate.
+Mode: ${mode.toUpperCase()}
+${documentContext ? `Document/Lecture Context:\n"""${documentContext.slice(0, 8000)}"""\n` : ""}
+
+Instructions:
+- Speak directly to the student in a warm, encouraging, conversational tone.
+- Explain concepts using simple, everyday analogies and clear step-by-step real-world examples.
+- Ground your answers strictly in verified academic principles and the provided document/video material.
+- Format all math or chemistry formulas in valid inline LaTeX \\( ... \\) or block LaTeX \\[ ... \\].
+- End every response with 3 recommended follow-up questions under the exact header:
 
 ### 💡 Recommended Next Questions
-- [First follow-up question]?
-- [Second follow-up question]?
-- [Third follow-up question]?`;
+- Question 1?
+- Question 2?
+- Question 3?`;
 
     // Construct Gemini contents array
     const contents = [
@@ -123,21 +112,19 @@ RESPONSE STRUCTURE & RULES (STRICT):
       return NextResponse.json({ error: lastErrorMsg }, { status: 500 });
     }
 
-    // Aggressive Sanitizer: Strip out any meta-thought/persona breakdown blocks
+    // Robust Sanitizer: Extract pure conversational response and strip all internal reflection tags
     let cleanText = replyText;
 
-    if (/^\s*\*\s*(User|Persona|Context|Goal|Rule|Big Data|NoSQL)/i.test(cleanText)) {
-      const paragraphs = cleanText.split(/\n\s*\n/);
-      const realParagraphs = paragraphs.filter(
-        (p) => !/^\s*\*\s*(User|Persona|Context|Goal|Rule|\+Rule|Check|\(Check\)|Introduction|The Predictive Exam|Question \d)/i.test(p)
-      );
-      if (realParagraphs.length > 0) {
-        cleanText = realParagraphs.join("\n\n");
-      }
+    // Check if output contains section markers or internal reflection lists
+    const greetingMatch = cleanText.match(/(?:\+\s*Greeting\s*\+\*?|###\s*Greeting)?\s*["']?([I|Hi|Hello|Welcome|Let's|Sure|Imagine|The|Since][\s\S]*)/i);
+    if (greetingMatch && greetingMatch[1] && greetingMatch[1].length > 30) {
+      cleanText = greetingMatch[1];
     }
 
     cleanText = cleanText
-      .replace(/^\s*\*\s*(User|Persona|Context|Goal|Rule|\+Rule|Check|\(Check\)).*$/gim, "")
+      .replace(/^\s*\*\s*(Since|Wait|Actually|Self-Correction|Plan|Analogy|simple terms|Nucleus|Electrons|Energy|Friendly|Clear|Analogies|Concrete|LaTeX|No meta|Recommended|Greeting|Explanation|Example|Next Questions|\+).*$/gim, "")
+      .replace(/\*\s*\+\s*(Greeting|Explanation|Example|Next Questions|Self-Correction|Plan|Analogy)\s*\+\s*\*/gi, "")
+      .replace(/\+\s*(Greeting|Explanation|Example|Next Questions|Self-Correction|Plan|Analogy)\s*\+/gi, "")
       .replace(/\n{3,}/g, "\n\n")
       .trim();
 
