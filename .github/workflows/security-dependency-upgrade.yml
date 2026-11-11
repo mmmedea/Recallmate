@@ -40,6 +40,8 @@ jobs:
           git add package.json package-lock.json
           if ! git diff --cached --quiet; then
             git commit -m "security: upgrade Next.js to patched 15.5.28"
+            git fetch origin security/hardening-review
+            git rebase origin/security/hardening-review
             git push origin HEAD:security/hardening-review
           fi
 
