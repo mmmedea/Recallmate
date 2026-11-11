@@ -27,7 +27,7 @@ export default function HomePage() {
         </h1>
         <p className="text-base sm:text-lg font-medium text-slate-600 dark:text-slate-300 leading-relaxed max-w-2xl mx-auto">
           Upload a PDF, document, or audio lecture. AI extracts key facts, drafts interactive
-          A/B/C/D quizzes with source citations, and keeps you engaged.
+          multiple choices quizzes with source citations, and keeps you engaged.
         </p>
       </div>
 

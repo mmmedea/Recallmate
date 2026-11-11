@@ -62,7 +62,7 @@ Rules:
 - Include exact quote/source text and page/section number for "sourceCitation" and "pageNumber".`;
 
     // 2. Direct REST API Call (Bypasses SDK issues)
-    const url = `https://generativelanguage.googleapis.com/v1beta/models/gemini-1.5-flash-latest:generateContent?key=${apiKey}`;
+    const url = `https://generativelanguage.googleapis.com/v1beta/models/gemini-pro:generateContent?key=${apiKey}`;
     const response = await fetch(url, {
       method: "POST",
       headers: {
