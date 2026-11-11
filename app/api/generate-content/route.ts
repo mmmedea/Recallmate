@@ -2,13 +2,38 @@ import { NextRequest, NextResponse } from "next/server";
 
 export const runtime = "nodejs";
 
-// Simple in-memory rate limiter map (IP -> timestamp)
+// In-memory rate limiter map (IP -> timestamp)
 const rateLimitMap = new Map<string, number>();
 const RATE_LIMIT_WINDOW_MS = 60000; // 1 minute window
 
+// Guardrail: Jailbreak & Prompt Injection Blacklist Patterns
+const DANGEROUS_PATTERNS = [
+  "ignore previous instructions",
+  "disregard all previous rules",
+  "system prompt",
+  "you are now unrestricted",
+  "jailbreak",
+  "bypass safety"
+];
+
+function applyInputGuardrails(text: string): { safe: boolean; reason?: string } {
+  if (!text || text.trim().length < 10) {
+    return { safe: false, reason: "Extracted content is too short for processing." };
+  }
+
+  const lowerText = text.toLowerCase();
+  for (const pattern of DANGEROUS_PATTERNS) {
+    if (lowerText.includes(pattern)) {
+      return { safe: false, reason: "Security violation: Potential prompt injection or jailbreak attempt detected." };
+    }
+  }
+
+  return { safe: true };
+}
+
 export async function POST(req: NextRequest) {
   try {
-    // 1. RATE LIMITING FOR SAFETY
+    // 1. RATE LIMITING RAIL
     const ip = req.headers.get("x-forwarded-for") || "127.0.0.1";
     const now = Date.now();
     const lastRequestTime = rateLimitMap.get(ip) || 0;
@@ -16,7 +41,7 @@ export async function POST(req: NextRequest) {
     if (now - lastRequestTime < RATE_LIMIT_WINDOW_MS) {
       const waitSeconds = Math.ceil((RATE_LIMIT_WINDOW_MS - (now - lastRequestTime)) / 1000);
       return NextResponse.json(
-        { error: `Rate limit reached. Please wait ${waitSeconds} seconds before generating another quiz.` },
+        { error: `Rate limit reached. Please wait ${waitSeconds} seconds before generating another session.` },
         { status: 429 }
       );
     }
@@ -29,8 +54,10 @@ export async function POST(req: NextRequest) {
 
     const { text, fileName, count = 10, difficulty = "easy", isPremium = false } = await req.json();
 
-    if (!text || text.trim().length < 10) {
-      return NextResponse.json({ error: "Not enough content extracted from this file." }, { status: 400 });
+    // 2. INPUT RAIL VALIDATION
+    const inputValidation = applyInputGuardrails(text);
+    if (!inputValidation.safe) {
+      return NextResponse.json({ error: inputValidation.reason }, { status: 400 });
     }
 
     // Enforce strict question limits based on premium status
@@ -65,7 +92,7 @@ export async function POST(req: NextRequest) {
       return bScore - aScore;
     });
 
-    // PROMPT tailored to deep notes with examples and advanced hard-mode scenarios
+    // 3. SECURE PROMPT RAIL (Enforcing strict schema & hard-mode constraints)
     const prompt = `Review the material from "${fileName || "Uploaded Files"}".
 Extracted Content:
 """${text.slice(0, 12000)}"""
@@ -139,22 +166,28 @@ Rules:
       return NextResponse.json({ error: lastErrorMsg }, { status: 500 });
     }
 
+    // 4. OUTPUT RAIL VALIDATION (Strict Schema Parsing)
     try {
       const firstBrace = rawText.indexOf("{");
       const lastBrace = rawText.lastIndexOf("}");
       
       if (firstBrace === -1 || lastBrace === -1) {
-        throw new Error("No JSON braces found.");
+        throw new Error("No JSON braces found in model response.");
       }
 
       const cleanJson = rawText.substring(firstBrace, lastBrace + 1);
       const parsedData = JSON.parse(cleanJson);
+
+      // Verify required keys exist
+      if (!parsedData.summary || !parsedData.notes || !parsedData.questions) {
+        throw new Error("Output failed schema validation check.");
+      }
 
       return NextResponse.json({ fileName, difficulty, ...parsedData });
     } catch (parseErr) {
       return NextResponse.json({ error: "The AI generated a malformed response. Please try again." }, { status: 500 });
     }
   } catch (err: any) {
-    return NextResponse.json({ error: "Failed to generate study content." }, { status: 500 });
+    return NextResponse.json({ error: "Failed to generate study content safely." }, { status: 500 });
   }
 }
