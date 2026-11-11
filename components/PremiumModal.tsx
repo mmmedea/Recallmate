@@ -4,6 +4,7 @@ import { useEffect, useState } from "react";
 import { createPortal } from "react-dom";
 import { useAppStore } from "@/lib/store";
 import { Lock, X, Sparkles, CheckCircle2 } from "lucide-react";
+import { DiamondLoader } from "@/components/DiamondLoader";
 
 export default function PremiumModal({ open, onClose }: { open: boolean; onClose: () => void }) {
   const [code, setCode] = useState("");
@@ -25,7 +26,7 @@ export default function PremiumModal({ open, onClose }: { open: boolean; onClose
     setIsLoading(true);
 
     const isSuccess = await unlockPremium(code);
-    
+
     setIsLoading(false);
 
     if (isSuccess) {
@@ -110,7 +111,7 @@ export default function PremiumModal({ open, onClose }: { open: boolean; onClose
                   disabled={isLoading}
                   className="w-2/3 py-3 bg-indigo-600 hover:bg-indigo-700 dark:bg-indigo-500 dark:hover:bg-indigo-600 text-white rounded-xl font-bold shadow-md transition-all text-sm active:scale-[0.98] disabled:opacity-50"
                 >
-                  {isLoading ? "Verifying..." : "Unlock Premium"}
+                  {isLoading ? <span className="inline-flex items-center justify-center gap-2"><DiamondLoader variant="inline" label="Verifying premium code" />Verifying…</span> : "Unlock Premium"}
                 </button>
               </div>
             </form>
@@ -121,4 +122,4 @@ export default function PremiumModal({ open, onClose }: { open: boolean; onClose
   );
 
   return createPortal(modalContent, document.body);
-}
+}

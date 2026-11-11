@@ -64,6 +64,7 @@ export async function requireEntitlement() {
     .eq('user_id', user.id)
     .single()
 
+  if (error) throw new SecurityError('Could not verify your subscription. Please retry.', 503)
   const isPremium = data?.tier === 'premium' || data?.tier === 'pro'
 
   return { supabase, user, isPremium }

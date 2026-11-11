@@ -1,12 +1,14 @@
 import { NextRequest, NextResponse } from 'next/server';
-import { createClient } from '@supabase/supabase-js';
 import { ReviewerGenerator } from '@/lib/ai/reviewer-generator';
-import { BillingService } from '@/lib/ai/billing';
+import { ReviewerAIConfigurationError, assertReviewerAIConfigured } from '@/lib/ai/config';
+import { SUPABASE_ADMIN_CONFIG_ERROR_CODE, createSupabaseAdminClient, isSupabaseAdminConfigError } from '@/lib/supabase/admin';
+import { getTrustedDocumentSizesBytes } from '@/lib/economy/server';
+import { getReviewerCoinCostForDocuments } from '@/lib/economy/rules';
 import crypto from 'crypto';
 
 export async function POST(req: NextRequest) {
   try {
-    const { documentIds, format } = await req.json();
+    const { documentIds, format, reviewerOptions = {} } = await req.json();
 
     if (!documentIds || !Array.isArray(documentIds) || documentIds.length === 0) {
       return NextResponse.json({ error: "Missing documentIds" }, { status: 400 });
@@ -22,33 +24,46 @@ export async function POST(req: NextRequest) {
       return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
     }
     const token = authHeader.replace('Bearer ', '');
-    const supabase = createClient(
-      process.env.NEXT_PUBLIC_SUPABASE_URL!,
-      process.env.SUPABASE_SERVICE_ROLE_KEY!
-    );
+    const supabase = createSupabaseAdminClient<any>();
     const { data: { user }, error: userError } = await supabase.auth.getUser(token);
     if (userError || !user) {
       return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
     }
 
-    // 2. Billing Check (Reserve 50 credits per reviewer generation)
-    const billingService = new BillingService(supabase);
-    const jobId = crypto.randomUUID();
-    let creditsReserved = false;
+    const reviewerFileSizes = await getTrustedDocumentSizesBytes(user.id, documentIds);
+    const reviewerCoinCost = getReviewerCoinCostForDocuments(reviewerFileSizes);
+    const requestIdempotencyKey = req.headers.get('idempotency-key') || crypto.randomUUID();
+    const reservationKey = crypto
+      .createHash('sha256')
+      .update(JSON.stringify({ userId: user.id, documentIds, format, reviewerOptions, reviewerFileSizes, requestIdempotencyKey }))
+      .digest('hex');
+    let coinsReserved = false;
+    let outputId: string | undefined;
+    assertReviewerAIConfigured();
 
     // 3. Setup Generator
     const generator = new ReviewerGenerator(supabase);
     
     try {
-      await billingService.reserveCredits(user.id, jobId, 50, "Reserve: Generate Reviewer");
-      creditsReserved = true;
+      const { error: reserveError } = await supabase.rpc('reserve_reviewer_generation', {
+        p_user_id: user.id,
+        p_file_size_bytes: reviewerFileSizes.reduce((sum, size) => sum + size, 0),
+        p_idempotency_key: `reviewer-reserve:${reservationKey}`,
+        p_document_ids: documentIds,
+        p_format: format,
+      });
+
+      if (reserveError) {
+        throw new Error(`Reviewer billing failed: ${reserveError.message}`);
+      }
+      coinsReserved = true;
 
       // 4. Generate Structured Document (or hit cache)
-      const { reviewerDocument, documentId, idempotencyHash } = await generator.generate({
+      const { reviewerDocument, documentId, idempotencyHash, generationMetadata } = await generator.generate({
         userId: user.id,
         documentIds,
         format,
-        instructions
+        reviewerOptions
       });
 
       // 5. Check if THIS format is already rendered
@@ -61,13 +76,18 @@ export async function POST(req: NextRequest) {
         .maybeSingle();
 
       if (existingOutput && existingOutput.file_size !== null) {
-        await billingService.finalizeCharge(user.id, jobId, 50, 0, "Cache hit: Reviewer fully rendered already");
+        await supabase.rpc('finalize_reviewer_generation', {
+          p_user_id: user.id,
+          p_reservation_key: `reviewer-reserve:${reservationKey}`,
+          p_success: true,
+          p_idempotency_key: `reviewer-finalize:${reservationKey}`,
+        });
         return NextResponse.json({ success: true, storagePath: existingOutput.storage_path, cached: true });
       }
 
       // Create output record
       const storagePath = `${user.id}/${crypto.randomUUID()}.${format}`;
-      let outputId = existingOutput?.id;
+      outputId = existingOutput?.id;
 
       if (!existingOutput) {
          const { data: outRecord, error: insertError } = await supabase.from('reviewer_outputs').insert({
@@ -77,7 +97,17 @@ export async function POST(req: NextRequest) {
             storage_path: storagePath,
             idempotency_hash: idempotencyHash,
             renderer_version: '1.0-pending',
-            layout_version: '1.0-pending'
+            layout_version: '1.0-pending',
+            status: 'rendering',
+            economy_reservation_key: `reviewer-reserve:${reservationKey}`,
+            coin_cost: reviewerCoinCost,
+            metadata: {
+              jobState: 'rendering',
+              fileSizeBytes: reviewerFileSizes.reduce((sum, size) => sum + size, 0),
+              sourceDocuments: documentIds.length,
+              finalCoinPrice: reviewerCoinCost,
+              generation: generationMetadata || null,
+            },
          }).select('id').single();
          if (insertError) throw new Error("Failed to create reviewer output record: " + insertError.message);
          outputId = outRecord?.id;
@@ -123,20 +153,58 @@ export async function POST(req: NextRequest) {
         throw new Error(renderData.error || "Renderer worker failed");
       }
 
-      // 10. Finalize Charge
-      await billingService.finalizeCharge(user.id, jobId, 50, 50, "Completed Reviewer Generation");
+      await supabase.rpc('finalize_reviewer_generation', {
+        p_user_id: user.id,
+        p_reservation_key: `reviewer-reserve:${reservationKey}`,
+        p_success: true,
+        p_idempotency_key: `reviewer-finalize:${reservationKey}`,
+      });
+
+      if (outputId) {
+        await supabase.from('reviewer_outputs').update({
+          status: 'completed',
+        }).eq('id', outputId);
+      }
 
       return NextResponse.json({ success: true, storagePath: renderData.storagePath });
 
     } catch (err: any) {
-      if (creditsReserved) {
-        await billingService.finalizeCharge(user.id, jobId, 50, 0, "Failed Reviewer Generation - Refunded");
+      console.error("[generate-reviewer] failed", err);
+      if (coinsReserved) {
+        await supabase.rpc('finalize_reviewer_generation', {
+          p_user_id: user.id,
+          p_reservation_key: `reviewer-reserve:${reservationKey}`,
+          p_success: false,
+          p_idempotency_key: `reviewer-refund:${reservationKey}`,
+        });
+      }
+      if (outputId) {
+        await supabase.from('reviewer_outputs').update({
+          status: 'refunded',
+          metadata: {
+            jobState: 'refunded',
+            failure: err?.message || "Reviewer generation failed",
+            refunded: coinsReserved,
+          },
+        }).eq('id', outputId);
       }
       throw err;
     }
 
   } catch (error: any) {
     console.error("[generate-reviewer]", error);
+    if (isSupabaseAdminConfigError(error)) {
+      return NextResponse.json(
+        { error: "This operation is temporarily unavailable. Please try again later.", code: SUPABASE_ADMIN_CONFIG_ERROR_CODE },
+        { status: 503 },
+      );
+    }
+    if (error instanceof ReviewerAIConfigurationError) {
+      return NextResponse.json(
+        { error: "Reviewer Maker is temporarily unavailable. Your coins were not charged.", code: "REVIEWER_AI_UNAVAILABLE" },
+        { status: 503 },
+      );
+    }
     return NextResponse.json({ error: error.message || "Internal Server Error" }, { status: 500 });
   }
 }

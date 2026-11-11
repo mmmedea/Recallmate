@@ -1,14 +1,16 @@
 "use client";
 
 import { ChangeEvent, useEffect, useMemo, useState } from "react";
+import Image from "next/image";
 import { useRouter } from "next/navigation";
-import { AlertCircle, Bell, Camera, CheckCircle2, KeyRound, LogOut, Mail, MapPin, Palette, Plug, ShieldCheck, Trash2, User } from "lucide-react";
+import { AlertCircle, Bell, Camera, CheckCircle2, LogOut, Mail, MapPin, Palette, Plug, ShieldCheck, Trash2, User } from "lucide-react";
 import { createClient } from "@/utils/supabase/client";
 import ThemeToggle from "@/components/ThemeToggle";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
-import { PasswordInput } from "@/components/ui/password-input";
 import { Checkbox } from "@/components/ui/checkbox";
+import { getPublicBuildLabel } from "@/lib/build-info";
+import { DiamondLoader } from "@/components/DiamondLoader";
 
 type Profile = {
   username: string;
@@ -28,19 +30,16 @@ type Profile = {
 };
 
 const EMPTY_PROFILE: Profile = { username: "", age: "", school: "", gender: "", interests: "", avatarUrl: "", notificationsEnabled: true, notificationEmail: "", secondaryEmail: "", street: "", city: "", region: "", country: "", addressType: "home" };
-const PASSWORD_RULE = /^(?=.*[^A-Za-z0-9]).{8,}$/;
-
 export default function SettingsPage() {
   const [profile, setProfile] = useState<Profile>(EMPTY_PROFILE);
   const [accountEmail, setAccountEmail] = useState("");
   const [newEmail, setNewEmail] = useState("");
-  const [newPassword, setNewPassword] = useState("");
-  const [confirmPassword, setConfirmPassword] = useState("");
   const [loading, setLoading] = useState(true);
   const [busy, setBusy] = useState<string | null>(null);
   const [message, setMessage] = useState<{ kind: "success" | "error"; text: string } | null>(null);
   const supabase = useMemo(() => createClient(), []);
   const router = useRouter();
+  const buildLabel = getPublicBuildLabel();
 
   useEffect(() => {
     async function loadProfile() {
@@ -126,21 +125,6 @@ export default function SettingsPage() {
     else notify("success", `Verification was sent to ${normalized}. Open that email to confirm the change. Check Spam or Junk if it is missing.`);
   };
 
-  const changePassword = async () => {
-    if (!PASSWORD_RULE.test(newPassword)) return notify("error", "Use at least 8 characters and include at least 1 special symbol.");
-    if (newPassword !== confirmPassword) return notify("error", "The passwords do not match.");
-    setBusy("password");
-    setMessage(null);
-    const { error } = await supabase.auth.updateUser({ password: newPassword });
-    setBusy(null);
-    if (error) notify("error", `Could not change your password: ${error.message}`);
-    else {
-      setNewPassword("");
-      setConfirmPassword("");
-      notify("success", "Password changed successfully.");
-    }
-  };
-
   const deleteAccount = async () => {
     const confirmation = window.prompt("This permanently deletes your account and all study data. Type DELETE to continue.");
     if (confirmation !== "DELETE") return;
@@ -173,6 +157,13 @@ export default function SettingsPage() {
         <p className="mt-2 text-slate-600 dark:text-slate-400">Personalize your study experience, notifications, sign-in, and security.</p>
       </div>
 
+      {loading && (
+        <div className="flex items-center gap-2 text-sm font-medium text-slate-500 dark:text-slate-400">
+          <DiamondLoader variant="inline" label="Loading profile" />
+          <span>Loading your profile…</span>
+        </div>
+      )}
+
       {message && (
         <div role="status" className={`flex items-start gap-2 rounded-xl border p-4 text-sm ${message.kind === "success" ? "border-emerald-200 bg-emerald-50 text-emerald-700 dark:border-emerald-900 dark:bg-emerald-950/30 dark:text-emerald-300" : "border-rose-200 bg-rose-50 text-rose-700 dark:border-rose-900 dark:bg-rose-950/30 dark:text-rose-300"}`}>
           {message.kind === "success" ? <CheckCircle2 className="mt-0.5 h-4 w-4 shrink-0" /> : <AlertCircle className="mt-0.5 h-4 w-4 shrink-0" />}{message.text}
@@ -182,7 +173,11 @@ export default function SettingsPage() {
       <section className="rounded-3xl border border-slate-200 bg-white p-6 shadow-sm dark:border-slate-800 dark:bg-slate-900">
         <div className="mb-6 flex flex-col gap-5 sm:flex-row sm:items-center">
           <div className="relative h-24 w-24 overflow-hidden rounded-3xl bg-gradient-to-br from-indigo-500 to-fuchsia-500 shadow-lg">
-            {profile.avatarUrl ? <img src={profile.avatarUrl} alt="Profile" className="h-full w-full object-cover" /> : <User className="absolute inset-0 m-auto h-11 w-11 text-white" />}
+            {profile.avatarUrl ? (
+              <Image src={profile.avatarUrl} alt="Profile" fill sizes="96px" unoptimized className="object-cover" />
+            ) : (
+              <User className="absolute inset-0 m-auto h-11 w-11 text-white" />
+            )}
           </div>
           <div>
             <h2 className="text-xl font-bold text-slate-950 dark:text-white">Profile details</h2>
@@ -228,34 +223,42 @@ export default function SettingsPage() {
         </div>
       </section>
 
-      <div className="flex justify-end"><Button onClick={saveProfile} disabled={loading || busy !== null} className="rounded-xl bg-indigo-600 px-6 text-white hover:bg-indigo-700">{busy === "profile" ? "Saving…" : "Save profile & preferences"}</Button></div>
+      <div className="flex justify-end"><Button onClick={saveProfile} disabled={loading || busy !== null} className="rounded-xl bg-indigo-600 px-6 text-white hover:bg-indigo-700">{busy === "profile" ? <span className="inline-flex items-center gap-2"><DiamondLoader variant="inline" label="Saving profile" />Saving…</span> : "Save profile & preferences"}</Button></div>
 
       <section className="rounded-3xl border border-slate-200 bg-white p-6 shadow-sm dark:border-slate-800 dark:bg-slate-900">
         <h2 className="flex items-center gap-2 text-xl font-bold dark:text-white"><ShieldCheck className="h-6 w-6 text-emerald-500" />Sign-in & security</h2>
-        <div className="mt-5 grid gap-6 md:grid-cols-2">
+        <div className="mt-5 grid gap-6">
           <div className="space-y-3">
             <h3 className="flex items-center gap-2 font-bold dark:text-white"><Mail className="h-4 w-4" />Change sign-in email</h3>
             <p className="text-xs text-slate-500">Current email: {accountEmail}</p>
             <Input type="email" value={newEmail} onChange={(event) => setNewEmail(event.target.value)} placeholder="new@email.com" />
-            <Button variant="outline" onClick={requestEmailChange} disabled={busy !== null}>{busy === "email" ? "Sending…" : "Send verification to new email"}</Button>
-          </div>
-          <div className="space-y-3">
-            <h3 className="flex items-center gap-2 font-bold dark:text-white"><KeyRound className="h-4 w-4" />Change password</h3>
-            <p className="text-xs text-slate-500">Use 8+ characters with at least one special symbol.</p>
-            <PasswordInput aria-label="New password" autoComplete="new-password" value={newPassword} onChange={(event) => setNewPassword(event.target.value)} placeholder="New strong password" />
-            <PasswordInput aria-label="Confirm new password" autoComplete="new-password" value={confirmPassword} onChange={(event) => setConfirmPassword(event.target.value)} placeholder="Confirm password" />
-            <Button variant="outline" onClick={changePassword} disabled={busy !== null}>{busy === "password" ? "Changing…" : "Change password"}</Button>
+            <Button variant="outline" onClick={requestEmailChange} disabled={busy !== null}>{busy === "email" ? <span className="inline-flex items-center gap-2"><DiamondLoader variant="inline" label="Sending verification email" />Sending…</span> : "Send verification to new email"}</Button>
           </div>
         </div>
-        <div className="mt-6 rounded-2xl border border-slate-200 p-4 dark:border-slate-700"><h3 className="flex items-center gap-2 font-bold dark:text-white"><LogOut className="h-4 w-4" />Active session safety</h3><p className="my-2 text-sm text-slate-500">If you used RecallMate on a shared or lost device, immediately revoke every other active session.</p><Button variant="outline" onClick={signOutOtherSessions} disabled={busy !== null}>{busy === "sessions" ? "Signing out…" : "Sign out of other sessions"}</Button></div>
+        <div className="mt-6 rounded-2xl border border-slate-200 p-4 dark:border-slate-700"><h3 className="flex items-center gap-2 font-bold dark:text-white"><LogOut className="h-4 w-4" />Active session safety</h3><p className="my-2 text-sm text-slate-500">If you used RecallMate on a shared or lost device, immediately revoke every other active session.</p><Button variant="outline" onClick={signOutOtherSessions} disabled={busy !== null}>{busy === "sessions" ? <span className="inline-flex items-center gap-2"><DiamondLoader variant="inline" label="Signing out of other sessions" />Signing out…</span> : "Sign out of other sessions"}</Button></div>
       </section>
 
-      <section className="rounded-3xl border border-slate-200 bg-white p-6 shadow-sm dark:border-slate-800 dark:bg-slate-900"><h2 className="flex items-center gap-2 text-xl font-bold dark:text-white"><Plug className="h-6 w-6 text-violet-500" />Workspace & integrations</h2><p className="mt-2 text-sm text-slate-500">Calendar connections use explicit consent. Open Schedule to add an event directly to Google Calendar or export your full year as an ICS file.</p><Button variant="outline" className="mt-4" onClick={() => router.push('/calendar')}>Open calendar integrations</Button></section>
+      <section className="rounded-3xl border border-slate-200 bg-white p-6 shadow-sm dark:border-slate-800 dark:bg-slate-900"><h2 className="flex items-center gap-2 text-xl font-bold dark:text-white"><Plug className="h-6 w-6 text-violet-500" />Workspace & integrations</h2><p className="mt-2 text-sm text-slate-500">Calendar connections use explicit consent. Open Calendar to add an event directly to Google Calendar or export your full year as an ICS file.</p><Button variant="outline" className="mt-4" onClick={() => router.push('/calendar')}>Open calendar integrations</Button></section>
+
+      <section className="rounded-3xl border border-slate-200 bg-white p-6 shadow-sm dark:border-slate-800 dark:bg-slate-900">
+        <h2 className="text-xl font-bold dark:text-white">About RecallMate</h2>
+        <p className="mt-2 text-sm text-slate-500">Use this marker to confirm the browser is running the latest deployed build.</p>
+        <dl className="mt-4 grid gap-3 text-sm sm:grid-cols-2">
+          <div className="rounded-2xl bg-slate-50 p-4 dark:bg-slate-950/60">
+            <dt className="font-semibold text-slate-500 dark:text-slate-400">Production build</dt>
+            <dd className="mt-1 font-mono text-base font-bold text-slate-950 dark:text-white">{buildLabel}</dd>
+          </div>
+          <div className="rounded-2xl bg-slate-50 p-4 dark:bg-slate-950/60">
+            <dt className="font-semibold text-slate-500 dark:text-slate-400">Canonical site</dt>
+            <dd className="mt-1 font-semibold text-slate-950 dark:text-white">recallmate-ai.vercel.app</dd>
+          </div>
+        </dl>
+      </section>
 
       <section className="rounded-3xl border border-red-200 bg-red-50 p-6 dark:border-red-900/60 dark:bg-red-950/20">
         <h2 className="flex items-center gap-2 text-xl font-bold text-red-700 dark:text-red-400"><AlertCircle className="h-6 w-6" />Danger zone</h2>
         <p className="mb-4 mt-2 text-sm text-red-600 dark:text-red-300">Deleting your account permanently removes the account and all associated RecallMate data.</p>
-        <Button onClick={deleteAccount} disabled={busy !== null} variant="destructive" className="bg-red-600 text-white hover:bg-red-700"><Trash2 className="mr-2 h-4 w-4" />{busy === "delete" ? "Deleting…" : "Delete account"}</Button>
+        <Button onClick={deleteAccount} disabled={busy !== null} variant="destructive" className="bg-red-600 text-white hover:bg-red-700">{busy === "delete" ? <span className="inline-flex items-center gap-2"><DiamondLoader variant="inline" label="Deleting account" />Deleting…</span> : <><Trash2 className="mr-2 h-4 w-4" />Delete account</>}</Button>
       </section>
     </div>
   );

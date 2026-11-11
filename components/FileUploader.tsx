@@ -2,6 +2,7 @@
 
 import { useRef, useState } from "react";
 import { UploadCloud, FileText, Image as ImageIcon } from "lucide-react";
+import { MAX_DOCUMENT_UPLOAD_MB } from "@/lib/constants";
 
 export default function FileUploader({
   onFileSelected,
@@ -55,7 +56,7 @@ export default function FileUploader({
       </p>
       
       <p className="text-sm text-gray-500">
-        Supports PDF, PPT, PPTX, DOCX, PNG, and JPEG
+        Supports PDF, PPT, PPTX, DOCX, PNG, and JPEG up to {MAX_DOCUMENT_UPLOAD_MB}MB
       </p>
 
       <div className="mt-5 flex items-center gap-6 text-xs font-semibold text-slate-400 dark:text-slate-500">

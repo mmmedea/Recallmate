@@ -1,6 +1,8 @@
 import { redirect } from "next/navigation";
 import { createClient } from "@/utils/supabase/server";
 import ThemeToggle from "@/components/ThemeToggle";
+import { RecallMateBrandLogo } from "@/components/brand/RecallMateLogo";
+import { ReactiveGrid } from "@/components/effects/ReactiveGrid";
 
 export default async function AuthLayout({
   children,
@@ -18,36 +20,20 @@ export default async function AuthLayout({
   }
 
   return (
-    <div className="min-h-screen bg-gradient-to-br from-slate-50 via-white to-indigo-50/30 dark:from-slate-950 dark:via-slate-900 dark:to-indigo-950/20 flex flex-col">
-      {/* Minimal header — wordmark only */}
+    <div className="relative flex min-h-screen flex-col overflow-hidden bg-[#FBFAFF] dark:bg-[#070B18]">
+      <ReactiveGrid />
+      <div className="pointer-events-none absolute inset-0 bg-[radial-gradient(circle_at_50%_105%,rgba(111,53,232,0.14),transparent_34%)] dark:bg-[radial-gradient(circle_at_50%_105%,rgba(124,60,255,0.22),transparent_36%)]" />
       <header className="flex items-center justify-between px-6 py-5">
         <a
           href="/"
-          className="inline-flex items-center gap-2 font-extrabold text-slate-900 dark:text-white hover:opacity-80 transition-opacity"
+          className="relative z-10 inline-flex items-center gap-2 font-extrabold text-slate-900 transition-opacity hover:opacity-80 dark:text-white"
         >
-          <div className="flex h-8 w-8 items-center justify-center rounded-xl bg-gradient-to-br from-indigo-500 to-violet-600">
-            <svg
-              className="h-4 w-4 text-white"
-              fill="none"
-              viewBox="0 0 24 24"
-              stroke="currentColor"
-              strokeWidth={2.5}
-              aria-hidden="true"
-            >
-              <path
-                strokeLinecap="round"
-                strokeLinejoin="round"
-                d="M9.813 15.904L9 18.75l-.813-2.846a4.5 4.5 0 00-3.09-3.09L2.25 12l2.846-.813a4.5 4.5 0 003.09-3.09L9 5.25l.813 2.846a4.5 4.5 0 003.09 3.09L15.75 12l-2.846.813a4.5 4.5 0 00-3.09 3.09z"
-              />
-            </svg>
-          </div>
-          RecallMate
+          <RecallMateBrandLogo size="sm" animated={false} showWordmark />
         </a>
         <ThemeToggle />
       </header>
 
-      {/* Centered auth card */}
-      <main className="flex-1 flex items-center justify-center px-4 py-8">
+      <main className="relative z-10 flex flex-1 items-center justify-center px-4 py-8">
         {children}
       </main>
     </div>

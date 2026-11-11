@@ -1,8 +1,8 @@
 import { NextRequest, NextResponse } from "next/server";
 import { createClient } from "@/utils/supabase/server";
-import { createClient as createServiceClient } from "@supabase/supabase-js";
 import { z } from "zod";
 import { getNextLearningState, FSRSRating, LearningItemState } from "@/lib/learning/scheduler";
+import { SUPABASE_ADMIN_CONFIG_ERROR_CODE, createSupabaseAdminClient, isSupabaseAdminConfigError } from "@/lib/supabase/admin";
 
 export const runtime = "nodejs";
 
@@ -38,10 +38,7 @@ export async function POST(req: NextRequest) {
     // Again = 1, Good = 3
     const finalRating: FSRSRating = explicitRating ?? (wasCorrect ? 3 : 1);
 
-    const serviceClient = createServiceClient(
-      process.env.NEXT_PUBLIC_SUPABASE_URL!,
-      process.env.SUPABASE_SERVICE_ROLE_KEY!
-    );
+    const serviceClient = createSupabaseAdminClient<any>();
 
     // 1. Fetch the current state of the learning item to calculate the next state
     const { data: itemData, error: itemError } = await serviceClient
@@ -68,8 +65,23 @@ export async function POST(req: NextRequest) {
     // 2. Run the scheduler logic
     const { newState, scheduledDays } = getNextLearningState(currentState, finalRating);
 
-    // 3. Atomically persist the transition and the review ledger row
-    const { error: rpcError } = await serviceClient.rpc("process_learning_review", {
+    // Premium is authoritative in the entitlement table. The browser cannot
+    // opt out of a debit, and a free user's wrong answer is charged inside the
+    // same database transaction as the FSRS transition.
+    const { data: entitlement, error: entitlementError } = await serviceClient
+      .from("user_entitlements")
+      .select("tier")
+      .eq("user_id", user.id)
+      .maybeSingle();
+    if (entitlementError) {
+      throw new Error(`Could not verify quiz entitlement: ${entitlementError.message}`);
+    }
+    const premium = entitlement?.tier === "premium" || entitlement?.tier === "pro";
+
+    // 3. Atomically persist the transition and (for a free wrong answer) the
+    // heart ledger entry. The RPC also owns request-id idempotency, including
+    // retries from older deployments that already wrote the review row.
+    const { data: reviewResult, error: rpcError } = await serviceClient.rpc("process_learning_review_with_heart", {
       p_user_id: user.id,
       p_learning_item_id: learningItemId,
       p_request_id: requestId,
@@ -83,29 +95,44 @@ export async function POST(req: NextRequest) {
       p_rating: finalRating,
       p_was_correct: wasCorrect,
       p_scheduled_days: scheduledDays,
-      p_previous_due_at: itemData.due_at
+      p_previous_due_at: itemData.due_at,
+      p_consume_heart: !premium,
     });
 
     if (rpcError) {
-      // Supabase UNIQUE constraint violation code for idempotency check (23505)
-      if (rpcError.code === '23505') {
-        return NextResponse.json({
-          success: true,
-          message: "Idempotent request: Review already processed.",
-          idempotent: true
-        });
+      if (/No hearts remaining/i.test(rpcError.message)) {
+        return NextResponse.json({ error: "No hearts remaining.", code: "NO_HEARTS" }, { status: 409 });
       }
       throw new Error(`Failed to process review: ${rpcError.message}`);
     }
 
+    // The RPC also completes the frozen quiz attempt. Never perform a second
+    // persistence step after committing a heart debit.
+    if (!Number.isInteger(reviewResult?.hearts) || !Number.isInteger(reviewResult?.heartCap)) {
+      throw new Error("Review RPC returned no authoritative wallet");
+    }
+
     return NextResponse.json({
       success: true,
+      idempotent: reviewResult?.status === "already_processed",
       nextDueAt: newState.due_at,
-      scheduledDays
+      scheduledDays,
+      premium: reviewResult.premium ?? premium,
+      economy: {
+        hearts: reviewResult.hearts,
+        heartCap: reviewResult.heartCap,
+        heartsDelta: Number(reviewResult?.heartsDelta ?? 0),
+      },
     });
 
   } catch (err: any) {
     console.error("Submit Review Error:", err);
-    return NextResponse.json({ error: err.message }, { status: 500 });
+    if (isSupabaseAdminConfigError(err)) {
+      return NextResponse.json(
+        { error: "This operation is temporarily unavailable. Please try again later.", code: SUPABASE_ADMIN_CONFIG_ERROR_CODE },
+        { status: 503 },
+      );
+    }
+    return NextResponse.json({ error: "Could not save your answer. Please retry the same answer." }, { status: 500 });
   }
 }

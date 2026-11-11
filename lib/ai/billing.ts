@@ -93,6 +93,10 @@ export class BillingService {
     });
   }
 
+  async finalizeJob(userId: string, jobId: string, actualCost: number, reason: string = "Finalized AI job"): Promise<void> {
+    return this.finalizeCharge(userId, jobId, actualCost, actualCost, reason);
+  }
+
   // Get current sum of credits
   async getUserBalance(userId: string): Promise<number> {
     // We could do this securely via an RPC or we can do it via a quick sum if we have service_role

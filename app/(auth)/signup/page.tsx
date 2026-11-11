@@ -24,17 +24,11 @@ export default function SignupPage({
 }) {
   const [privacyAgreed, setPrivacyAgreed] = useState(false);
   const [username, setUsername] = useState("");
-  const [password, setPassword] = useState("");
-  const [confirmPassword, setConfirmPassword] = useState("");
-
-  let next = "/dashboard";
-  if (
-    searchParams.next &&
-    searchParams.next.startsWith("/") &&
+  const next =
+    searchParams.next?.startsWith("/") &&
     !searchParams.next.startsWith("//")
-  ) {
-    next = searchParams.next;
-  }
+      ? searchParams.next
+      : "/dashboard";
 
   return (
     <AuthCard>
@@ -66,7 +60,7 @@ export default function SignupPage({
           </div>
 
           {/* Email OTP */}
-          <EmailOTPForm intent="signup" privacyAgreed={privacyAgreed} redirectTo={next} username={username} onUsernameChange={setUsername} password={password} onPasswordChange={setPassword} confirmPassword={confirmPassword} onConfirmPasswordChange={setConfirmPassword} />
+          <EmailOTPForm intent="signup" privacyAgreed={privacyAgreed} redirectTo={next} username={username} onUsernameChange={setUsername} />
         </div>
 
         {/* Privacy acknowledgement */}

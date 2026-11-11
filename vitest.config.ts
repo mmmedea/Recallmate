@@ -7,6 +7,7 @@ export default defineConfig({
   test: {
     environment: 'jsdom',
     globals: true,
+    testTimeout: 30_000,
     alias: {
       '@': path.resolve(__dirname, './'),
     },

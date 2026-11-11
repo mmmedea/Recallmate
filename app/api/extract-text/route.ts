@@ -1,12 +1,11 @@
 import { NextRequest, NextResponse } from "next/server";
-import { PDFParse } from "pdf-parse";
 import mammoth from "mammoth";
 import officeParser from "officeparser";
+import { MAX_DOCUMENT_UPLOAD_BYTES, MAX_DOCUMENT_UPLOAD_MB } from "@/lib/constants";
+import { extractDocxSource } from '@/lib/source/docx-source';
+import { sourceAcademicText } from '@/lib/source/academic-source';
 
 export const runtime = "nodejs";
-
-// Hard limit for Vercel Serverless payload size (4.5MB)
-const MAX_FILE_SIZE = 4.5 * 1024 * 1024;
 
 // Magic byte definitions for supported file types
 const MAGIC_BYTES = {
@@ -16,6 +15,31 @@ const MAGIC_BYTES = {
   zip: [0x50, 0x4B, 0x03, 0x04], // ZIP (Used by modern PPTX & DOCX)
   ole: [0xD0, 0xCF, 0x11, 0xE0], // Legacy OLE (Used by old .doc & .ppt)
 };
+
+async function extractPdfText(buffer: Buffer) {
+  const pdfjs = await import("pdfjs-dist/legacy/build/pdf.js");
+  const document = await pdfjs.getDocument({
+    data: new Uint8Array(buffer),
+    disableWorker: true,
+    isEvalSupported: false,
+  } as any).promise;
+  const pages: string[] = [];
+  try {
+    for (let pageNumber = 1; pageNumber <= document.numPages; pageNumber++) {
+      const page = await document.getPage(pageNumber);
+      const textContent = await page.getTextContent();
+      pages.push(textContent.items
+        .map((item: any) => typeof item.str === "string" ? item.str : "")
+        .join(" ")
+        .replace(/\s+/g, " ")
+        .trim());
+      page.cleanup();
+    }
+  } finally {
+    await document.destroy();
+  }
+  return pages.filter(Boolean).join("\n\n");
+}
 
 function verifyMagicBytes(buffer: Uint8Array, expected: number[]): boolean {
   if (buffer.length < expected.length) return false;
@@ -32,9 +56,9 @@ export async function POST(req: NextRequest) {
     }
 
     // 1. Enforce strict size check on the server
-    if (file.size > MAX_FILE_SIZE) {
+    if (file.size > MAX_DOCUMENT_UPLOAD_BYTES) {
       return NextResponse.json(
-        { error: "File size exceeds the 4.5MB server limit." },
+        { error: `File exceeds ${MAX_DOCUMENT_UPLOAD_MB}MB limit.` },
         { status: 413 }
       );
     }
@@ -69,12 +93,7 @@ export async function POST(req: NextRequest) {
     // 3. Handle PDF files
     if (fileName.endsWith(".pdf")) {
       try {
-        const parser = new PDFParse({ data: buffer });
-        try {
-          extractedText = (await parser.getText()).text;
-        } finally {
-          await parser.destroy();
-        }
+        extractedText = await extractPdfText(buffer);
       } catch (pdfErr) {
         return NextResponse.json(
           { error: "Failed to parse PDF text. Ensure it is a valid, text-based PDF." },
@@ -83,7 +102,15 @@ export async function POST(req: NextRequest) {
       }
     } 
     // 4. Handle Word documents (.docx, .doc)
-    else if (fileName.endsWith(".docx") || fileName.endsWith(".doc")) {
+    else if (fileName.endsWith(".docx")) {
+      try {
+        const source = await extractDocxSource(buffer, file.name);
+        return NextResponse.json({ text: sourceAcademicText(source), source });
+      } catch {
+        return NextResponse.json({ error: 'The DOCX could not be extracted safely.' }, { status: 400 });
+      }
+    }
+    else if (fileName.endsWith(".doc")) {
       try {
         const result = await mammoth.extractRawText({ buffer });
         extractedText = result.value;

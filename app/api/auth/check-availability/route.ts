@@ -1,6 +1,6 @@
 import { NextRequest, NextResponse } from "next/server";
-import { createClient as createServiceClient } from "@supabase/supabase-js";
 import { createClient } from "@/utils/supabase/server";
+import { createSupabaseAdminClient, isSupabaseAdminConfigured } from "@/lib/supabase/admin";
 
 export const runtime = "nodejs";
 
@@ -31,17 +31,13 @@ export async function POST(request: NextRequest) {
       return NextResponse.json({ error: "Enter a valid email and username." }, { status: 400 });
     }
 
-    const serviceKey = process.env.SUPABASE_SERVICE_ROLE_KEY;
-    const url = process.env.NEXT_PUBLIC_SUPABASE_URL;
-    if (!serviceKey || !url) {
+    if (!isSupabaseAdminConfigured()) {
       return NextResponse.json({ error: "Account availability checking is temporarily unavailable." }, { status: 503 });
     }
 
     const sessionClient = await createClient();
     const { data: { user } } = await sessionClient.auth.getUser();
-    const service = createServiceClient(url, serviceKey, {
-      auth: { persistSession: false, autoRefreshToken: false, detectSessionInUrl: false },
-    });
+    const service = createSupabaseAdminClient<any>();
     const { data, error } = await service.rpc("check_signup_availability", {
       p_email: email,
       p_username: username,
@@ -50,8 +46,10 @@ export async function POST(request: NextRequest) {
     if (error) throw error;
 
     const availability = Array.isArray(data) ? data[0] : data;
+    // Email existence is intentionally not returned to unauthenticated clients.
+    // Signup uses this endpoint only to validate username availability; Supabase
+    // Auth handles email OTP requests without exposing account membership.
     return NextResponse.json({
-      emailExists: availability?.email_exists === true,
       usernameExists: availability?.username_exists === true,
     });
   } catch (error) {

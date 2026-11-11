@@ -1,7 +1,6 @@
 "use client";
 
 import { useEffect, useState, useCallback, useTransition } from "react";
-import { useRouter } from "next/navigation";
 import { createClient } from "@/utils/supabase/client";
 import { DocumentLifecycleSummary } from "@/app/actions/document-lifecycle";
 import { 
@@ -13,18 +12,17 @@ import {
   CheckCircle2,
   PlayCircle,
   RefreshCw,
-  Loader2,
   BookOpen,
   Printer
 } from "lucide-react";
 import Link from "next/link";
 import { getDocumentLifecycle, retryDocumentExtraction, retryStudyGeneration } from "@/app/actions/document-actions";
 import { ReviewerMakerDialog } from "@/components/reviewer/ReviewerMakerDialog";
-import { useAppStore } from "@/lib/store";
+import { MedeaLauncher } from "@/components/medea/MedeaLauncher";
+import { DiamondLoader } from "@/components/DiamondLoader";
 
 export default function StudyHubClient({ initialSummary }: { initialSummary: DocumentLifecycleSummary }) {
   const [summary, setSummary] = useState<DocumentLifecycleSummary>(initialSummary);
-  const router = useRouter();
   const supabase = createClient();
   const [isPending, startTransition] = useTransition();
   const [activeAction, setActiveAction] = useState<string | null>(null);
@@ -81,7 +79,7 @@ export default function StudyHubClient({ initialSummary }: { initialSummary: Doc
   };
 
   const { document, extraction, notes, quiz } = summary;
-  const extractionFailed = extraction.status === 'failed' || extraction.status === 'cancelled' || extraction.status === 'inconsistent';
+  const extractionFailed = extraction.status === 'failed' || extraction.status === 'cancelled';
   
   if (extractionFailed) {
     return (
@@ -99,7 +97,7 @@ export default function StudyHubClient({ initialSummary }: { initialSummary: Doc
               className="inline-flex items-center rounded-lg bg-red-600 px-6 py-3 text-sm font-semibold text-white shadow-sm hover:bg-red-500 disabled:opacity-50 transition-colors"
             >
               {isPending && activeAction === 'extraction' ? (
-                <><Loader2 className="mr-2 h-4 w-4 motion-safe:animate-spin" /> Retrying...</>
+                <><DiamondLoader variant="inline" label="Retrying document extraction" /> Retrying...</>
               ) : (
                 <><RefreshCw className="mr-2 h-4 w-4" /> Retry Extraction</>
               )}
@@ -168,7 +166,7 @@ export default function StudyHubClient({ initialSummary }: { initialSummary: Doc
             description="Turn this material into a printable, exam-ready reviewer"
             icon={<Printer className="h-6 w-6 text-orange-500" />}
             status={extractionFailed ? 'failed' : 'ready'} // Ready as long as extraction is complete
-            errorMessage={extractionFailed ? "Cannot generate reviewer without document text" : undefined}
+            errorMessage={extractionFailed ? "Cannot generate reviewer without document text" : null}
             onAction={() => setShowReviewerDialog(true)}
             isPending={false}
             actionLabels={{ ready: 'Create Reviewer', generate: 'Create Reviewer' }}
@@ -257,7 +255,7 @@ function StudyMaterialCard({
             className="flex w-full items-center justify-center rounded-lg bg-amber-50 px-4 py-2.5 text-sm font-semibold text-amber-700 hover:bg-amber-100 dark:bg-amber-900/30 dark:text-amber-300 dark:hover:bg-amber-900/50 transition-colors disabled:opacity-50"
           >
             {isPending ? (
-              <><Loader2 className="mr-2 h-4 w-4 motion-safe:animate-spin" /> Retrying...</>
+              <><DiamondLoader variant="inline" label={`Retrying ${title}`} /> Retrying...</>
             ) : (
               <><RefreshCw className="mr-2 h-4 w-4" /> Retry {title}</>
             )}
@@ -271,7 +269,7 @@ function StudyMaterialCard({
             className="flex w-full items-center justify-center rounded-lg border border-slate-200 px-4 py-2.5 text-sm font-semibold text-slate-700 hover:bg-slate-50 dark:border-slate-700 dark:text-slate-300 dark:hover:bg-slate-800 transition-colors disabled:opacity-50"
           >
             {isPending ? (
-              <><Loader2 className="mr-2 h-4 w-4 motion-safe:animate-spin" /> Starting...</>
+              <><DiamondLoader variant="inline" label={`Starting ${title}`} /> Starting...</>
             ) : (
               <><PlayCircle className="mr-2 h-4 w-4" /> {actionLabels.generate}</>
             )}
@@ -280,7 +278,7 @@ function StudyMaterialCard({
 
         {isProcessing && (
           <div className="flex w-full items-center justify-center rounded-lg bg-slate-50 px-4 py-2.5 text-sm font-semibold text-slate-500 dark:bg-slate-800/50 transition-colors">
-            <Loader2 className="mr-2 h-4 w-4 motion-safe:animate-spin" /> Generating...
+            <><DiamondLoader variant="inline" label="Generating study material" /> Generating...</>
           </div>
         )}
       </div>
@@ -298,7 +296,6 @@ function ChatMaterialCard({
   lastDiscussedAt: string | null;
 }) {
   const isReady = status === 'ready';
-  const openMedea = useAppStore(state => state.setChatDrawerOpen);
 
   function formatTimeAgo(dateString: string) {
     const date = new Date(dateString);
@@ -337,15 +334,15 @@ function ChatMaterialCard({
 
       <div className="flex flex-col justify-center sm:ml-6 sm:w-48 shrink-0">
         {isReady ? (
-          <button
-            type="button"
-            onClick={() => openMedea(true)}
+          <MedeaLauncher
+            documentId={documentId}
+            source="study-hub"
             className="flex w-full items-center justify-center rounded-lg bg-blue-50 px-4 py-2.5 text-sm font-semibold text-blue-700 hover:bg-blue-100 dark:bg-blue-900/30 dark:text-blue-300 dark:hover:bg-blue-900/50 transition-colors focus:ring-2 focus:ring-blue-500 focus:outline-none"
             aria-label={lastDiscussedAt ? "Continue conversation with Medea" : "Ask Medea"}
           >
             <MessageSquare className="mr-2 h-4 w-4" />
             {lastDiscussedAt ? "Continue" : "Ask Medea"}
-          </button>
+          </MedeaLauncher>
         ) : (
           <button
             disabled

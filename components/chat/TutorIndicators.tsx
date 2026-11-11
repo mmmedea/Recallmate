@@ -1,5 +1,6 @@
 import { TutorStatusPhase } from "@/lib/ai/tutor/stream";
-import { Loader2, CheckCircle2 } from "lucide-react";
+import { CheckCircle2 } from "lucide-react";
+import { RecallMateSpark } from "@/components/brand/RecallMateSpark";
 
 export function TutorStatus({ phase, label }: { phase: TutorStatusPhase; label: string }) {
   if (phase === "finalizing") {
@@ -8,9 +9,9 @@ export function TutorStatus({ phase, label }: { phase: TutorStatusPhase; label: 
 
   return (
     <div 
-      className="flex items-center gap-2 py-2 px-3 bg-blue-50 dark:bg-blue-950/30 text-blue-700 dark:text-blue-300 rounded-lg w-fit text-sm font-medium animate-in fade-in slide-in-from-bottom-2 duration-300"
+      className="rm-entrance flex w-fit items-center gap-2 rounded-lg bg-violet-50 px-3 py-2 text-sm font-medium text-violet-700 dark:bg-violet-950/30 dark:text-violet-300"
     >
-      <Loader2 className="w-4 h-4 animate-spin" />
+      <RecallMateSpark className="h-4 w-4 text-violet-500 dark:text-violet-300" />
       <span aria-hidden="true">{label}</span>
     </div>
   );

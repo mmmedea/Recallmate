@@ -2,7 +2,8 @@
 
 import { useState } from 'react'
 import { getCitation, Citation } from '@/app/actions/citation-actions'
-import { BookOpen, Loader2 } from 'lucide-react'
+import { BookOpen } from 'lucide-react'
+import { DiamondLoader } from '@/components/DiamondLoader'
 
 interface CitationBadgeProps {
   chunkId: string
@@ -43,8 +44,9 @@ export function CitationBadge({ chunkId, documentId }: CitationBadgeProps) {
       {isOpen && (
         <div className="absolute left-0 top-full mt-2 w-72 sm:w-96 bg-white rounded-lg shadow-xl border border-slate-200 z-10 p-4 text-left">
           {loading ? (
-            <div className="flex items-center justify-center p-4">
-              <Loader2 className="w-5 h-5 animate-spin text-slate-400" />
+            <div className="flex min-h-20 items-center justify-center gap-2 p-4 text-sm text-violet-600">
+              <DiamondLoader variant="inline" label="Loading citation" />
+              <span>Loading citation…</span>
             </div>
           ) : error ? (
             <p className="text-sm text-red-500">{error}</p>

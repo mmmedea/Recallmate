@@ -1,11 +1,17 @@
 import { NextResponse } from 'next/server';
 import type { NextRequest } from 'next/server';
 import { updateSession } from './utils/supabase/middleware';
+import { getCanonicalProductionRedirectUrl } from './lib/app-origin';
 // Upstash Redis is not Edge Runtime compatible in Next.js 14 middleware due to missing 'edge' export.
 // We removed base rate limiting from the Edge middleware to fix Vercel deployment.
 // Rate limiting is instead handled at the Server Action / Route Handler level (which run in Node.js runtime).
 
 export async function middleware(request: NextRequest) {
+  const canonicalUrl = getCanonicalProductionRedirectUrl(request.nextUrl);
+  if (canonicalUrl) {
+    return NextResponse.redirect(canonicalUrl, 308);
+  }
+
   // 1. Refresh Supabase Auth Session
   const supabaseResponse = await updateSession(request);
 

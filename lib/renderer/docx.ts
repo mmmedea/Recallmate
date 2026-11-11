@@ -86,7 +86,7 @@ export async function renderReviewerDocx(doc: GeneratedReviewerDocument): Promis
                     color: "666666",
                     size: 16,
                   }),
-                  new PageNumber(),
+                  new TextRun({ children: [PageNumber.CURRENT], color: "666666", size: 16 }),
                 ],
               }),
             ],

@@ -1,5 +1,6 @@
 import { buildBoundedMemoryPrompt } from "../lib/ai/memory";
 import { LexicalRetriever, RetrievedChunk } from "../lib/ai/retriever";
+import { describe, expect, it } from "vitest";
 
 describe('Phase 6.6 Chat Core Abstractions', () => {
 

@@ -1,6 +1,18 @@
 "use client";
 
-import { useState, useEffect, useRef } from "react";
+import {
+  useEffect,
+  useId,
+  useMemo,
+  useRef,
+  useState,
+} from "react";
+import { useChat } from "@ai-sdk/react";
+import {
+  DefaultChatTransport,
+  type UIMessage,
+} from "ai";
+import { v4 as uuidv4 } from "uuid";
 import { createPortal } from "react-dom";
 import {
   Sparkles,
@@ -8,7 +20,6 @@ import {
   Send,
   Bot,
   User,
-  RefreshCw,
   Paperclip,
   Crown,
   FileText,
@@ -19,6 +30,10 @@ import {
 import MathRenderer from "./MathRenderer";
 import { useAppStore } from "@/lib/store";
 import { processFileClientSide } from "@/lib/client-parser";
+import { attachmentFirstContext } from '@/lib/ai/attachment-context';
+import { MAX_DOCUMENT_UPLOAD_MB } from "@/lib/constants";
+import { MedeaLauncher } from '@/components/medea/MedeaLauncher';
+import { DiamondLoader } from "@/components/DiamondLoader";
 
 interface Message {
   id: string;
@@ -26,6 +41,15 @@ interface Message {
   content: string;
   timestamp: string;
 }
+
+type MedeaDocumentMetadata = {
+  documentId: string;
+  fileName: string;
+  readiness:
+    | "ready"
+    | "processing"
+    | "failed";
+};
 
 // Quiet file attachment: held as chip state, bundled into API only on send
 interface AttachedFile {
@@ -37,13 +61,89 @@ export default function OmniChatDrawer() {
   const [mounted, setMounted] = useState(false);
   const [input, setInput] = useState("");
   const [loading, setLoading] = useState(false);
+  const [documentMetadata, setDocumentMetadata] =
+    useState<MedeaDocumentMetadata | null>(null);
+  const [documentMetadataLoading, setDocumentMetadataLoading] =
+    useState(false);
+  const [documentMetadataError, setDocumentMetadataError] =
+    useState<string | null>(null);
   const [uploading, setUploading] = useState(false);
   const [youtubeOpen, setYoutubeOpen] = useState(false);
   const [youtubeUrl, setYoutubeUrl] = useState("");
   // Attachment chip state — does NOT trigger AI until user sends a prompt
   const [attachedFiles, setAttachedFiles] = useState<AttachedFile[]>([]);
+  const [attachmentError, setAttachmentError] = useState('');
+  const sourceHistoryStart = useRef(0);
+  const handledMedeaRequestRef = useRef<number | null>(null);
+  const documentMetadataRequestRef = useRef(0);
+  const dialogRef = useRef<HTMLDivElement>(null);
+  const dialogTitleId = useId();
 
-  const { isPremium, activeChatContext, addChatContext, chatDrawerOpen: isOpen, setChatDrawerOpen: setIsOpen } = useAppStore();
+  const { isPremium, activeChatContext, addChatContext, chatDrawerOpen: isOpen, setChatDrawerOpen: setIsOpen, medeaRequest } = useAppStore();
+  const requestedDocumentId = medeaRequest?.documentId ?? null;
+  const documentChatTransport =
+    useMemo(
+      () =>
+        new DefaultChatTransport({
+          api: "/api/chat",
+
+          prepareSendMessagesRequest:
+            ({ messages }) => {
+              const latestUserMessage =
+                [...messages]
+                  .reverse()
+                  .find(
+                    (message) =>
+                      message.role ===
+                      "user",
+                  );
+
+              const message =
+                latestUserMessage?.parts
+                  .map((part) =>
+                    part.type ===
+                    "text"
+                      ? part.text
+                      : "",
+                  )
+                  .join("")
+                  .trim() ?? "";
+
+              return {
+                body: {
+                  documentId:
+                    requestedDocumentId,
+
+                  message,
+
+                  requestId:
+                    uuidv4(),
+                },
+              };
+            },
+        }),
+      [
+        requestedDocumentId,
+      ],
+    );
+  const {
+    sendMessage:
+      sendDocumentMessage,
+    messages:
+      documentStreamMessages,
+    setMessages:
+      setDocumentStreamMessages,
+  } = useChat<UIMessage>({
+    transport:
+      documentChatTransport,
+  });
+  const documentReady =
+    !!requestedDocumentId &&
+    documentMetadata?.documentId === requestedDocumentId &&
+    documentMetadata.readiness === "ready";
+  const documentPending =
+    !!requestedDocumentId &&
+    !documentReady;
   const fileInputRef = useRef<HTMLInputElement>(null);
   const abortControllerRef = useRef<AbortController | null>(null);
 
@@ -55,6 +155,110 @@ export default function OmniChatDrawer() {
         "Hello! I'm **Medea AI**, your unified learning assistant. Ask me a simple or complex question about any subject, or attach study material—I’ll answer directly and explain the reasoning clearly.",
       timestamp: new Date().toLocaleTimeString([], { hour: "2-digit", minute: "2-digit" }),
     },
+  ]);
+  const initialMessagesRef =
+    useRef(messages);
+  const previousDocumentIdRef =
+    useRef<string | null>(
+      requestedDocumentId,
+    );
+
+  useEffect(() => {
+    const latestAssistantMessage =
+      [...documentStreamMessages]
+        .reverse()
+        .find(
+          (message) =>
+            message.role ===
+            "assistant",
+        );
+
+    if (!latestAssistantMessage) {
+      return;
+    }
+
+    const content =
+      latestAssistantMessage.parts
+        .map((part) =>
+          part.type === "text"
+            ? part.text
+            : "",
+        )
+        .join("");
+
+    if (!content) {
+      return;
+    }
+
+    /*
+     * Use the SDK message id as the stable bridge
+     * between streaming updates and the drawer's
+     * local message list.
+     *
+     * text-delta events update the same visible
+     * assistant message instead of creating one
+     * message per chunk.
+     */
+    const localMessageId =
+      `document-stream:${latestAssistantMessage.id}`;
+
+    setMessages((previous) => {
+      const existingIndex =
+        previous.findIndex(
+          (message) =>
+            message.id ===
+            localMessageId,
+        );
+
+      if (existingIndex === -1) {
+        return [
+          ...previous,
+          {
+            id:
+              localMessageId,
+            role:
+              "assistant",
+            content,
+            timestamp:
+              new Date().toLocaleTimeString(
+                [],
+                {
+                  hour: "2-digit",
+                  minute: "2-digit",
+                },
+              ),
+          },
+        ];
+      }
+
+      const existingMessage =
+        previous[
+          existingIndex
+        ];
+
+      if (
+        existingMessage.content ===
+        content
+      ) {
+        return previous;
+      }
+
+      return previous.map(
+        (
+          message,
+          index,
+        ) =>
+          index ===
+          existingIndex
+            ? {
+                ...message,
+                content,
+              }
+            : message,
+      );
+    });
+  }, [
+    documentStreamMessages,
   ]);
 
   const messagesEndRef = useRef<HTMLDivElement>(null);
@@ -68,6 +272,167 @@ export default function OmniChatDrawer() {
       messagesEndRef.current?.scrollIntoView({ behavior: "smooth" });
     }
   }, [messages, isOpen]);
+
+  useEffect(() => {
+    const previousDocumentId =
+      previousDocumentIdRef.current;
+
+    /*
+     * Once a visible conversation belongs to a saved
+     * document, leaving that document invalidates the
+     * conversation immediately.
+     *
+     * Covers:
+     *   document A → document B
+     *   document A → general Medea
+     *
+     * Does not reset:
+     *   same document → same document/new nonce
+     *   general Medea → document
+     */
+    const leftPreviousDocument =
+      !!previousDocumentId &&
+      previousDocumentId !==
+        requestedDocumentId;
+
+    if (leftPreviousDocument) {
+      /*
+       * Clear both visible drawer state and the AI SDK
+       * conversation state. Otherwise a later send in
+       * the new document can cause an assistant message
+       * from the previous document to be mirrored back
+       * into the visible conversation.
+       */
+      setMessages(
+        initialMessagesRef.current,
+      );
+
+      setDocumentStreamMessages([]);
+    }
+
+    previousDocumentIdRef.current =
+      requestedDocumentId;
+  }, [
+    requestedDocumentId,
+    setDocumentStreamMessages,
+  ]);
+
+  useEffect(() => {
+    if (!mounted || !isOpen) return;
+    const launcher = document.activeElement instanceof HTMLElement ? document.activeElement : null;
+    dialogRef.current?.querySelector<HTMLButtonElement>('button:not(:disabled)')?.focus();
+    return () => {
+      if (launcher?.isConnected) launcher.focus();
+    };
+  }, [mounted, isOpen]);
+
+  useEffect(() => {
+    if (!medeaRequest || handledMedeaRequestRef.current === medeaRequest.nonce) return;
+    handledMedeaRequestRef.current = medeaRequest.nonce;
+    // Task 1 is a context handoff only. Prefilling never sends a message or
+    // pretends that a client-provided document ID has been authorized/loaded.
+    setInput(medeaRequest.suggestedPrompt || '');
+    // Capture the original launcher above before focusing a new request.
+    // Switching to general chat removes its action button from the dialog.
+    dialogRef.current?.querySelector<HTMLButtonElement>('button:not(:disabled)')?.focus();
+  }, [medeaRequest]);
+
+  useEffect(() => {
+    /*
+     * Every document-source transition invalidates
+     * all earlier metadata work, including a switch
+     * back to general Medea.
+     */
+    const requestVersion =
+      ++documentMetadataRequestRef.current;
+
+    if (!requestedDocumentId) {
+      setDocumentMetadata(null);
+      setDocumentMetadataLoading(false);
+      setDocumentMetadataError(null);
+      return;
+    }
+
+    const controller =
+      new AbortController();
+
+    setDocumentMetadata(null);
+    setDocumentMetadataLoading(true);
+    setDocumentMetadataError(null);
+
+    const isCurrentRequest =
+      () =>
+        !controller.signal.aborted &&
+        documentMetadataRequestRef.current ===
+          requestVersion;
+
+    void (async () => {
+      try {
+        const response = await fetch(
+          `/api/chat?documentId=${encodeURIComponent(requestedDocumentId)}`,
+          {
+            method: "GET",
+            signal: controller.signal,
+          },
+        );
+
+        /*
+         * fetch implementations are not required to
+         * honor AbortController. The request token is
+         * the final authority for whether results commit.
+         */
+        if (!isCurrentRequest()) {
+          return;
+        }
+
+        if (!response.ok) {
+          throw new Error(
+            "DOCUMENT_METADATA_UNAVAILABLE",
+          );
+        }
+
+        const metadata =
+          (await response.json()) as MedeaDocumentMetadata;
+
+        if (!isCurrentRequest()) {
+          return;
+        }
+
+        /*
+         * Do not accept metadata that claims to
+         * describe a different document.
+         */
+        if (
+          metadata.documentId !==
+          requestedDocumentId
+        ) {
+          throw new Error(
+            "DOCUMENT_METADATA_MISMATCH",
+          );
+        }
+
+        setDocumentMetadata(metadata);
+      } catch {
+        /* An aborted or superseded request is not an active-source error. */
+        if (!isCurrentRequest()) {
+          return;
+        }
+
+        setDocumentMetadata(null);
+        setDocumentMetadataError(
+          "Document unavailable",
+        );
+      } finally {
+        if (isCurrentRequest()) {
+          setDocumentMetadataLoading(false);
+        }
+      }
+    })();
+
+    return () => {
+      controller.abort();
+    };
+  }, [requestedDocumentId]);
 
   if (!mounted || typeof document === "undefined") return null;
 
@@ -109,10 +474,32 @@ export default function OmniChatDrawer() {
     setLoading(false);
   };
 
+  const handleDialogKeyDown = (event: React.KeyboardEvent<HTMLDivElement>) => {
+    if (event.key === 'Escape') {
+      event.preventDefault();
+      event.stopPropagation();
+      setIsOpen(false);
+      return;
+    }
+    if (event.key !== 'Tab') return;
+    const focusable = Array.from(event.currentTarget.querySelectorAll<HTMLElement>(
+      'button:not(:disabled), a[href], textarea:not(:disabled), input:not(:disabled):not([type="file"]):not([type="hidden"]), select:not(:disabled), [tabindex="0"]',
+    )).filter(element => !element.hidden && getComputedStyle(element).display !== 'none');
+    const first = focusable[0];
+    const last = focusable[focusable.length - 1];
+    if (event.shiftKey && document.activeElement === first) {
+      event.preventDefault();
+      last?.focus();
+    } else if (!event.shiftKey && document.activeElement === last) {
+      event.preventDefault();
+      first?.focus();
+    }
+  };
+
   const handleSend = async (e?: React.FormEvent, customText?: string) => {
     if (e) e.preventDefault();
     const textToSend = (customText || input).trim();
-    if (!textToSend || loading) return;
+    if (!textToSend || loading || uploading || attachmentError || documentPending) return;
 
     setInput("");
 
@@ -131,47 +518,25 @@ export default function OmniChatDrawer() {
     const controller = new AbortController();
     abortControllerRef.current = controller;
 
-    // Capture and clear attachment chip BEFORE the async call
-    const pendingAttachments = attachedFiles;
-    setAttachedFiles([]);
-
     try {
-      // Build context string: priority: attachedFiles chip → activeChatContext → sessionStorage
-      let docContext = "";
-      let combinedContexts = [...activeChatContext];
-
-      if (pendingAttachments.length > 0) {
-        pendingAttachments.forEach(file => {
-          combinedContexts.push({
-            id: Date.now().toString() + Math.random(),
-            source_type: "document",
-            source_name: file.name,
-            extracted_text: file.context,
-            timestamp: Date.now(),
-          });
-          addChatContext({
-            source_type: "document",
-            source_name: file.name,
-            extracted_text: file.context,
-          });
+      /*
+       * Saved documents use the same AI SDK stream
+       * transport as ChatClient.
+       */
+      if (
+        requestedDocumentId &&
+        documentReady
+      ) {
+        await sendDocumentMessage({
+          text: textToSend,
         });
+
+        return;
       }
 
-      if (combinedContexts.length > 0) {
-        docContext = combinedContexts
-          .map((ctx) => `[${ctx.source_type.toUpperCase()}: ${ctx.source_name}]\n${ctx.extracted_text.slice(0, 4000)}`)
-          .join("\n\n");
-      } else {
-        const raw = sessionStorage.getItem("recallmate-content");
-        if (raw) {
-          try {
-            const parsed = JSON.parse(raw);
-            docContext = `File: ${parsed.fileName || ""}\nSummary: ${parsed.summary || ""}\nNotes: ${
-              Array.isArray(parsed.notes) ? parsed.notes.join("; ") : ""
-            }`;
-          } catch (e) {}
-        }
-      }
+      // Attachments remain pinned and visible until removed. Never substitute
+      // generated Notes, a previous quiz, or ambient sessionStorage for a file.
+      const docContext = attachmentFirstContext(attachedFiles, activeChatContext, textToSend);
 
       const res = await fetch("/api/chat", {
         method: "POST",
@@ -179,7 +544,8 @@ export default function OmniChatDrawer() {
         signal: controller.signal,
         body: JSON.stringify({
           documentContext: docContext,
-          messages: [...messages, userMsg].map((m) => ({
+          sourceScopedHistory: attachedFiles.length > 0,
+          messages: [...messages.slice(sourceHistoryStart.current), userMsg].slice(-24).map((m) => ({
             role: m.role,
             content: m.content,
           })),
@@ -241,6 +607,9 @@ export default function OmniChatDrawer() {
     }
 
     setUploading(true);
+    setAttachmentError('');
+    setAttachedFiles([]);
+    sourceHistoryStart.current = messages.length;
 
     for (const file of files) {
       try {
@@ -249,7 +618,7 @@ export default function OmniChatDrawer() {
         // Save as quiet chip — no chat message, no API call yet
         setAttachedFiles((prev) => [...prev, { name: file.name, context: extractedText }]);
       } catch (err: any) {
-        alert(`File upload failed for ${file.name}: ${err.message}`);
+        setAttachmentError(`Could not read ${file.name}. Retry the upload or remove the failed attachment.`);
       }
     }
 
@@ -296,9 +665,9 @@ export default function OmniChatDrawer() {
   const drawerContent = (
     <>
       {/* Floating Trigger Button (Bottom Right) */}
-      <button
-        onClick={() => setIsOpen(!isOpen)}
-        aria-label="Toggle Medea AI Chatbot"
+      <MedeaLauncher
+        source="mobile-fab"
+        aria-label="Open Medea AI"
         className="fixed bottom-24 right-4 sm:bottom-6 sm:right-6 z-[999] flex items-center gap-2.5 px-4 py-3 bg-gradient-to-r from-indigo-600 to-purple-600 hover:from-indigo-500 hover:to-purple-500 text-white font-bold rounded-full shadow-2xl transition-all duration-300 hover:scale-105 active:scale-95 group border border-white/20"
       >
         <div className="relative">
@@ -306,12 +675,17 @@ export default function OmniChatDrawer() {
           <span className="absolute -top-1 -right-1 w-2.5 h-2.5 bg-emerald-400 rounded-full border border-indigo-700" />
         </div>
         <span className="text-sm tracking-wide">Medea AI</span>
-      </button>
+      </MedeaLauncher>
 
       {/* Slide-Over Drawer Overlay */}
       {isOpen && (
         <div onClick={() => setIsOpen(false)} className="fixed inset-0 h-[100dvh] z-[9999] flex justify-end bg-black/50 backdrop-blur-sm animate-in fade-in duration-200">
           <div
+            ref={dialogRef}
+            role="dialog"
+            aria-modal="true"
+            aria-labelledby={dialogTitleId}
+            onKeyDown={handleDialogKeyDown}
             onClick={(e) => e.stopPropagation()}
             className="relative w-full sm:w-[450px] md:w-[500px] h-[100dvh] max-h-[100dvh] bg-white dark:bg-slate-900 shadow-2xl flex flex-col border-l border-slate-200 dark:border-slate-800 animate-in slide-in-from-right duration-300"
           >
@@ -322,7 +696,7 @@ export default function OmniChatDrawer() {
                   <Bot className="w-5 h-5" />
                 </div>
                 <div>
-                  <h2 className="font-black text-slate-900 dark:text-white text-base flex items-center gap-1.5">
+                  <h2 id={dialogTitleId} className="font-black text-slate-900 dark:text-white text-base flex items-center gap-1.5">
                     Medea AI
                     {isPremium ? (
                       <span className="px-2 py-0.5 text-[10px] font-black uppercase tracking-wider text-slate-950 bg-gradient-to-r from-amber-400 to-yellow-500 rounded-full flex items-center gap-1">
@@ -349,6 +723,29 @@ export default function OmniChatDrawer() {
               </button>
             </div>
 
+            {requestedDocumentId && (
+              <div role="status" className="border-b border-amber-200 bg-amber-50 px-4 py-3 text-sm text-amber-900 dark:border-amber-900 dark:bg-amber-950 dark:text-amber-100">
+                <div className="font-semibold">
+                  {documentMetadataLoading ? (
+                    <div className="inline-flex items-center gap-2"><DiamondLoader variant="inline" label="Loading document" />Loading document…</div>
+                  ) : documentReady && documentMetadata ? (
+                    <>Using: {documentMetadata.fileName}</>
+                  ) : documentMetadataError ? (
+                    <>Document selected — unavailable</>
+                  ) : (
+                    <>Document selected — not loaded</>
+                  )}
+                </div>
+                <p className="mt-1 text-xs">
+                  {documentMetadataLoading
+                    ? "Checking whether this saved document is ready."
+                    : documentReady
+                      ? "Medea will use this saved document as the source."
+                      : "Medea will not answer from this document until it can read it securely."}
+                </p>
+                <MedeaLauncher source="legacy" className="mt-2 text-xs font-semibold underline">Open general Medea instead</MedeaLauncher>
+              </div>
+            )}
             {/* Active Context Provenance Bar */}
             {activeChatContext.length > 0 && (
               <div className="px-4 py-2 bg-indigo-50/70 dark:bg-indigo-950/40 border-b border-indigo-100 dark:border-indigo-900/40 flex items-center gap-2 overflow-x-auto text-[11px]">
@@ -407,13 +804,13 @@ export default function OmniChatDrawer() {
               ))}
 
               {(loading || uploading) && (
-                <div className="flex gap-3 justify-start animate-pulse">
+                <div className="flex gap-3 justify-start">
                   <div className="w-8 h-8 rounded-xl bg-indigo-100 dark:bg-indigo-950 text-indigo-600 dark:text-indigo-400 flex items-center justify-center">
                     <Bot className="w-4 h-4" />
                   </div>
                   <div className="bg-slate-100 dark:bg-slate-800 rounded-2xl p-4 text-xs font-semibold text-slate-500 dark:text-slate-400 flex items-center gap-2">
-                    <RefreshCw className="w-3.5 h-3.5 animate-spin" />
-                    {uploading ? "Ingesting document & extracting text..." : "Medea is synthesizing an easy-to-understand response..."}
+                    <DiamondLoader variant="inline" label={uploading ? "Processing file" : "Generating answer"} />
+                    {uploading ? "Processing file…" : "Generating answer…"}
                   </div>
                 </div>
               )}
@@ -431,7 +828,7 @@ export default function OmniChatDrawer() {
                   {getRecommendationPills().map((item, idx) => (
                     <button
                       key={idx}
-                      disabled={loading || uploading}
+                      disabled={loading || uploading || documentPending}
                       onClick={() => {
                         handleSend(undefined, item.text);
                       }}
@@ -449,7 +846,8 @@ export default function OmniChatDrawer() {
               </div>
             )}
 
-            {/* Attachment Chips — shown when files are quietly held, before user sends */}
+            {attachmentError && <div role="alert" className="p-3 text-sm text-rose-600">{attachmentError}<button type="button" className="ml-2 underline" onClick={() => setAttachmentError('')}>Remove failed attachment</button></div>}
+            {/* Active sources stay visible through follow-up turns. */}
             {attachedFiles.length > 0 && (
               <div className="px-4 py-2 bg-indigo-50 dark:bg-indigo-950/50 border-t border-indigo-100 dark:border-indigo-900/40 flex flex-col gap-2 animate-in fade-in duration-200">
                 {attachedFiles.map((file, idx) => (
@@ -468,7 +866,7 @@ export default function OmniChatDrawer() {
                     </button>
                   </div>
                 ))}
-                <span className="text-[10px] text-indigo-500 dark:text-indigo-400 font-medium">Ready — type your question &amp; send</span>
+                <span className="text-[10px] text-indigo-500 dark:text-indigo-400 font-medium">Using these sources for this conversation</span>
               </div>
             )}
 
@@ -490,7 +888,7 @@ export default function OmniChatDrawer() {
                 type="button"
                 onClick={() => fileInputRef.current?.click()}
                 disabled={loading || uploading}
-                title="Upload PDF, DOCX, image, or text file (50MB limit)"
+                title={`Upload PDF, DOCX, image, or text file (${MAX_DOCUMENT_UPLOAD_MB}MB limit)`}
                 className="p-3 rounded-xl bg-slate-100 dark:bg-slate-800 hover:bg-slate-200 dark:hover:bg-slate-700 text-slate-600 dark:text-slate-300 transition-colors disabled:opacity-40 disabled:cursor-not-allowed"
               >
                 <Paperclip className="w-4 h-4" />
@@ -542,7 +940,7 @@ export default function OmniChatDrawer() {
                 <button
                   type="submit"
                   aria-label="Send question to Medea"
-                  disabled={!input.trim() || uploading}
+                  disabled={!input.trim() || uploading || !!attachmentError || documentPending}
                   className="px-4 py-3 rounded-xl bg-indigo-600 hover:bg-indigo-700 disabled:opacity-40 text-white font-bold shadow-md transition-all flex items-center justify-center"
                 >
                   <Send className="w-4 h-4" />

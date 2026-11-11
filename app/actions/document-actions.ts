@@ -2,12 +2,18 @@
 
 import { requireUser, requireEntitlement, checkRateLimit, SecurityError } from '@/lib/security'
 import { UploadDocumentSchema } from '@/lib/validations'
-import { createClient } from '@/utils/supabase/server'
 import { v4 as uuidv4 } from 'uuid'
+import { revalidatePath } from 'next/cache'
+import { MAX_DOCUMENT_UPLOAD_BYTES, MAX_DOCUMENT_UPLOAD_MB } from '@/lib/constants'
+import {
+  SUPABASE_ADMIN_CONFIG_ERROR_CODE,
+  createSupabaseAdminClient,
+  isSupabaseAdminConfigError,
+} from '@/lib/supabase/admin'
 
 export async function createDocumentUploadSession(payload: { fileName: string; fileSize: number; contentType: string }) {
   try {
-    const { supabase, user } = await requireUser()
+    const { user } = await requireUser()
     const validatedData = UploadDocumentSchema.parse(payload)
     await requireEntitlement()
 
@@ -18,8 +24,9 @@ export async function createDocumentUploadSession(payload: { fileName: string; f
     // Sanitize filename
     const sanitizedName = validatedData.fileName.replace(/[^a-zA-Z0-9.\-_]/g, '_')
     const storagePath = `${user.id}/${documentId}/${sanitizedName}`
+    const adminSupabase = createSupabaseAdminClient<any>()
 
-    const { data: document, error } = await supabase
+    const { data: document, error } = await adminSupabase
       .from('documents')
       .insert({
         id: documentId,
@@ -45,6 +52,13 @@ export async function createDocumentUploadSession(payload: { fileName: string; f
     if (error?.code === '42501') {
       return { error: 'Your account could not create this upload. Please refresh your session and try again.', status: 403 }
     }
+    if (isSupabaseAdminConfigError(error)) {
+      return {
+        error: 'Uploads are temporarily unavailable. Please try again shortly.',
+        status: 503,
+        code: SUPABASE_ADMIN_CONFIG_ERROR_CODE,
+      }
+    }
     return { error: error?.message || 'The upload could not be created.', status: 500 }
   }
 }
@@ -52,6 +66,7 @@ export async function createDocumentUploadSession(payload: { fileName: string; f
 export async function confirmDocumentUpload(documentId: string, idempotencyKey: string) {
   try {
     const { supabase, user } = await requireUser()
+    const adminSupabase = createSupabaseAdminClient<any>()
     
     // Check ownership and current status
     const { data: document, error: docError } = await supabase
@@ -89,10 +104,10 @@ export async function confirmDocumentUpload(documentId: string, idempotencyKey: 
 
     const size = uploadedFile.metadata?.size || 0;
     if (size === 0) throw new SecurityError('File is empty', 400);
-    if (size > 10 * 1024 * 1024) throw new SecurityError('File exceeds 10MB limit', 400);
+    if (size > MAX_DOCUMENT_UPLOAD_BYTES) throw new SecurityError(`File exceeds ${MAX_DOCUMENT_UPLOAD_MB}MB limit`, 400);
 
     // Execute atomic confirmation via RPC
-    const { data: jobId, error: rpcError } = await supabase
+    const { data: jobId, error: rpcError } = await adminSupabase
       .rpc('confirm_document_upload', {
         p_document_id: documentId,
         p_user_id: user.id,
@@ -111,6 +126,13 @@ export async function confirmDocumentUpload(documentId: string, idempotencyKey: 
     
     if (error instanceof SecurityError) {
       return { error: error.message, status: error.status }
+    }
+    if (isSupabaseAdminConfigError(error)) {
+      return {
+        error: 'Uploads are temporarily unavailable. Please try again shortly.',
+        status: 503,
+        code: SUPABASE_ADMIN_CONFIG_ERROR_CODE,
+      }
     }
     return { error: error.message || 'Internal Server Error', status: 500 }
   }
@@ -137,6 +159,7 @@ export async function getDocumentStatus(documentId: string) {
 export async function cancelDocumentProcessing(documentId: string) {
   try {
     const { supabase, user } = await requireUser()
+    const adminSupabase = createSupabaseAdminClient<any>()
     
     const { data: document, error: docError } = await supabase
       .from('documents')
@@ -151,16 +174,17 @@ export async function cancelDocumentProcessing(documentId: string) {
        throw new SecurityError(`Cannot cancel document in ${document.status} state`, 400)
     }
 
-    const { error } = await supabase
+    const { error } = await adminSupabase
       .from('documents')
       .update({ status: 'cancelled' })
       .eq('id', documentId)
+      .eq('user_id', user.id)
       
     if (error) throw error
     
     // Attempt to clean up storage if possible
     if (document.storage_path) {
-      await supabase.storage.from('study_materials').remove([document.storage_path])
+      await adminSupabase.storage.from('study_materials').remove([document.storage_path])
     }
     
     return { success: true }
@@ -168,7 +192,59 @@ export async function cancelDocumentProcessing(documentId: string) {
     if (error instanceof SecurityError) {
       return { error: error.message, status: error.status }
     }
+    if (isSupabaseAdminConfigError(error)) {
+      return {
+        error: 'Document actions are temporarily unavailable. Please try again shortly.',
+        status: 503,
+        code: SUPABASE_ADMIN_CONFIG_ERROR_CODE,
+      }
+    }
     return { error: 'Internal Server Error' }
+  }
+}
+
+export async function deleteDocument(documentId: string) {
+  try {
+    const { supabase, user } = await requireUser()
+    const adminSupabase = createSupabaseAdminClient<any>()
+
+    const { data: document, error: docError } = await supabase
+      .from('documents')
+      .select('id, storage_path')
+      .eq('id', documentId)
+      .eq('user_id', user.id)
+      .single()
+
+    if (docError || !document) throw new SecurityError('Document not found', 404)
+
+    if (document.storage_path) {
+      const { error: storageError } = await adminSupabase.storage.from('study_materials').remove([document.storage_path])
+      if (storageError) throw storageError
+    }
+
+    const { error } = await adminSupabase
+      .from('documents')
+      .delete()
+      .eq('id', documentId)
+      .eq('user_id', user.id)
+
+    if (error) throw error
+
+    revalidatePath('/dashboard')
+    return { success: true }
+  } catch (error: any) {
+    if (error instanceof SecurityError) {
+      return { success: false, error: error.message, status: error.status }
+    }
+    if (isSupabaseAdminConfigError(error)) {
+      return {
+        success: false,
+        error: 'Document deletion is temporarily unavailable. Please try again shortly.',
+        status: 503,
+        code: SUPABASE_ADMIN_CONFIG_ERROR_CODE,
+      }
+    }
+    return { success: false, error: error?.message || 'Internal Server Error', status: 500 }
   }
 }
 
@@ -183,7 +259,7 @@ export async function getDocumentLifecycle(documentId: string): Promise<{ succes
       .from('documents')
       .select(`
         id, filename, created_at, status, error_message,
-        ai_jobs ( id, operation, status ),
+        ai_jobs ( id, operation, status, error_message ),
         notes ( id ),
         questions ( id ),
         conversations ( updated_at )
@@ -219,7 +295,7 @@ export async function getRecentDocuments(): Promise<{ success: boolean; data?: D
       .from('documents')
       .select(`
         id, filename, created_at, status, error_message,
-        ai_jobs ( id, operation, status ),
+        ai_jobs ( id, operation, status, error_message ),
         notes ( id ),
         questions ( id ),
         conversations ( updated_at )

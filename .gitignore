@@ -16,3 +16,7 @@ build/
 *.pem
 .vercel
 .env*
+
+# Scratch / CI output logs
+tmp/
+gitleaks-report.json

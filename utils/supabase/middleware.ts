@@ -1,14 +1,16 @@
 import { createServerClient } from '@supabase/ssr'
 import { NextResponse, type NextRequest } from 'next/server'
+import { getSupabasePublicConfig } from '@/lib/supabase-config'
 
 export async function updateSession(request: NextRequest) {
   let supabaseResponse = NextResponse.next({
     request,
   })
 
+  const config = getSupabasePublicConfig()
   const supabase = createServerClient(
-    process.env.NEXT_PUBLIC_SUPABASE_URL ?? 'https://placeholder.supabase.co',
-    process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY ?? 'placeholder-anon-key',
+    config.isConfigured ? config.url : 'https://placeholder.supabase.co',
+    config.isConfigured ? config.key : 'placeholder-anon-key',
     {
       cookies: {
         getAll() {
@@ -41,7 +43,7 @@ export async function updateSession(request: NextRequest) {
   if (isProtectedRoute && !user) {
     const url = request.nextUrl.clone()
     url.pathname = '/login'
-    url.searchParams.set('next', request.nextUrl.pathname)
+    url.searchParams.set('next', '/dashboard')
     return NextResponse.redirect(url)
   }
 

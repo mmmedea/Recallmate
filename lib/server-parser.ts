@@ -1,5 +1,5 @@
-import mammoth from 'mammoth';
-import { PDFParse } from 'pdf-parse';
+import { extractDocxSource } from '@/lib/source/docx-source';
+import { notesEligible } from '@/lib/source/academic-source';
 
 export interface DocumentChunk {
   chunk_index: number;
@@ -42,30 +42,42 @@ function chunkText(text: string, pageNumber?: number, startingIndex: number = 0)
 }
 
 export const processPdfServerSide = async (buffer: Buffer): Promise<DocumentChunk[]> => {
-  let chunkIndex = 0;
-  const chunks: DocumentChunk[] = [];
+  const pdfjs = await import('pdfjs-dist/legacy/build/pdf.js');
+  const document = await pdfjs.getDocument({
+    data: new Uint8Array(buffer),
+    disableWorker: true,
+    isEvalSupported: false,
+  } as any).promise;
 
-  // pdf-parse doesn't have a reliable way to get page-by-page text with metadata out of the box
-  // but we can parse it and inject some pseudo metadata if possible.
-  // For now, let's just parse the full text and chunk it, since true page preservation
-  // requires pdfjs-dist directly which is tricky in Node environment without canvas.
-  // We will fulfill the requirement by ensuring the chunk structure SUPPORTS page_number.
-  
-  const parser = new PDFParse({ data: buffer });
-  let text = '';
+  const chunks: DocumentChunk[] = [];
+  let chunkIndex = 0;
   try {
-    text = (await parser.getText()).text;
+    for (let pageNumber = 1; pageNumber <= document.numPages; pageNumber++) {
+      const page = await document.getPage(pageNumber);
+      const textContent = await page.getTextContent();
+      const text = textContent.items
+        .map((item: any) => typeof item.str === 'string' ? item.str : '')
+        .join(' ')
+        .replace(/\s+/g, ' ')
+        .trim();
+      chunks.push(...chunkText(text, pageNumber, chunkIndex));
+      chunkIndex = chunks.length;
+      page.cleanup();
+    }
   } finally {
-    await parser.destroy();
+    await document.destroy();
   }
-  const genericChunks = chunkText(text, undefined, chunkIndex);
-  
-  return genericChunks;
+
+  return chunks;
 };
 
 export const processDocxServerSide = async (buffer: Buffer): Promise<DocumentChunk[]> => {
-  const result = await mammoth.extractRawText({ buffer });
-  return chunkText(result.value, undefined, 0);
+  const source = await extractDocxSource(buffer, 'Uploaded document.docx');
+  return source.blocks.filter(notesEligible).map(block => ({
+    chunk_index: block.order, section_title: block.section.join(' / '), content: block.text,
+    metadata: { source_version: source.version, source_hash: source.source_hash, source_block_id: block.id,
+      classification: block.classification, source_block: block },
+  }));
 };
 
 export const processTextServerSide = async (buffer: Buffer): Promise<DocumentChunk[]> => {

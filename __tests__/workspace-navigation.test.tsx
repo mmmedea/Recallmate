@@ -34,7 +34,7 @@ describe("study workspace navigation", () => {
     vi.clearAllMocks();
     sessionStorage.clear();
     localStorage.clear();
-    useAppStore.setState({ chatDrawerOpen: false });
+    useAppStore.setState({ chatDrawerOpen: false, medeaRequest: null });
   });
 
   it("renders the calendar workspace even when event storage is temporarily unavailable", async () => {
@@ -59,8 +59,8 @@ describe("study workspace navigation", () => {
   it("opens reviewer creation inside Study Notes", async () => {
     render(<NotesPage />);
     fireEvent.click(screen.getByRole("tab", { name: /reviewer maker/i }));
-    expect(await screen.findByRole("heading", { name: /detailed two-column reviewer/i })).toBeDefined();
-    expect(screen.getByRole("button", { name: /choose lesson file/i })).toBeDefined();
+    expect(await screen.findByRole("heading", { name: /exam-ready pdf & docx reviewer/i })).toBeDefined();
+    expect(screen.getByRole("button", { name: /upload study materials/i })).toBeDefined();
     expect(screen.queryByRole("button", { name: /download pdf/i })).toBeNull();
   });
 
@@ -68,5 +68,7 @@ describe("study workspace navigation", () => {
     render(<TopicsPage />);
     fireEvent.click(screen.getByRole("button", { name: /ask medea/i }));
     expect(useAppStore.getState().chatDrawerOpen).toBe(true);
+    expect(useAppStore.getState().medeaRequest).toMatchObject({ source: "topics" });
+    expect(useAppStore.getState().medeaRequest?.documentId).toBeUndefined();
   });
 });

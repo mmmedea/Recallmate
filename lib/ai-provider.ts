@@ -4,7 +4,7 @@
  * Shared AI provider utility for RecallMate.
  *
  * Strategy:
- *   Primary  → Google Gemini 1.5 Flash (free tier: 1,500 req/day, 15 RPM)
+ *   Primary  → Google Gemini Flash (free tier: 1,500 req/day, 15 RPM)
  *   Fallback → Groq  Llama 3.1 70B     (free tier: ~14,400 req/day, 30 RPM)
  *
  * Both providers are cloud-hosted, always-on, and 100% free at these volumes.
@@ -36,7 +36,25 @@ export function getGeminiKey(): string {
   return process.env.GEMINI_API_KEY_02 || process.env.GEMINI_API_KEY || "";
 }
 
-export const GEMINI_MODEL = "gemini-1.5-flash";
+export const GEMINI_DEFAULT_MODEL = "gemini-3.7-flash";
+const RETIRED_GEMINI_MODELS = new Set([
+  "gemini-1.5-flash",
+  "gemini-1.5-pro",
+  "gemini-2.0-flash",
+  "gemini-2.0-flash-lite",
+]);
+
+export function resolveGeminiModel(configuredModel?: string) {
+  const model = (configuredModel || "").trim();
+  if (!model || RETIRED_GEMINI_MODELS.has(model)) return GEMINI_DEFAULT_MODEL;
+  return model;
+}
+
+export function getGeminiModel(): string {
+  return resolveGeminiModel(process.env.GEMINI_MODEL_FAST || process.env.GEMINI_MODEL_CHAT);
+}
+
+export const GEMINI_MODEL = getGeminiModel();
 
 /**
  * Call the Gemini REST API directly.
@@ -50,7 +68,7 @@ export async function callGeminiRest(
   const apiKey = getGeminiKey();
   if (!apiKey) throw new Error("GEMINI_API_KEY is not configured.");
 
-  const url = `https://generativelanguage.googleapis.com/v1beta/models/${GEMINI_MODEL}:generateContent?key=${apiKey}`;
+  const url = `https://generativelanguage.googleapis.com/v1beta/models/${getGeminiModel()}:generateContent?key=${apiKey}`;
 
   const res = await fetch(url, {
     method: "POST",

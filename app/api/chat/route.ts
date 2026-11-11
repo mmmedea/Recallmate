@@ -1,6 +1,5 @@
 import { NextRequest, NextResponse } from "next/server";
 import { createClient } from "@/utils/supabase/server";
-import { createClient as createServiceClient } from "@supabase/supabase-js";
 import { z } from "zod";
 import { Database } from "@/types/supabase";
 import { LexicalRetriever } from "@/lib/ai/retriever";
@@ -8,16 +7,330 @@ import { BillingService } from "@/lib/ai/billing";
 import { ProviderAdapter } from "@/lib/ai/provider";
 import { buildBoundedMemoryPrompt, ChatMessage } from "@/lib/ai/memory";
 import { rateLimitAdapter } from "@/lib/ai/ratelimit";
-import { createUIMessageStreamResponse } from "ai";
+import {
+  createUIMessageStream,
+  createUIMessageStreamResponse,
+  type UIMessageStreamWriter,
+} from "ai";
 import {
   buildMedeaGeneralPrompt,
   MEDEA_GENERAL_SYSTEM_PROMPT,
+  MEDEA_DOCUMENT_SYSTEM_PROMPT,
   parseMedeaChatRequest,
 } from "@/lib/ai/chat-request";
 import { generateMedeaReply } from "@/lib/ai/medea-service";
+import { SUPABASE_ADMIN_CONFIG_ERROR_CODE, createSupabaseAdminClient, isSupabaseAdminConfigError } from "@/lib/supabase/admin";
 
 export const runtime = "nodejs";
 export const preferredRegion = "iad1";
+
+function createMedeaStreamResponse(
+  execute: (writer: UIMessageStreamWriter) => Promise<void> | void
+) {
+  return createUIMessageStreamResponse({
+    stream: createUIMessageStream({
+      execute: async ({ writer }) => execute(writer),
+    }),
+  });
+}
+
+function writeData(writer: UIMessageStreamWriter, type: `data-${string}`, data: unknown) {
+  writer.write({ type, data } as any);
+}
+
+function writeText(writer: UIMessageStreamWriter, id: string, delta: string) {
+  writer.write({ type: "text-delta", id, delta });
+}
+
+type MedeaDocumentReadiness =
+  | "ready"
+  | "processing"
+  | "failed";
+
+const MEDEA_DOCUMENT_UUID_PATTERN =
+  /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i;
+
+const MEDEA_DOCUMENT_PROCESSING_STATUSES =
+  new Set([
+    "uploaded",
+    "queued",
+    "extracting",
+    "analyzing",
+    "generating",
+  ]);
+
+const MEDEA_DOCUMENT_FAILED_STATUSES =
+  new Set([
+    "failed",
+    "cancelled",
+  ]);
+
+function medeaDocumentJson(
+  body: unknown,
+  status = 200,
+): Response {
+  return new Response(
+    JSON.stringify(body),
+    {
+      status,
+      headers: {
+        "Content-Type":
+          "application/json",
+        "Cache-Control":
+          "private, no-store",
+      },
+    },
+  );
+}
+
+function mapMedeaDocumentReadiness(
+  status: string,
+): MedeaDocumentReadiness {
+  if (
+    MEDEA_DOCUMENT_PROCESSING_STATUSES.has(
+      status,
+    )
+  ) {
+    return "processing";
+  }
+
+  if (
+    MEDEA_DOCUMENT_FAILED_STATUSES.has(
+      status,
+    )
+  ) {
+    return "failed";
+  }
+
+  /*
+   * "completed" still needs a usable
+   * document_chunks row before it can
+   * become "ready".
+   *
+   * Unknown states fail closed.
+   */
+  return "failed";
+}
+
+export async function GET(
+  request: Request,
+): Promise<Response> {
+  try {
+    /*
+     * Authentication mirrors the existing
+     * POST behavior:
+     *
+     * - Bearer token when supplied
+     * - otherwise cookie-aware getUser()
+     */
+    const supabase =
+      await createClient();
+
+    const authorization =
+      request.headers.get(
+        "authorization",
+      );
+
+    const bearerToken =
+      authorization
+        ?.match(
+          /^Bearer\s+(.+)$/i,
+        )?.[1]
+        ?.trim();
+
+    const authResult =
+      bearerToken
+        ? await supabase.auth.getUser(
+            bearerToken,
+          )
+        : await supabase.auth.getUser();
+
+    const user =
+      authResult.data.user;
+
+    if (
+      authResult.error ||
+      !user
+    ) {
+      return medeaDocumentJson(
+        {
+          error:
+            "UNAUTHORIZED",
+        },
+        401,
+      );
+    }
+
+    /*
+     * Authentication happens before ID
+     * validation so signed-out callers do
+     * not learn anything about the request.
+     */
+    const url =
+      new URL(request.url);
+
+    const documentId =
+      (
+        url.searchParams.get(
+          "documentId",
+        ) ?? ""
+      ).trim();
+
+    if (
+      !MEDEA_DOCUMENT_UUID_PATTERN.test(
+        documentId,
+      )
+    ) {
+      return medeaDocumentJson(
+        {
+          error:
+            "INVALID_DOCUMENT_ID",
+        },
+        400,
+      );
+    }
+
+    const admin =
+      createSupabaseAdminClient();
+
+    /*
+     * Ownership is proved in the database
+     * lookup itself.
+     *
+     * Do not query by document ID first and
+     * then compare user_id afterward.
+     */
+    const {
+      data: document,
+      error: documentError,
+    } =
+      await admin
+        .from("documents")
+        .select(
+          "id, filename, status",
+        )
+        .eq(
+          "id",
+          documentId,
+        )
+        .eq(
+          "user_id",
+          user.id,
+        )
+        .maybeSingle();
+
+    /*
+     * Internal lookup failures must not
+     * expose database details.
+     */
+    if (documentError) {
+      return medeaDocumentJson(
+        {
+          error:
+            "DOCUMENT_SOURCE_UNAVAILABLE",
+        },
+        503,
+      );
+    }
+
+    /*
+     * Missing and foreign documents are
+     * intentionally indistinguishable
+     * because this query is owner-scoped.
+     */
+    if (!document) {
+      return medeaDocumentJson(
+        {
+          error:
+            "DOCUMENT_NOT_FOUND",
+        },
+        404,
+      );
+    }
+
+    let readiness:
+      MedeaDocumentReadiness =
+      mapMedeaDocumentReadiness(
+        document.status,
+      );
+
+    /*
+     * A completed lifecycle row alone is
+     * insufficient.
+     *
+     * At least one extracted chunk must
+     * contain non-whitespace source text.
+     */
+    if (
+      document.status ===
+      "completed"
+    ) {
+      const {
+        data: chunks,
+        error: chunkError,
+      } =
+        await admin
+          .from(
+            "document_chunks",
+          )
+          .select("content")
+          .eq(
+            "document_id",
+            documentId,
+          );
+
+      if (chunkError) {
+        return medeaDocumentJson(
+          {
+            error:
+              "DOCUMENT_SOURCE_UNAVAILABLE",
+          },
+          503,
+        );
+      }
+
+      const hasUsableChunk =
+        Array.isArray(chunks) &&
+        chunks.some(
+          (chunk) =>
+            typeof chunk?.content ===
+              "string" &&
+            chunk.content.trim()
+              .length > 0,
+        );
+
+      readiness =
+        hasUsableChunk
+          ? "ready"
+          : "failed";
+    }
+
+    /*
+     * Safe metadata only.
+     *
+     * Do not add user_id, chunk content,
+     * storage information, or extracted
+     * source text here.
+     */
+    return medeaDocumentJson({
+      documentId:
+        document.id,
+
+      fileName:
+        document.filename,
+
+      readiness,
+    });
+  } catch {
+    return medeaDocumentJson(
+      {
+        error:
+          "DOCUMENT_SOURCE_UNAVAILABLE",
+      },
+      503,
+    );
+  }
+}
 
 export async function POST(req: NextRequest) {
   const supabase = await createClient();
@@ -59,10 +372,11 @@ export async function POST(req: NextRequest) {
   if (chatRequest.kind === "general") {
     try {
       const content = await generateMedeaReply({
-        system: MEDEA_GENERAL_SYSTEM_PROMPT,
+        system: chatRequest.documentContext.trim() ? MEDEA_DOCUMENT_SYSTEM_PROMPT : MEDEA_GENERAL_SYSTEM_PROMPT,
         prompt: buildMedeaGeneralPrompt(chatRequest),
         question: chatRequest.question,
         userId: user.id,
+        documentGrounded: !!chatRequest.documentContext.trim(),
       });
       return NextResponse.json({ content });
     } catch (error) {
@@ -76,21 +390,105 @@ export async function POST(req: NextRequest) {
 
   const { documentId, message, requestId } = chatRequest;
 
-  const serviceClient = createServiceClient<any>(
-    process.env.NEXT_PUBLIC_SUPABASE_URL!,
-    process.env.SUPABASE_SERVICE_ROLE_KEY!
-  );
+  let serviceClient;
+  try {
+    serviceClient = createSupabaseAdminClient<any>();
+  } catch (error) {
+    if (isSupabaseAdminConfigError(error)) {
+      return NextResponse.json(
+        { error: "This operation is temporarily unavailable. Please try again later.", code: SUPABASE_ADMIN_CONFIG_ERROR_CODE },
+        { status: 503 },
+      );
+    }
+    throw error;
+  }
 
   // 1. Authorization: verify user owns this document
   const { data: document, error: docError } = await serviceClient
     .from("documents")
-    .select("id")
+    .select("id, status")
     .eq("id", documentId)
     .eq("user_id", user.id)
     .single();
 
-  if (docError || !document) {
+  if (docError) {
+    return new Response(
+      JSON.stringify({
+        error: "DOCUMENT_SOURCE_UNAVAILABLE",
+      }),
+      {
+        status: 503,
+        headers: {
+          "Content-Type": "application/json",
+          "Cache-Control": "private, no-store",
+        },
+      },
+    );
+  }
+
+  if (!document) {
     return NextResponse.json({ error: "Document not found or unauthorized" }, { status: 403 });
+  }
+
+  if (document.status !== "completed") {
+    return new Response(
+      JSON.stringify({
+        error: "DOCUMENT_NOT_READY",
+      }),
+      {
+        status: 409,
+        headers: {
+          "Content-Type": "application/json",
+          "Cache-Control": "private, no-store",
+        },
+      },
+    );
+  }
+
+  const {
+    data: documentChunks,
+    error: documentChunksError,
+  } = await serviceClient
+    .from("document_chunks")
+    .select("content")
+    .eq("document_id", documentId);
+
+  if (documentChunksError) {
+    return new Response(
+      JSON.stringify({
+        error: "DOCUMENT_SOURCE_UNAVAILABLE",
+      }),
+      {
+        status: 503,
+        headers: {
+          "Content-Type": "application/json",
+          "Cache-Control": "private, no-store",
+        },
+      },
+    );
+  }
+
+  const hasUsableDocumentChunk =
+    Array.isArray(documentChunks) &&
+    documentChunks.some(
+      (chunk) =>
+        typeof chunk?.content === "string" &&
+        chunk.content.trim().length > 0,
+    );
+
+  if (!hasUsableDocumentChunk) {
+    return new Response(
+      JSON.stringify({
+        error: "DOCUMENT_NOT_READY",
+      }),
+      {
+        status: 409,
+        headers: {
+          "Content-Type": "application/json",
+          "Cache-Control": "private, no-store",
+        },
+      },
+    );
   }
 
   // 2. Resolve Conversation (Immutable Document Scope)
@@ -128,8 +526,7 @@ export async function POST(req: NextRequest) {
   if (existingInteraction) {
     if (existingInteraction.status === 'completed') {
       // Re-stream the recovered response
-      return createUIMessageStreamResponse({
-        execute: async (dataStream) => {
+      return createMedeaStreamResponse(async (writer) => {
           const { data: reply } = await serviceClient
             .from("chat_messages")
             .select("content, id")
@@ -142,12 +539,16 @@ export async function POST(req: NextRequest) {
             .select("source_chunk_id, alias")
             .eq("interaction_id", existingInteraction.id);
 
-          dataStream.writeData({ recovered: true });
+          const textId = crypto.randomUUID();
+          writer.write({ type: "start" });
+          writeData(writer, "data-recovered", { recovered: true });
           if (citations) {
-             dataStream.writeMessageAnnotation({ type: 'citations', data: citations });
+             writeData(writer, "data-citation", { citations });
           }
-          dataStream.writeText(reply?.content || "");
-        }
+          writer.write({ type: "text-start", id: textId });
+          writeText(writer, textId, reply?.content || "");
+          writer.write({ type: "text-end", id: textId });
+          writer.write({ type: "finish" });
       });
     } else if (existingInteraction.status === 'generating') {
       return NextResponse.json({ error: "Request is currently generating" }, { status: 409 });
@@ -207,10 +608,11 @@ export async function POST(req: NextRequest) {
     content: message
   });
 
-  return createUIMessageStreamResponse({
-    execute: async (dataStream) => {
+  return createMedeaStreamResponse(async (writer) => {
       try {
-        dataStream.writeMessageAnnotation({ type: 'data-tutor-status', data: { label: 'Retrieving context...' } });
+        const textId = crypto.randomUUID();
+        writer.write({ type: "start" });
+        writeData(writer, "data-tutor-status", { label: "Retrieving context..." });
 
         // 7. Context Retrieval
         const retriever = new LexicalRetriever(serviceClient);
@@ -232,7 +634,7 @@ export async function POST(req: NextRequest) {
           .limit(10);
         
         const history: ChatMessage[] = (historyData || []).reverse().map((h: any) => ({
-          role: h.role as ChatMessageRole,
+          role: h.role === "assistant" ? "assistant" : "user",
           content: h.content
         }));
 
@@ -246,7 +648,7 @@ export async function POST(req: NextRequest) {
           maxHistoryMessages: 10
         });
 
-        dataStream.writeMessageAnnotation({ type: 'data-tutor-status', data: { label: 'Generating answer...' } });
+        writeData(writer, "data-tutor-status", { label: "Generating answer..." });
 
         // 9. Generate & Stream Text natively
         const stream = await ProviderAdapter.stream({
@@ -256,14 +658,16 @@ export async function POST(req: NextRequest) {
         });
 
         let fullContent = "";
+        writer.write({ type: "text-start", id: textId });
         for await (const chunk of stream) {
            // Handle Google GenAI chunk structure
            const textChunk = chunk.text || "";
            if (textChunk) {
-              dataStream.writeText(textChunk);
+              writeText(writer, textId, textChunk);
               fullContent += textChunk;
            }
         }
+        writer.write({ type: "text-end", id: textId });
 
         // 10. Persist completion
         const { data: assistantMsg } = await serviceClient.from("chat_messages").insert({
@@ -283,6 +687,7 @@ export async function POST(req: NextRequest) {
         }).eq("id", interactionId);
 
         await billingService.finalizeJob(user.id, billingJobId, 5, "Chat completed successfully");
+        writer.write({ type: "finish" });
       } catch (err: any) {
         console.error("Stream Execution Error:", err);
         await serviceClient.from("chat_interactions").update({
@@ -295,6 +700,5 @@ export async function POST(req: NextRequest) {
         
         throw err;
       }
-    }
   });
 }

@@ -5,6 +5,7 @@ import { persist, StateStorage, createJSONStorage } from "zustand/middleware";
 import { get, set, del } from "idb-keyval";
 import { MAX_HEARTS, HEART_REGEN_MINUTES } from "./constants";
 import type { OTPState, OTPFlowContext } from "./types/auth";
+import { createMedeaRequest, type MedeaOpenOptions, type MedeaRequest } from "./medea-navigation";
 
 // Re-export for convenience
 export type { OTPState, OTPFlowContext } from "./types/auth";
@@ -28,7 +29,10 @@ interface AppState {
   isMobileNavOpen: boolean;
   setMobileNavOpen: (isOpen: boolean) => void;
   chatDrawerOpen: boolean;
+  medeaRequest: MedeaRequest | null;
   setChatDrawerOpen: (isOpen: boolean) => void;
+  openMedea: (options?: MedeaOpenOptions) => void;
+  clearMedeaRequest: () => void;
 
   // OTP UI State moved to useOTPStore
 
@@ -44,6 +48,7 @@ interface AppState {
   hearts: number;
   lastHeartLostAt: number | null;
   isPremium: boolean;
+  setPremium: (isPremium: boolean) => void;
   loseHeart: () => boolean;
   regenHearts: () => void;
   addHeart: (amount?: number) => void;
@@ -73,13 +78,25 @@ export const useAppStore = create<AppState>()(
       isMobileNavOpen: false,
       setMobileNavOpen: (isOpen) => set({ isMobileNavOpen: isOpen }),
       chatDrawerOpen: false,
-      setChatDrawerOpen: (isOpen) => set({ chatDrawerOpen: isOpen }),
+      medeaRequest: null,
+      setChatDrawerOpen: (isOpen) => set((state) => ({
+        chatDrawerOpen: isOpen,
+        medeaRequest: isOpen ? state.medeaRequest : null,
+      })),
+      openMedea: (options = {}) => set({
+        chatDrawerOpen: true,
+        medeaRequest: createMedeaRequest(options),
+        // A new launch cannot inherit a different material's context.
+        activeChatContext: [],
+      }),
+      clearMedeaRequest: () => set({ medeaRequest: null }),
       activeChatContext: [],
 
       // DEPRECATED SERVER STATE
       hearts: MAX_HEARTS,
       lastHeartLostAt: null,
       isPremium: false,
+      setPremium: (isPremium) => set({ isPremium, hearts: isPremium ? MAX_HEARTS : get().hearts }),
 
       loseHeart: () => {
         const { hearts, isPremium } = get();
@@ -149,6 +166,17 @@ export const useAppStore = create<AppState>()(
     {
       name: "recallmate-storage",
       storage: createJSONStorage(() => idbStorage),
+      partialize: ({ chatDrawerOpen, medeaRequest, isMobileNavOpen, activeChatContext, ...persisted }) => persisted,
+      // Also ignore launch state written by older versions. Keep a new launch
+      // that happened while asynchronous IndexedDB hydration was in flight.
+      merge: (persisted, current) => ({
+        ...current,
+        ...(persisted as Partial<AppState>),
+        chatDrawerOpen: current.chatDrawerOpen,
+        medeaRequest: current.medeaRequest,
+        isMobileNavOpen: current.isMobileNavOpen,
+        activeChatContext: current.activeChatContext,
+      }),
     }
   )
 );

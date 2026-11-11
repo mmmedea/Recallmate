@@ -4,6 +4,7 @@ import { useEffect, useState } from "react";
 import { createPortal } from "react-dom";
 import { useAppStore } from "@/lib/store";
 import { Heart, X, Brain, ArrowRight } from "lucide-react";
+import { DiamondLoader } from "@/components/DiamondLoader";
 
 interface FeynmanRechargeModalProps {
   open: boolean;
@@ -139,6 +140,7 @@ export default function FeynmanRechargeModal({
                 <textarea
                   value={explanation}
                   onChange={(e) => setExplanation(e.target.value)}
+                  disabled={loading}
                   placeholder="In simple terms, this concept works by..."
                   rows={4}
                   autoFocus
@@ -164,15 +166,17 @@ export default function FeynmanRechargeModal({
                 <button
                   type="button"
                   onClick={onClose}
+                  disabled={loading}
                   className="w-full sm:w-1/3 py-3.5 bg-slate-100 hover:bg-slate-200 dark:bg-slate-800 dark:hover:bg-slate-700 text-slate-700 dark:text-slate-300 rounded-xl font-bold transition-all text-sm"
                 >
                   Cancel
                 </button>
                 <button
                   type="submit"
+                  disabled={loading}
                   className="w-full sm:w-2/3 py-3.5 bg-indigo-600 hover:bg-indigo-700 dark:bg-indigo-500 dark:hover:bg-indigo-600 text-white rounded-xl font-bold shadow-md transition-all flex items-center justify-center gap-2 text-sm active:scale-[0.98]"
                 >
-                  Synthesize & Recharge <ArrowRight className="w-4 h-4" />
+                  {loading ? <><DiamondLoader variant="inline" label="Generating answer" />Generating answer…</> : <>Synthesize & Recharge <ArrowRight className="w-4 h-4" /></>}
                 </button>
               </div>
             </form>

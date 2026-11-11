@@ -2,7 +2,7 @@
 
 import { useState } from "react";
 import { useRouter } from "next/navigation";
-import { User, Settings, LogOut, Loader2, HelpCircle } from "lucide-react";
+import { User, Settings, LogOut, HelpCircle } from "lucide-react";
 import { createClient } from "@/utils/supabase/client";
 import {
   DropdownMenu,
@@ -15,6 +15,7 @@ import {
 import { Button } from "@/components/ui/button";
 import Link from "next/link";
 import type { AuthenticatedUser } from "@/lib/types/auth";
+import { DiamondLoader } from "@/components/DiamondLoader";
 
 export function AccountMenu({ user }: { user: AuthenticatedUser }) {
   const [isLoggingOut, setIsLoggingOut] = useState(false);
@@ -72,7 +73,7 @@ export function AccountMenu({ user }: { user: AuthenticatedUser }) {
           className="cursor-pointer text-rose-600 dark:text-rose-400 focus:text-rose-600 focus:bg-rose-50 dark:focus:text-rose-400 dark:focus:bg-rose-950/50"
         >
           {isLoggingOut ? (
-            <Loader2 className="mr-2 h-4 w-4 animate-spin" />
+            <DiamondLoader variant="inline" label="Logging out" />
           ) : (
             <LogOut className="mr-2 h-4 w-4" />
           )}

@@ -1,12 +1,13 @@
 'use client';
 
-import { useState, useEffect } from 'react';
+import { useState, useEffect, useRef } from 'react';
 import { useRouter } from 'next/navigation';
 import { CitationBadge } from '@/components/CitationBadge';
-import { ArrowLeft, CheckCircle2, XCircle, RotateCcw, Loader2 } from 'lucide-react';
+import { ArrowLeft, CheckCircle2, XCircle, RotateCcw } from 'lucide-react';
+import { DiamondLoader } from '@/components/DiamondLoader';
 import Link from 'next/link';
 import { createClient } from '@/utils/supabase/client';
-import { v4 as uuidv4 } from 'uuid';
+import { v4 as uuidv4, v5 as uuidv5 } from 'uuid';
 
 interface FSRSItem {
   learningItemId: string;
@@ -27,6 +28,9 @@ export function QuizClient({ documentId }: { documentId: string }) {
   const [error, setError] = useState('');
   const [items, setItems] = useState<FSRSItem[]>([]);
   const [sessionId, setSessionId] = useState<string | null>(null);
+  const [exhausted, setExhausted] = useState(false);
+  const [exhaustionModes, setExhaustionModes] = useState<string[]>([]);
+  const [emptyMessage, setEmptyMessage] = useState("There are no more flashcards due for review right now.");
   
   const [currentIndex, setCurrentIndex] = useState(0);
   const [selectedAnswer, setSelectedAnswer] = useState<string>('');
@@ -35,10 +39,50 @@ export function QuizClient({ documentId }: { documentId: string }) {
     correctAnswer: string;
     explanation: string;
     sourceChunkId?: string;
+    heartsAfter?: number;
   } | null>(null);
   
   const [isSubmitting, setIsSubmitting] = useState(false);
+  const submitting = useRef(false);
   const [isFinished, setIsFinished] = useState(false);
+  const [needsHearts, setNeedsHearts] = useState(false);
+  const [walletPending, setWalletPending] = useState(false);
+  const [walletError, setWalletError] = useState('');
+  const walletInFlight = useRef(false);
+  const purchaseKey = useRef<string | null>(null);
+
+  async function resumeWithHearts(purchase: boolean) {
+    if (walletInFlight.current) return;
+    walletInFlight.current = true;
+    setWalletPending(true);
+    setWalletError('');
+    try {
+      if (purchase) {
+        purchaseKey.current ??= `quiz-heart-shop:${uuidv4()}`;
+        const response = await fetch('/api/economy/heart-shop', {
+          method: 'POST', headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ kind: 'add_five', idempotencyKey: purchaseKey.current }),
+        });
+        const result = await response.json();
+        if (!response.ok) throw new Error(result.error || 'Could not buy hearts. Please retry.');
+      }
+      const response = await fetch('/api/economy/wallet', { cache: 'no-store' });
+      const wallet = await response.json();
+      if (!response.ok || wallet.economy?.state !== 'ok') throw new Error('Could not verify your wallet. Please retry.');
+      window.dispatchEvent(new CustomEvent('recallmate:economy-updated', { detail: {
+        hearts: wallet.economy.hearts, heartCap: wallet.economy.heartCap,
+      } }));
+      if (wallet.premium || wallet.economy.hearts > 0) {
+        purchaseKey.current = null;
+        setNeedsHearts(false);
+      } else setWalletError('No hearts available yet. Buy hearts or check again after regeneration.');
+    } catch (error) {
+      setWalletError(error instanceof Error ? error.message : 'Could not refresh your wallet.');
+    } finally {
+      walletInFlight.current = false;
+      setWalletPending(false);
+    }
+  }
 
   // Fetch session on mount
   useEffect(() => {
@@ -60,6 +104,9 @@ export function QuizClient({ documentId }: { documentId: string }) {
         if (!res.ok) throw new Error(data.error || 'Failed to start session');
 
         if (data.items.length === 0) {
+          setExhausted(Boolean(data.exhausted));
+          setExhaustionModes(Array.isArray(data.modes) ? data.modes : []);
+          setEmptyMessage(data.message || 'There are no more flashcards due for review right now.');
           setIsFinished(true);
         } else {
           setItems(data.items);
@@ -76,12 +123,7 @@ export function QuizClient({ documentId }: { documentId: string }) {
   }, [documentId, supabase]);
 
   if (loading) {
-    return (
-      <div className="flex flex-col items-center justify-center min-h-[50vh] space-y-4">
-        <Loader2 className="w-8 h-8 text-indigo-500 animate-spin" />
-        <p className="text-slate-500 font-medium">Preparing your study session...</p>
-      </div>
-    );
+    return <DiamondLoader variant="section" label="Preparing your study session" className="min-h-[50vh]" />;
   }
 
   if (error) {
@@ -104,10 +146,26 @@ export function QuizClient({ documentId }: { documentId: string }) {
             <CheckCircle2 className="h-12 w-12" />
           </div>
         </div>
-        <h1 className="text-3xl font-bold text-slate-900 dark:text-white mb-4">You're all caught up!</h1>
+        <h1 className="text-3xl font-bold text-slate-900 dark:text-white mb-4">
+          {exhausted ? "All unique questions completed" : "You're all caught up!"}
+        </h1>
         <p className="text-lg text-slate-600 dark:text-slate-400 mb-10">
-          There are no more flashcards due for review right now.
+          {emptyMessage}
         </p>
+        {exhausted && exhaustionModes.length > 0 ? (
+          <div className="mb-10 grid gap-3 sm:grid-cols-2">
+            {exhaustionModes.map((mode) => (
+              <button
+                key={mode}
+                type="button"
+                onClick={() => mode.toLowerCase().includes("generate") ? router.push(`/documents/${documentId}`) : router.push(`/documents/${documentId}/review`)}
+                className="rounded-2xl border border-indigo-200 bg-indigo-50 px-4 py-3 text-sm font-black text-indigo-700 transition hover:bg-indigo-100 dark:border-indigo-400/20 dark:bg-indigo-500/10 dark:text-indigo-200"
+              >
+                {mode}
+              </button>
+            ))}
+          </div>
+        ) : null}
         <Link 
           href={`/documents/${documentId}`}
           className="inline-flex items-center justify-center gap-2 px-6 py-3 bg-indigo-600 text-white rounded-lg font-medium hover:bg-indigo-700 transition-colors"
@@ -118,6 +176,16 @@ export function QuizClient({ documentId }: { documentId: string }) {
       </div>
     );
   }
+
+  if (needsHearts) return (
+    <section className="mx-auto max-w-xl space-y-4 p-8 text-center" aria-label="Quiz paused">
+      <h1 className="text-2xl font-bold">You're out of hearts</h1>
+      <p>Your progress is saved. Add hearts to continue this quiz.</p>
+      {walletError ? <p role="alert">{walletError}</p> : null}
+      <button type="button" disabled={walletPending} onClick={() => void resumeWithHearts(true)} className="rounded-xl bg-rose-600 px-5 py-3 font-bold text-white disabled:opacity-50">❤️ +5 hearts · 200 coins</button>
+      <button type="button" disabled={walletPending} onClick={() => void resumeWithHearts(false)} className="block w-full rounded-xl border p-3">Check balance and resume</button>
+    </section>
+  );
 
   const currentQuestion = items[currentIndex];
 
@@ -135,6 +203,8 @@ export function QuizClient({ documentId }: { documentId: string }) {
   };
 
   const handleRate = async (rating: number) => {
+    if (submitting.current || !feedback || !sessionId) return;
+    submitting.current = true;
     setIsSubmitting(true);
     try {
       const { data: { session } } = await supabase.auth.getSession();
@@ -149,15 +219,28 @@ export function QuizClient({ documentId }: { documentId: string }) {
         body: JSON.stringify({
           learningItemId: currentQuestion.learningItemId,
           reviewSessionId: sessionId,
-          requestId: uuidv4(),
+          requestId: uuidv5(`quiz-review:${sessionId}:${currentQuestion.learningItemId}`, uuidv5.URL),
           wasCorrect: feedback!.isCorrect,
           rating
         })
       });
 
+      const payload = await res.json().catch(() => ({}));
       if (!res.ok) {
-        const err = await res.json();
+        const err = payload;
+        if (err.code === 'NO_HEARTS') setNeedsHearts(true);
         throw new Error(err.error || 'Failed to submit review');
+      }
+
+      const heartsAfter = Number(payload?.economy?.hearts);
+      if (Number.isFinite(heartsAfter)) {
+        setFeedback((current) => current ? { ...current, heartsAfter } : current);
+        window.dispatchEvent(new CustomEvent('recallmate:economy-updated', {
+          detail: {
+            hearts: heartsAfter,
+            heartCap: Number(payload?.economy?.heartCap ?? 15),
+          },
+        }));
       }
 
       // Advance
@@ -165,12 +248,14 @@ export function QuizClient({ documentId }: { documentId: string }) {
         setCurrentIndex(currentIndex + 1);
         setSelectedAnswer('');
         setFeedback(null);
+        if (heartsAfter === 0 && !payload.premium) setNeedsHearts(true);
       } else {
         setIsFinished(true);
       }
     } catch (err: any) {
       alert(err.message);
     } finally {
+      submitting.current = false;
       setIsSubmitting(false);
     }
   };
@@ -269,6 +354,11 @@ export function QuizClient({ documentId }: { documentId: string }) {
               <p className="text-slate-700 dark:text-slate-300 mt-2 leading-relaxed">
                 {feedback.explanation}
               </p>
+              {!feedback.isCorrect && Number.isFinite(feedback.heartsAfter) ? (
+                <p className="mt-2 text-sm font-semibold text-rose-600 dark:text-rose-300">
+                  One heart used · {feedback.heartsAfter} remaining
+                </p>
+              ) : null}
             </div>
           </div>
 

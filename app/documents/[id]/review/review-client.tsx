@@ -2,7 +2,8 @@
 
 import React, { useState, useEffect } from "react";
 import { useRouter } from "next/navigation";
-import { useAppStore } from "@/lib/store";
+import { MedeaLauncher } from "@/components/medea/MedeaLauncher";
+import { DiamondLoader } from "@/components/DiamondLoader";
 
 interface ReviewClientProps {
   documentId: string;
@@ -10,7 +11,6 @@ interface ReviewClientProps {
 
 export default function ReviewClient({ documentId }: ReviewClientProps) {
   const router = useRouter();
-  const openMedea = useAppStore(state => state.setChatDrawerOpen);
   const [items, setItems] = useState<any[]>([]);
   const [sessionId, setSessionId] = useState<string | null>(null);
   const [currentIndex, setCurrentIndex] = useState(0);
@@ -67,7 +67,7 @@ export default function ReviewClient({ documentId }: ReviewClientProps) {
     }
   };
 
-  if (loading) return <div>Loading review session...</div>;
+  if (loading) return <DiamondLoader variant="section" label="Loading review session" />;
   if (error) return <div className="text-red-500">{error}</div>;
   if (items.length === 0) return <div>You are all caught up! No items to review.</div>;
 
@@ -144,7 +144,7 @@ export default function ReviewClient({ documentId }: ReviewClientProps) {
             
             <div className="mt-6 flex justify-center space-x-4">
               <button onClick={() => router.push(`/notes/${documentId}`)} className="text-sm text-gray-500 hover:text-gray-900 underline">Review Notes</button>
-              <button onClick={() => openMedea(true)} className="text-sm text-gray-500 hover:text-gray-900 underline">Ask Medea</button>
+              <MedeaLauncher documentId={documentId} source="review" className="text-sm text-gray-500 hover:text-gray-900 underline">Ask Medea</MedeaLauncher>
             </div>
           </div>
         </div>

@@ -1,5 +1,6 @@
 import { createClient } from "@/utils/supabase/server";
 import type { AppBootstrap } from "@/lib/types/auth";
+import { getEconomySnapshot } from "@/lib/economy/server";
 
 /**
  * Loads the minimal bootstrap data needed to render the authenticated shell.
@@ -10,13 +11,14 @@ export async function getUserBootstrap(userId: string): Promise<AppBootstrap> {
   const supabase = await createClient();
 
   // Fetch user profile and credits in parallel
-  const [entitlementsResult, profileResult] = await Promise.all([
+  const [entitlementsResult, profileResult, economy] = await Promise.all([
     supabase
       .from("user_entitlements")
       .select("credits_remaining, tier")
       .eq("user_id", userId)
       .single(),
     supabase.auth.getUser(),
+    getEconomySnapshot(userId),
   ]);
 
   const credits = entitlementsResult.data?.credits_remaining ?? 0;
@@ -38,6 +40,19 @@ export async function getUserBootstrap(userId: string): Promise<AppBootstrap> {
     },
     credits: {
       available: credits,
+    },
+    economy: {
+      coins: economy.coins,
+      hearts: economy.hearts,
+      heartCap: economy.heartCap,
+      streak: economy.streak,
+      longestStreak: economy.longestStreak,
+      canRestoreStreak: economy.canRestoreStreak,
+      canClaimDailyReward: economy.canClaimDailyReward,
+      restoreCostCoins: economy.restoreCostCoins,
+      lastClaimedDay: economy.lastClaimedDay,
+      studyDay: economy.studyDay,
+      state: economy.state,
     },
   };
 }

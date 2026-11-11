@@ -1,10 +1,13 @@
 "use client";
 
-import { useState } from "react";
-import { Loader2, AlertCircle } from "lucide-react";
+import { useMemo, useState } from "react";
+import { AlertCircle } from "lucide-react";
 import { createClient } from "@/utils/supabase/client";
 import { Button } from "@/components/ui/button";
+import { getBrowserAppOrigin } from "@/lib/app-origin";
+import { getSupabasePublicConfig, SUPABASE_CONFIG_ERROR } from "@/lib/supabase-config";
 import { OAUTH_PROVIDERS, type OAuthProviderId } from "@/lib/config/auth";
+import { DiamondLoader } from "@/components/DiamondLoader";
 
 interface OAuthButtonsProps {
   redirectTo?: string;
@@ -13,14 +16,21 @@ interface OAuthButtonsProps {
 export function OAuthButtons({ redirectTo = "/dashboard" }: OAuthButtonsProps) {
   const [loadingProvider, setLoadingProvider] = useState<OAuthProviderId | null>(null);
   const [errorProvider, setErrorProvider] = useState<OAuthProviderId | null>(null);
-  const supabase = createClient();
+  const [setupError, setSetupError] = useState("");
+  const supabase = useMemo(() => createClient(), []);
+  const googleStartHref = `/api/auth/google/start?next=${encodeURIComponent(redirectTo)}`;
 
   const handleOAuthSignIn = async (providerId: OAuthProviderId) => {
     try {
       setLoadingProvider(providerId);
       setErrorProvider(null);
+      setSetupError("");
+
+      if (!getSupabasePublicConfig().isConfigured) {
+        throw new Error(SUPABASE_CONFIG_ERROR);
+      }
       
-      const callbackUrl = `${window.location.origin}/auth/callback?next=${encodeURIComponent(redirectTo)}`;
+      const callbackUrl = `${getBrowserAppOrigin()}/auth/callback?next=${encodeURIComponent(redirectTo)}`;
 
       const { error } = await supabase.auth.signInWithOAuth({
         provider: providerId,
@@ -36,6 +46,7 @@ export function OAuthButtons({ redirectTo = "/dashboard" }: OAuthButtonsProps) {
       // Don't reset loading — user is being redirected
     } catch (error) {
       console.error(`${providerId} OAuth error:`, error);
+      setSetupError(error instanceof Error ? error.message : "");
       setErrorProvider(providerId);
       setLoadingProvider(null);
     }
@@ -78,6 +89,22 @@ export function OAuthButtons({ redirectTo = "/dashboard" }: OAuthButtonsProps) {
       {enabledProviders.map((provider) => {
         const isThisLoading = loadingProvider === provider.id;
         const hasError = errorProvider === provider.id;
+        if (provider.id === "google") {
+          return (
+            <div key={provider.id} className="space-y-1.5">
+              <a
+                href={googleStartHref}
+                onClick={() => setLoadingProvider(provider.id)}
+                aria-label={provider.label}
+                aria-busy={isThisLoading}
+                className="inline-flex h-11 w-full items-center justify-center gap-3 rounded-md border border-slate-300 bg-transparent px-4 py-2 text-sm font-medium transition-colors hover:bg-slate-50 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring dark:border-slate-700 dark:hover:bg-slate-800"
+              >
+                {isThisLoading ? <DiamondLoader variant="inline" label="Connecting Google" /> : getIcon(provider.id)}
+                {isThisLoading ? "Connecting…" : provider.label}
+              </a>
+            </div>
+          );
+        }
 
         return (
           <div key={provider.id} className="space-y-1.5">
@@ -90,7 +117,7 @@ export function OAuthButtons({ redirectTo = "/dashboard" }: OAuthButtonsProps) {
               aria-label={provider.label}
             >
               {isThisLoading ? (
-                <Loader2 className="h-4 w-4 animate-spin" aria-hidden="true" />
+                <DiamondLoader variant="inline" label={`Connecting ${provider.label}`} />
               ) : (
                 getIcon(provider.id)
               )}
@@ -100,7 +127,7 @@ export function OAuthButtons({ redirectTo = "/dashboard" }: OAuthButtonsProps) {
             {hasError && (
               <p className="text-xs text-rose-600 dark:text-rose-400 text-center flex items-center justify-center gap-1.5 animate-in slide-in-from-top-1 duration-200">
                 <AlertCircle className="h-3 w-3" />
-                {provider.label.split(" ")[2]} sign-in is temporarily unavailable.
+                {setupError || `${provider.label.split(" ")[2]} sign-in is temporarily unavailable.`}
               </p>
             )}
           </div>

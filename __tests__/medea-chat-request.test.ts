@@ -3,6 +3,78 @@ import { parseMedeaChatRequest } from "@/lib/ai/chat-request";
 import { buildMedeaGeneralPrompt, MEDEA_GENERAL_SYSTEM_PROMPT } from "@/lib/ai/chat-request";
 
 describe("Medea chat request contract", () => {
+  const validSavedDocumentRequest = {
+    documentId:
+      "22222222-2222-4222-8222-222222222222",
+
+    message:
+      "Explain this document",
+
+    requestId:
+      "33333333-3333-4333-8333-333333333333",
+  };
+
+  it(
+    "accepts exactly the saved-document request contract",
+    () => {
+      expect(
+        parseMedeaChatRequest(
+          validSavedDocumentRequest,
+        ),
+      ).toEqual({
+        kind: "document",
+        ...validSavedDocumentRequest,
+      });
+    },
+  );
+
+  it.each([
+    [
+      "userId",
+      "11111111-1111-4111-8111-111111111111",
+    ],
+
+    [
+      "fileName",
+      "lecture-notes.pdf",
+    ],
+
+    [
+      "extractedText",
+      "Client supplied document text must not be trusted.",
+    ],
+
+    [
+      "chunks",
+      [
+        {
+          content:
+            "Client supplied chunk content",
+        },
+      ],
+    ],
+
+    [
+      "documentContext",
+      "CLIENT_CONTROLLED_LEGACY_CONTEXT",
+    ],
+  ])(
+    "rejects saved-document requests containing client-supplied %s",
+    (
+      field,
+      value,
+    ) => {
+      expect(
+        () =>
+          parseMedeaChatRequest({
+            ...validSavedDocumentRequest,
+            [field]:
+              value,
+          }),
+      ).toThrow();
+    },
+  );
+
   it("accepts the dashboard drawer payload that previously returned Invalid request payload", () => {
     const result = parseMedeaChatRequest({
       documentContext: "",

@@ -2,9 +2,34 @@ import ReactMarkdown from "react-markdown";
 import remarkMath from "remark-math";
 import rehypeKatex from "rehype-katex";
 import "katex/dist/katex.min.css";
-import { Message } from "@ai-sdk/react";
+import type { UIMessage } from "ai";
+import { DiamondLoader } from "@/components/DiamondLoader";
 import { TutorStatus, VerificationIndicator, CitationBadge } from "./TutorIndicators";
 import { MedeaStreamPart } from "@/lib/ai/tutor/stream";
+
+type MedeaChatMessage = UIMessage & {
+  content?: string;
+  annotations?: MedeaStreamPart[];
+};
+
+function getMessageText(message: MedeaChatMessage) {
+  if (message.content) return message.content;
+
+  return (
+    message.parts
+      ?.filter((part): part is { type: "text"; text: string } => part.type === "text")
+      .map((part) => part.text)
+      .join("") || ""
+  );
+}
+
+function getMessageAnnotations(message: MedeaChatMessage) {
+  const legacyAnnotations = message.annotations || [];
+  const dataParts = (message.parts || []).filter((part): part is MedeaStreamPart =>
+    typeof part.type === "string" && part.type.startsWith("data-")
+  );
+  return [...legacyAnnotations, ...dataParts];
+}
 
 export function ChatMessage({ 
   message, 
@@ -12,15 +37,16 @@ export function ChatMessage({
   isLoading,
   streamData 
 }: { 
-  message: Message; 
+  message: MedeaChatMessage;
   isLast: boolean; 
   isLoading: boolean;
   streamData?: any[]; 
 }) {
   const isAssistant = message.role === "assistant";
+  const messageText = getMessageText(message);
   
   // Extract annotations
-  const annotations = (message.annotations as MedeaStreamPart[]) || [];
+  const annotations = getMessageAnnotations(message);
   
   const statusAnnotations = annotations.filter(a => a.type === "data-tutor-status");
   const latestStatus = statusAnnotations.length > 0 ? statusAnnotations[statusAnnotations.length - 1].data : null;
@@ -45,7 +71,7 @@ export function ChatMessage({
             ? "bg-white dark:bg-zinc-900 border border-zinc-200 dark:border-zinc-800 rounded-tl-sm text-zinc-800 dark:text-zinc-200" 
             : "bg-blue-600 text-white rounded-tr-sm"}
         `}>
-          {message.content ? (
+          {messageText ? (
              <div className={`prose dark:prose-invert max-w-none prose-sm 
                 prose-p:leading-relaxed prose-pre:bg-zinc-100 dark:prose-pre:bg-zinc-800 prose-pre:border prose-pre:border-zinc-200 dark:prose-pre:border-zinc-700
                 ${isAssistant ? "" : "prose-p:text-white prose-a:text-blue-100 prose-strong:text-white"}
@@ -68,16 +94,12 @@ export function ChatMessage({
                    table: ({node, ...props}) => <div className="overflow-x-auto w-full my-4"><table className="min-w-full text-left text-sm" {...props} /></div>
                  }}
                >
-                 {message.content}
+                 {messageText}
                </ReactMarkdown>
              </div>
           ) : (
              isAssistant && isLoading && (
-               <div className="flex gap-1 items-center h-5">
-                 <span className="w-1.5 h-1.5 bg-zinc-300 dark:bg-zinc-600 rounded-full animate-bounce" style={{ animationDelay: "0ms" }}></span>
-                 <span className="w-1.5 h-1.5 bg-zinc-300 dark:bg-zinc-600 rounded-full animate-bounce" style={{ animationDelay: "150ms" }}></span>
-                 <span className="w-1.5 h-1.5 bg-zinc-300 dark:bg-zinc-600 rounded-full animate-bounce" style={{ animationDelay: "300ms" }}></span>
-               </div>
+               <DiamondLoader variant="inline" label="Generating answer" />
              )
           )}
           

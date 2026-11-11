@@ -1,8 +1,9 @@
 "use client";
 
 import Link from "next/link";
-import { Upload, Sparkles, Brain, Heart, ArrowRight } from "lucide-react";
+import { Upload, Sparkles, Brain, Heart, ArrowRight, FileText, ClipboardCheck, MessageCircle } from "lucide-react";
 import Navbar from "@/components/Navbar";
+import { MAX_DOCUMENT_UPLOAD_MB } from "@/lib/constants";
 
 export default function HomePage() {
   return (
@@ -33,16 +34,96 @@ export default function HomePage() {
           </p>
         </div>
 
-        {/* CTA Upload Button */}
-        <div className="motion-safe:animate-in motion-safe:fade-in motion-safe:slide-in-from-bottom-8 duration-700 delay-300 fill-mode-both">
-          <Link
-            href="/upload"
-            className="inline-flex items-center gap-3 px-8 py-4 rounded-2xl bg-indigo-600 hover:bg-indigo-700 dark:bg-indigo-500 dark:hover:bg-indigo-600 text-white font-extrabold text-lg shadow-xl shadow-indigo-500/25 hover:scale-[1.02] active:scale-[0.98] transition-all duration-200"
-          >
-            <Upload className="w-5 h-5" />
-            <span>Upload a File</span>
-            <ArrowRight className="w-5 h-5" />
-          </Link>
+        {/* CTA Buttons */}
+        <div className="flex flex-col items-center gap-3 motion-safe:animate-in motion-safe:fade-in motion-safe:slide-in-from-bottom-8 duration-700 delay-300 fill-mode-both">
+          <div className="flex flex-col gap-3 sm:flex-row">
+            <Link
+              href="/upload"
+              className="inline-flex items-center justify-center gap-3 px-8 py-4 rounded-2xl bg-indigo-600 hover:bg-indigo-700 dark:bg-indigo-500 dark:hover:bg-indigo-600 text-white font-extrabold text-lg shadow-xl shadow-indigo-500/25 hover:scale-[1.02] active:scale-[0.98] transition-all duration-200"
+            >
+              <Upload className="w-5 h-5" />
+              <span>Start Studying</span>
+              <ArrowRight className="w-5 h-5" />
+            </Link>
+            <Link
+              href="/demo"
+              className="inline-flex items-center justify-center gap-3 rounded-2xl border border-slate-200 bg-white px-8 py-4 text-lg font-extrabold text-slate-900 shadow-sm transition-all duration-200 hover:scale-[1.02] hover:bg-slate-50 active:scale-[0.98] dark:border-slate-700 dark:bg-slate-900 dark:text-white dark:hover:bg-slate-800"
+            >
+              Try Demo
+            </Link>
+          </div>
+          <p className="text-xs font-bold uppercase tracking-[0.18em] text-slate-500 dark:text-slate-400">
+            PDF · DOCX · PPTX · Images · up to {MAX_DOCUMENT_UPLOAD_MB}MB
+          </p>
+        </div>
+
+        {/* Product Preview */}
+        <div className="grid w-full max-w-5xl gap-4 px-4 text-left md:grid-cols-[1.1fr_0.9fr] motion-safe:animate-in motion-safe:fade-in motion-safe:slide-in-from-bottom-8 duration-700 delay-500 fill-mode-both">
+          <div className="rounded-[2rem] border border-slate-200 bg-white/90 p-5 shadow-2xl shadow-indigo-500/10 backdrop-blur dark:border-slate-800 dark:bg-slate-900/90">
+            <div className="mb-4 flex items-center justify-between">
+              <div>
+                <p className="text-xs font-black uppercase tracking-[0.18em] text-indigo-500">Live study flow</p>
+                <h2 className="text-xl font-black text-slate-950 dark:text-white">Quiz preview</h2>
+              </div>
+              <span className="rounded-full bg-rose-50 px-3 py-1 text-xs font-black text-rose-600 dark:bg-rose-950/40 dark:text-rose-300">Hard</span>
+            </div>
+            <div className="rounded-2xl border border-slate-200 bg-slate-50 p-4 dark:border-slate-800 dark:bg-slate-950">
+              <div className="mb-3 flex items-center justify-between text-xs font-bold text-slate-500">
+                <span>Question 4 of 20</span>
+                <span>Source-grounded</span>
+              </div>
+              <p className="text-base font-black leading-snug text-slate-950 dark:text-white">
+                A patient sample shows hemolysis after collection. Which lab result is most likely to be falsely increased?
+              </p>
+              <div className="mt-4 grid gap-2">
+                {["Sodium", "Potassium", "Chloride", "Glucose"].map((choice, index) => (
+                  <div key={choice} className={`rounded-xl border px-3 py-2 text-sm font-semibold ${index === 1 ? "border-emerald-300 bg-emerald-50 text-emerald-700 dark:border-emerald-700 dark:bg-emerald-950/40 dark:text-emerald-300" : "border-slate-200 bg-white text-slate-600 dark:border-slate-800 dark:bg-slate-900 dark:text-slate-300"}`}>
+                    {choice}
+                  </div>
+                ))}
+              </div>
+            </div>
+          </div>
+
+          <div className="grid gap-4">
+            <div className="rounded-[2rem] border border-slate-200 bg-white/90 p-5 shadow-sm dark:border-slate-800 dark:bg-slate-900/90">
+              <div className="mb-4 flex items-center gap-2 text-sm font-black text-slate-950 dark:text-white">
+                <FileText className="h-4 w-4 text-indigo-500" /> Reviewer preview
+              </div>
+              <div className="rounded-xl border border-slate-200 bg-slate-50 p-3 dark:border-slate-800 dark:bg-slate-950">
+                <div className="mb-2 h-4 rounded bg-indigo-600" />
+                <div className="grid grid-cols-2 gap-2">
+                  <div className="space-y-1.5">
+                    <div className="h-2 rounded bg-slate-300 dark:bg-slate-700" />
+                    <div className="h-2 rounded bg-slate-300 dark:bg-slate-700" />
+                    <div className="h-2 rounded bg-slate-300 dark:bg-slate-700" />
+                    <div className="h-10 rounded border border-slate-300 dark:border-slate-700" />
+                  </div>
+                  <div className="space-y-1.5">
+                    <div className="h-2 rounded bg-slate-300 dark:bg-slate-700" />
+                    <div className="h-2 rounded bg-slate-300 dark:bg-slate-700" />
+                    <div className="h-10 rounded bg-amber-100 ring-1 ring-amber-300 dark:bg-amber-950/40 dark:ring-amber-700" />
+                  </div>
+                </div>
+              </div>
+            </div>
+            <div className="rounded-[2rem] border border-slate-200 bg-white/90 p-5 shadow-sm dark:border-slate-800 dark:bg-slate-900/90">
+              <div className="mb-3 flex items-center gap-2 text-sm font-black text-slate-950 dark:text-white">
+                <ClipboardCheck className="h-4 w-4 text-violet-500" /> AI creates
+              </div>
+              <p className="text-sm text-slate-600 dark:text-slate-400">
+                Editable notes, difficulty-aware quizzes, and two-column PDF/DOCX reviewers.
+              </p>
+            </div>
+            <div className="rounded-[2rem] border border-slate-200 bg-white/90 p-5 shadow-sm dark:border-slate-800 dark:bg-slate-900/90">
+              <div className="mb-3 flex items-center gap-2 text-sm font-black text-slate-950 dark:text-white">
+                <MessageCircle className="h-4 w-4 text-pink-500" /> Study
+              </div>
+              <p className="text-sm text-slate-600 dark:text-slate-400">
+                Ask Medea to explain missed answers and turn your material into active recall.
+              </p>
+            </div>
+          </div>
         </div>
 
         {/* Feature Grid */}

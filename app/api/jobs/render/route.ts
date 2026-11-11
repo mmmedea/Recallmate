@@ -1,5 +1,5 @@
 import { NextRequest, NextResponse } from 'next/server';
-import { createClient } from '@supabase/supabase-js';
+import { SUPABASE_ADMIN_CONFIG_ERROR_CODE, createSupabaseAdminClient, isSupabaseAdminConfigError } from '@/lib/supabase/admin';
 import { renderReviewerDocx } from '@/lib/renderer/docx';
 import { GeneratedReviewerDocument } from '@/lib/ai/schemas';
 import crypto from 'crypto';
@@ -20,10 +20,7 @@ export async function POST(req: NextRequest) {
       return NextResponse.json({ error: "Only DOCX rendering is supported currently." }, { status: 400 });
     }
 
-    const supabase = createClient(
-      process.env.NEXT_PUBLIC_SUPABASE_URL!,
-      process.env.SUPABASE_SERVICE_ROLE_KEY!
-    );
+    const supabase = createSupabaseAdminClient<any>();
 
     // Render Binary
     let binaryBuffer: Buffer;
@@ -45,6 +42,12 @@ export async function POST(req: NextRequest) {
     return NextResponse.json({ success: true, storagePath });
   } catch (error: any) {
     console.error("[render worker]", error);
+    if (isSupabaseAdminConfigError(error)) {
+      return NextResponse.json(
+        { error: "This operation is temporarily unavailable. Please try again later.", code: SUPABASE_ADMIN_CONFIG_ERROR_CODE },
+        { status: 503 },
+      );
+    }
     return NextResponse.json({ error: error.message }, { status: 500 });
   }
 }

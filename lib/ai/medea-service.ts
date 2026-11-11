@@ -7,6 +7,7 @@ export type MedeaGenerationRequest = {
   prompt: string;
   question?: string;
   userId: string;
+  documentGrounded?: boolean;
 };
 
 export function solveSafeArithmetic(prompt: string) {
@@ -40,7 +41,7 @@ export async function generateMedeaReply(request: MedeaGenerationRequest) {
         prompt,
       } as const;
       let direct;
-      if (shouldGroundWithGoogleSearch(request.question || prompt)) {
+      if (!request.documentGrounded && shouldGroundWithGoogleSearch(request.question || prompt)) {
         try {
           direct = await ProviderAdapter.generate({ ...directRequest, tools: [{ type: "google_search" }] });
         } catch (searchError) {

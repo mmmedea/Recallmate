@@ -22,7 +22,7 @@ import type { TutorIntent } from '../lib/ai/tutor/types';
 
 // ─── Helpers ─────────────────────────────────────────────────────────────────
 
-function intent(overrides: Partial<TutorIntent>): TutorIntent {
+function intent(overrides: Partial<TutorIntent> = {}): TutorIntent {
   return {
     intent: 'explain',
     domain: 'general_academic',

@@ -1,3 +1,5 @@
+import { MAX_DOCUMENT_UPLOAD_BYTES, MAX_DOCUMENT_UPLOAD_MB } from "@/lib/constants";
+
 export const readFileSafely = async (file: File): Promise<ArrayBuffer> => {
   if (typeof file.arrayBuffer === "function") {
     return await file.arrayBuffer();
@@ -91,9 +93,55 @@ export const compressPdfToImage = async (buffer: ArrayBuffer, pdfjsLib: any): Pr
   });
 };
 
-const MAX_AI_CHARS = 8000;
+const MAX_AI_CHARS = 12000;
+
+function decodeOfficeText(value: string) {
+  const node = new DOMParser().parseFromString(`<x>${value}</x>`, "text/xml");
+  return node.documentElement.textContent || "";
+}
+
+function extractStructuredSlideText(xml: string) {
+  const tableLines = [...xml.matchAll(/<a:tbl\b[\s\S]*?<\/a:tbl>/g)].map(table =>
+    [...table[0].matchAll(/<a:tr\b[\s\S]*?<\/a:tr>/g)].map(row =>
+      [...row[0].matchAll(/<a:tc\b[\s\S]*?<\/a:tc>/g)].map(cell =>
+        [...cell[0].matchAll(/<a:t(?:\s[^>]*)?>([\s\S]*?)<\/a:t>/g)]
+          .map(match => decodeOfficeText(match[1]).trim())
+          .filter(Boolean)
+          .join(" ")
+      ).filter(Boolean).join(" | ")
+    ).filter(Boolean).join("\n")
+  ).filter(Boolean);
+  const prose = xml.replace(/<a:tbl\b[\s\S]*?<\/a:tbl>/g, "");
+  const paragraphs = [...prose.matchAll(/<a:p(?:\s[^>]*)?>([\s\S]*?)<\/a:p>/g)].map(paragraph => {
+    const text = [...paragraph[1].matchAll(/<a:t(?:\s[^>]*)?>([\s\S]*?)<\/a:t>/g)]
+      .map(match => decodeOfficeText(match[1]))
+      .join("")
+      .replace(/\s+/g, " ")
+      .trim();
+    if (!text) return "";
+    return /<a:bu(?:Char|AutoNum)\b/i.test(paragraph[1]) ? `• ${text}` : text;
+  }).filter(Boolean);
+  return [...paragraphs, ...tableLines].filter(line => !/^loading(?:\.{1,3})?$/i.test(line)).join("\n");
+}
+
+function extractStructuredPdfPage(items: any[]) {
+  const positioned = items
+    .map(item => ({ text: String(item.str || "").replace(/\s+/g, " ").trim(), x: Number(item.transform?.[4] || 0), y: Number(item.transform?.[5] || 0) }))
+    .filter(item => item.text && !/^loading(?:\.{1,3})?$/i.test(item.text))
+    .sort((a, b) => Math.abs(b.y - a.y) > 2.5 ? b.y - a.y : a.x - b.x);
+  const rows: typeof positioned[] = [];
+  for (const item of positioned) {
+    const row = rows.find(candidate => Math.abs((candidate[0]?.y || 0) - item.y) <= 2.5);
+    if (row) row.push(item); else rows.push([item]);
+  }
+  return rows.map(row => row.sort((a, b) => a.x - b.x).map(item => item.text).join(" ")).join("\n");
+}
 
 export const processFileClientSide = async (rawFile: File): Promise<string> => {
+  if (rawFile.size > MAX_DOCUMENT_UPLOAD_BYTES) {
+    throw new Error(`"${rawFile.name || "upload"}" exceeds the ${MAX_DOCUMENT_UPLOAD_MB}MB upload limit.`);
+  }
+
   let originalName = rawFile.name || "upload";
   let tempFileName = originalName.toLowerCase();
   
@@ -126,7 +174,6 @@ export const processFileClientSide = async (rawFile: File): Promise<string> => {
   }
 
   let pdfjsLib: any = null;
-  let mammothLib: any = null;
 
   if (arrayBuffer && !clientSideFailed) {
     const runClientExtraction = async (): Promise<string> => {
@@ -136,13 +183,10 @@ export const processFileClientSide = async (rawFile: File): Promise<string> => {
         const textDecoder = new TextDecoder("utf-8");
         resultText = textDecoder.decode(arrayBuffer!);
       } 
-      else if (ext === ".docx" || ext === ".doc") {
-        if (!mammothLib) {
-          const mammothModule = await import("mammoth");
-          mammothLib = mammothModule.default || mammothModule;
-        }
-        const result = await mammothLib.extractRawText({ arrayBuffer: arrayBuffer! });
-        resultText = result.value;
+      else if (ext === ".docx") {
+        const { extractDocxSource } = await import('@/lib/source/docx-source');
+        const { sourceAcademicText } = await import('@/lib/source/academic-source');
+        resultText = sourceAcademicText(await extractDocxSource(arrayBuffer!, originalName));
       }
       else if (ext === ".pptx") {
         const zipModule = await import("jszip");
@@ -152,15 +196,13 @@ export const processFileClientSide = async (rawFile: File): Promise<string> => {
         const uintArray = new Uint8Array(arrayBuffer!);
         const loadedZip = await zip.loadAsync(uintArray);
         
-        for (const [relativePath, zipEntry] of Object.entries(loadedZip.files)) {
-          if (relativePath.startsWith("ppt/slides/slide") && relativePath.endsWith(".xml")) {
-            const xmlContent = await (zipEntry as any).async("string");
-            const textMatches = xmlContent.match(/<a:t>([\s\S]*?)<\/a:t>/g);
-            if (textMatches) {
-              const slideText = textMatches.map((match: string) => match.replace(/<\/?a:t>/g, '')).join(" ");
-              resultText += slideText + "\n";
-            }
-          }
+        const slidePaths = Object.keys(loadedZip.files)
+          .filter(path => /^ppt\/slides\/slide\d+\.xml$/i.test(path))
+          .sort((a, b) => Number(a.match(/slide(\d+)/i)?.[1]) - Number(b.match(/slide(\d+)/i)?.[1]));
+        for (const relativePath of slidePaths) {
+          const xmlContent = await loadedZip.files[relativePath].async("string");
+          const slideText = extractStructuredSlideText(xmlContent);
+          if (slideText) resultText += `${slideText}\n\n`;
           if (resultText.length > MAX_AI_CHARS) break; 
         }
       }
@@ -185,8 +227,8 @@ export const processFileClientSide = async (rawFile: File): Promise<string> => {
           try {
             const page = await pdf.getPage(i);
             const textContent = await page.getTextContent();
-            const pageText = textContent.items.map((item: any) => item.str).join(" ");
-            resultText += pageText + "\n";
+            const pageText = extractStructuredPdfPage(textContent.items);
+            resultText += `${pageText}\n\n`;
             page.cleanup();
             
             if (resultText.length > MAX_AI_CHARS) {
@@ -240,14 +282,14 @@ export const processFileClientSide = async (rawFile: File): Promise<string> => {
       }
     }
 
-    if (fileToSend.size > 4.5 * 1024 * 1024) {
+    if (fileToSend.size > MAX_DOCUMENT_UPLOAD_BYTES) {
       if (ext === ".pdf" && isTextEmpty && !clientSideFailed) {
           throw new Error(`"${originalName}" is a scanned document and too large to compress automatically. Please use an online PDF compressor first.`);
       }
       if (clientSideFailed) {
         throw new Error(`"${originalName}" is too large for the server, and your browser failed to process it locally. Please try uploading on a desktop or compress the file first.`);
       }
-      throw new Error(`"${originalName}" is too large. Server extraction limit is 4.5MB.`);
+      throw new Error(`"${originalName}" exceeds the ${MAX_DOCUMENT_UPLOAD_MB}MB upload limit.`);
     }
 
     let safeMime = "application/octet-stream";

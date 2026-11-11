@@ -1,6 +1,7 @@
 "use client";
 
 import { useChat } from "@ai-sdk/react";
+import { DefaultChatTransport, type UIMessage } from "ai";
 import { useState, useRef, useEffect } from "react";
 import { v4 as uuidv4 } from "uuid";
 import { ChatHeader } from "@/components/chat/ChatHeader";
@@ -14,36 +15,58 @@ export default function ChatClient({
 }: {
   documentId: string;
   documentTitle: string;
-  initialMessages: any[];
+  initialMessages: UIMessage[];
 }) {
-  const [requestId, setRequestId] = useState(uuidv4());
+  const [input, setInput] = useState("");
   
   const {
     messages,
-    input,
-    handleInputChange,
-    handleSubmit: originalHandleSubmit,
-    isLoading,
+    sendMessage,
+    status,
     error,
-    reload,
+    regenerate,
     stop,
-    data
-  } = useChat({
-    api: "/api/chat",
-    initialMessages,
-    body: {
-      documentId,
-      requestId,
-    },
+  } = useChat<UIMessage>({
+    messages: initialMessages,
+    transport: new DefaultChatTransport({
+      api: "/api/chat",
+      prepareSendMessagesRequest({ messages }) {
+        const latestUserMessage = [...messages].reverse().find(
+          (message) => message.role === "user"
+        );
+        const latestText =
+          latestUserMessage?.parts
+            ?.filter((part): part is { type: "text"; text: string } => part.type === "text")
+            .map((part) => part.text)
+            .join("\n")
+            .trim() || input.trim();
+
+        return {
+          body: {
+            documentId,
+            message: latestText,
+            requestId: uuidv4(),
+          },
+        };
+      },
+    }),
     onError: (err) => {
       console.error("Chat Error:", err);
     }
   });
 
-  const handleSubmit = (e: React.FormEvent<HTMLFormElement>) => {
-    // Re-generate request ID only when starting a new message
-    setRequestId(uuidv4());
-    originalHandleSubmit(e);
+  const isLoading = status === "submitted" || status === "streaming";
+
+  const handleInputChange = (e: React.ChangeEvent<HTMLTextAreaElement>) => {
+    setInput(e.target.value);
+  };
+
+  const handleSubmit = async (e: React.FormEvent<HTMLFormElement>) => {
+    e.preventDefault();
+    const text = input.trim();
+    if (!text || isLoading) return;
+    setInput("");
+    await sendMessage({ text });
   };
 
   const messagesEndRef = useRef<HTMLDivElement>(null);
@@ -51,13 +74,14 @@ export default function ChatClient({
   // Auto-scroll to bottom
   useEffect(() => {
     messagesEndRef.current?.scrollIntoView({ behavior: "smooth" });
-  }, [messages, data]);
+  }, [messages]);
 
   // Extract the latest status for screen readers
   const lastMessage = messages[messages.length - 1];
   let srStatus = "";
-  if (isLoading && lastMessage?.role === "assistant" && lastMessage.annotations) {
-    const statuses = lastMessage.annotations.filter((a: any) => a.type === "data-tutor-status");
+  const lastAnnotations = ((lastMessage as any)?.annotations || (lastMessage as any)?.parts || []) as any[];
+  if (isLoading && lastMessage?.role === "assistant" && lastAnnotations.length > 0) {
+    const statuses = lastAnnotations.filter((a: any) => a.type === "data-tutor-status");
     if (statuses.length > 0) {
       srStatus = statuses[statuses.length - 1].data?.label || "";
     }
@@ -82,14 +106,14 @@ export default function ChatClient({
                message={message} 
                isLast={index === messages.length - 1} 
                isLoading={isLoading && index === messages.length - 1}
-               streamData={data} 
+               streamData={[]} 
             />
           ))}
           {error && (
             <div className="flex flex-col gap-2 items-center text-red-500 my-4 p-4 rounded-lg bg-red-50 dark:bg-red-950/20">
               <span className="text-sm">⚠ I couldn't complete that response.</span>
               <button 
-                onClick={() => reload()} 
+                onClick={() => regenerate()} 
                 className="min-h-[44px] px-4 py-2 bg-red-100 dark:bg-red-900/40 hover:bg-red-200 dark:hover:bg-red-900/60 rounded-md text-sm font-medium transition-colors focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-red-500"
               >
                 Try again

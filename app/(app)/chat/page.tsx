@@ -1,6 +1,7 @@
 import { redirect } from "next/navigation";
 import { createClient } from "@/utils/supabase/server";
 import ChatClient from "./ChatClient";
+import type { UIMessage } from "ai";
 
 export const dynamic = "force-dynamic";
 
@@ -48,7 +49,7 @@ export default async function ChatPage({
     conversationId = existingConv.id;
   }
 
-  let initialMessages: any[] = [];
+  let initialMessages: UIMessage[] = [];
 
   if (conversationId) {
     // Load persisted chat history
@@ -59,8 +60,8 @@ export default async function ChatPage({
       .order("created_at", { ascending: true });
       
     if (messages) {
-      initialMessages = messages.map(msg => {
-        const annotations = [];
+      initialMessages = messages.map((msg): UIMessage => {
+        const annotations: Array<{ type: string; data: unknown }> = [];
         
         // Reconstruct citations into annotations so ChatMessage renders them
         if (msg.chat_citations && msg.chat_citations.length > 0) {
@@ -79,8 +80,16 @@ export default async function ChatPage({
         return {
           id: msg.id,
           role: msg.role === "assistant" ? "assistant" : "user",
-          content: msg.content,
-          annotations
+          parts: [
+            {
+              type: "text",
+              text: msg.content,
+            },
+            ...annotations.map((annotation) => ({
+              type: annotation.type as `data-${string}`,
+              data: annotation.data,
+            })),
+          ],
         };
       });
     }

@@ -26,8 +26,8 @@ export default async function StudyHubPage({ params }: { params: { id: string } 
 
   // Study Hub Availability Rule: 
   // If extraction isn't ready, the document isn't usable.
-  // We allow "inconsistent" or "failed" to pass through so the user can see the recovery state.
-  if (extraction.status !== 'completed' && extraction.status !== 'inconsistent' && extraction.status !== 'failed') {
+  // Failed extraction passes through so the user can see the recovery state.
+  if (extraction.status !== 'completed' && extraction.status !== 'failed') {
     redirect(`/documents/${params.id}/process`)
   }
 

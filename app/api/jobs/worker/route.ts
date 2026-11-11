@@ -1,8 +1,8 @@
 import { NextRequest, NextResponse } from 'next/server';
-import { createClient } from '@supabase/supabase-js';
 import { handleExtractText } from '@/lib/workers/extract';
 import { handleGenerateNotes } from '@/lib/workers/generateNotes';
 import { handleGenerateQuiz } from '@/lib/workers/generateQuiz';
+import { SUPABASE_ADMIN_CONFIG_ERROR_CODE, createSupabaseAdminClient, isSupabaseAdminConfigError } from '@/lib/supabase/admin';
 
 export async function GET(req: NextRequest) {
   return executeWorker(req);
@@ -23,10 +23,7 @@ async function executeWorker(req: NextRequest) {
     }
 
     // 2. Service Role Client
-    const supabase = createClient(
-      process.env.NEXT_PUBLIC_SUPABASE_URL!,
-      process.env.SUPABASE_SERVICE_ROLE_KEY!
-    );
+    const supabase = createSupabaseAdminClient<any>();
 
     // Deliver due calendar reminders as in-app notifications. The cron runs this
     // endpoint; browser notifications remain an explicit client opt-in.
@@ -105,6 +102,12 @@ async function executeWorker(req: NextRequest) {
 
   } catch (err: any) {
     console.error('[WORKER] Error:', err);
+    if (isSupabaseAdminConfigError(err)) {
+      return NextResponse.json(
+        { error: 'This operation is temporarily unavailable. Please try again later.', code: SUPABASE_ADMIN_CONFIG_ERROR_CODE },
+        { status: 503 },
+      );
+    }
     return NextResponse.json({ error: 'Internal Server Error', details: err.message }, { status: 500 });
   }
 }

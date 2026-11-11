@@ -1,7 +1,7 @@
 import { NextRequest, NextResponse } from "next/server";
-import { createClient as createAdminClient } from "@supabase/supabase-js";
 import { z } from "zod";
 import { createClient } from "@/utils/supabase/server";
+import { createSupabaseAdminClient, isSupabaseAdminConfigured } from "@/lib/supabase/admin";
 
 export const runtime = "nodejs";
 
@@ -54,10 +54,8 @@ export async function POST(request: NextRequest) {
     return NextResponse.json({ error: "Enter a valid subject and a message of at least 10 characters.", details: error instanceof z.ZodError ? error.issues : undefined }, { status: 400 });
   }
 
-  const url = process.env.NEXT_PUBLIC_SUPABASE_URL;
-  const serviceKey = process.env.SUPABASE_SERVICE_ROLE_KEY;
-  if (!url || !serviceKey) return NextResponse.json({ error: "RecallMate support is not configured." }, { status: 503 });
-  const admin = createAdminClient(url, serviceKey, { auth: { autoRefreshToken: false, persistSession: false } });
+  if (!isSupabaseAdminConfigured()) return NextResponse.json({ error: "RecallMate support is not configured." }, { status: 503 });
+  const admin = createSupabaseAdminClient<any>();
 
   const oneHourAgo = new Date(Date.now() - 60 * 60 * 1000).toISOString();
   const { count } = await admin.from("support_submissions").select("id", { count: "exact", head: true }).eq("user_id", user.id).gte("created_at", oneHourAgo);

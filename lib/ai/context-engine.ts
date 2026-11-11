@@ -1,6 +1,7 @@
 import { createClient } from "@supabase/supabase-js";
 import { Database } from "@/types/supabase";
 import { estimateTokens } from "./provider";
+import type { AIOperation } from "./config";
 
 export type ContextResult = {
   content: string;
@@ -19,7 +20,7 @@ export async function getDocumentContext(
   supabase: ReturnType<typeof createClient<Database>>,
   documentId: string,
   userId: string,
-  operation: 'generate_notes' | 'generate_quiz' | 'chat'
+  operation: Exclude<AIOperation, 'extract_text'>
 ): Promise<ContextResult> {
   
   // 1. Authorization: Verify the document belongs to the user
@@ -61,7 +62,7 @@ export async function getDocumentContext(
     const content = chunks.map(c => `[Chunk ${c.chunk_index}] ${c.section_title ? `(${c.section_title})` : ''}\n${c.content}`).join('\n\n');
     
     // Exact token count estimation
-    const exactTokens = await estimateTokens(operation, content);
+    const exactTokens = await estimateTokens(content, operation);
 
     return {
       content,
@@ -75,7 +76,7 @@ export async function getDocumentContext(
     // Instead of naive even-sampling, we will prioritize section boundaries, introduction, and conclusion.
     
     let boundedContent = "DOCUMENT TOO LARGE FOR FULL CONTEXT. EXTRACTING KEY SECTIONS:\n\n";
-    let currentTokens = await estimateTokens(operation, boundedContent);
+    let currentTokens = await estimateTokens(boundedContent, operation);
     const selectedChunks = new Set<number>();
 
     // Always include the first few chunks (Intro) and last few chunks (Conclusion)
@@ -88,7 +89,7 @@ export async function getDocumentContext(
       // Prioritize chunks with distinct section titles (headings) or critical boundaries
       if (criticalIndices.has(chunk.chunk_index) || chunk.section_title) {
         const chunkText = `[Chunk ${chunk.chunk_index}] ${chunk.section_title ? `(${chunk.section_title})` : ''}\n${chunk.content}\n\n`;
-        const chunkTokens = chunk.token_count || await estimateTokens(operation, chunkText);
+        const chunkTokens = chunk.token_count || await estimateTokens(chunkText, operation);
         
         if (currentTokens + chunkTokens <= FULL_CONTEXT_THRESHOLD) {
           boundedContent += chunkText;
@@ -99,7 +100,7 @@ export async function getDocumentContext(
     }
 
     // Exact count of what we actually assembled
-    const exactTokens = await estimateTokens(operation, boundedContent);
+    const exactTokens = await estimateTokens(boundedContent, operation);
 
     return {
       content: boundedContent,

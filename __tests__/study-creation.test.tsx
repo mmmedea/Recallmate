@@ -17,8 +17,28 @@ describe("combined study creation", () => {
 
   it("combines upload and quizzes into one navigation destination", () => {
     expect(navigationConfig.main.filter((item) => item.href === "/upload")).toHaveLength(1);
-    expect(navigationConfig.main.find((item) => item.href === "/upload")?.label).toBe("Upload & Quiz");
+    expect(navigationConfig.main.find((item) => item.href === "/upload")?.label).toBe("Quiz");
     expect(navigationConfig.main.some((item) => item.label === "Quizzes")).toBe(false);
+    expect(navigationConfig.main.some((item) => item.href === "/progress")).toBe(false);
+  });
+
+  it("makes Topics and Library one destination", () => {
+    const library = navigationConfig.main.find((item) => item.label === "Library");
+    expect(library?.href).toBe("/dashboard#library");
+    expect(navigationConfig.main.some((item) => item.label === "Topics")).toBe(false);
+  });
+
+  it("uses the simplified student navigation labels", () => {
+    expect(navigationConfig.main.map((item) => item.label)).toEqual([
+      "Dashboard",
+      "Library",
+      "Quiz",
+      "Notes",
+      "Calendar",
+    ]);
+    expect(navigationConfig.main.some((item) => item.label === "Study")).toBe(false);
+    expect(navigationConfig.main.some((item) => item.label === "Schedule")).toBe(false);
+    expect(navigationConfig.main.some((item) => item.label === "Progress")).toBe(false);
   });
 
   it("lets a student create, save, and review their own flashcards", () => {

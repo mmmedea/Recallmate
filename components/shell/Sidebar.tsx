@@ -2,14 +2,16 @@
 
 import Link from "next/link";
 import { usePathname } from "next/navigation";
-import { Sparkles, PanelLeftClose, PanelLeftOpen, MessageCircle } from "lucide-react";
+import { PanelLeftClose, PanelLeftOpen, MessageCircle } from "lucide-react";
 import { navigationConfig } from "@/lib/navigation";
+import { RecallMateBrandLogo } from "@/components/brand/RecallMateLogo";
 import { useAppStore } from "@/lib/store";
 import { cn } from "@/lib/utils";
+import { MedeaLauncher } from "@/components/medea/MedeaLauncher";
 
 export function Sidebar() {
   const pathname = usePathname();
-  const { isSidebarOpen, toggleSidebar, setChatDrawerOpen } = useAppStore();
+  const { isSidebarOpen, toggleSidebar } = useAppStore();
 
   return (
     <aside
@@ -23,14 +25,11 @@ export function Sidebar() {
           href="/" 
           className={cn("flex items-center gap-2 font-extrabold text-slate-900 dark:text-white transition-opacity", !isSidebarOpen && "opacity-0 hidden")}
         >
-          <div className="flex h-8 w-8 items-center justify-center rounded-xl bg-gradient-to-br from-indigo-500 to-violet-600 shrink-0">
-            <Sparkles className="h-4 w-4 text-white" />
-          </div>
-          RecallMate
+          <RecallMateBrandLogo size="sm" animated={false} showWordmark />
         </Link>
         {!isSidebarOpen && (
-          <Link href="/" className="mx-auto flex h-8 w-8 items-center justify-center rounded-xl bg-gradient-to-br from-indigo-500 to-violet-600 shrink-0">
-            <Sparkles className="h-4 w-4 text-white" />
+          <Link href="/" className="mx-auto inline-flex shrink-0">
+            <RecallMateBrandLogo size="sm" animated={false} />
           </Link>
         )}
       </div>
@@ -61,17 +60,18 @@ export function Sidebar() {
         })}
 
         <div className="mt-auto flex flex-col gap-1 pt-4">
-          <button
-            onClick={() => setChatDrawerOpen(true)}
+          <MedeaLauncher
+            source="sidebar"
+            aria-label="Open Medea AI"
             className={cn(
               "flex items-center gap-3 rounded-lg px-3 py-2.5 text-sm font-medium text-indigo-600 hover:bg-indigo-50 dark:text-indigo-300 dark:hover:bg-indigo-950/40",
               !isSidebarOpen && "justify-center px-0"
             )}
-            title={!isSidebarOpen ? "Ask Medea" : undefined}
+            title={!isSidebarOpen ? "Medea" : undefined}
           >
             <MessageCircle className="h-5 w-5 shrink-0" />
-            {isSidebarOpen && <span>Ask Medea</span>}
-          </button>
+            {isSidebarOpen && <span>Medea</span>}
+          </MedeaLauncher>
           {navigationConfig.footer.map((item) => {
             const isActive = pathname === item.href;
             const Icon = item.icon;

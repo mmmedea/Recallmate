@@ -24,6 +24,19 @@ export type AppBootstrap = {
   credits: {
     available: number;
   };
+  economy: {
+    coins: number;
+    hearts: number;
+    heartCap: number;
+    streak: number;
+    longestStreak: number;
+    canRestoreStreak: boolean;
+    canClaimDailyReward: boolean;
+    restoreCostCoins: number;
+    lastClaimedDay: string | null;
+    studyDay: string | null;
+    state: "ok" | "unavailable";
+  };
 };
 
 // ============================================================

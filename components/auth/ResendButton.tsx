@@ -1,8 +1,8 @@
 "use client";
 
 import { useState, useEffect, useCallback } from "react";
-import { Loader2 } from "lucide-react";
 import { Button } from "@/components/ui/button";
+import { DiamondLoader } from "@/components/DiamondLoader";
 
 interface ResendButtonProps {
   onResend: () => Promise<void>;
@@ -59,7 +59,7 @@ export function ResendButton({
     >
       {isSending ? (
         <span className="flex items-center gap-1.5">
-          <Loader2 className="h-3 w-3 animate-spin" aria-hidden="true" />
+          <DiamondLoader variant="inline" label="Sending verification code" />
           Sending...
         </span>
       ) : secondsLeft > 0 ? (
