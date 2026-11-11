@@ -1,255 +1,319 @@
-'use client'
+'use client';
 
-import { useState } from 'react'
-import { useRouter } from 'next/navigation'
-import { startQuizAttempt, recordQuizAnswer, completeQuizAttempt, QuizViewModel } from '@/app/actions/quiz-actions'
-import { CitationBadge } from '@/components/CitationBadge'
-import { ArrowLeft, CheckCircle2, XCircle, ArrowRight, RotateCcw } from 'lucide-react'
-import Link from 'next/link'
+import { useState, useEffect } from 'react';
+import { useRouter } from 'next/navigation';
+import { CitationBadge } from '@/components/CitationBadge';
+import { ArrowLeft, CheckCircle2, XCircle, RotateCcw, Loader2 } from 'lucide-react';
+import Link from 'next/link';
+import { createClient } from '@/utils/supabase/client';
+import { v4 as uuidv4 } from 'uuid';
 
-interface QuizClientProps {
-  viewModel: QuizViewModel
+interface FSRSItem {
+  learningItemId: string;
+  questionId: string;
+  questionText: string;
+  options: string[];
+  correctAnswerIndex: number;
+  explanation: string;
+  sourceChunkId?: string;
+  state: number;
 }
 
-export function QuizClient({ viewModel }: QuizClientProps) {
-  const router = useRouter()
-  const { document, questions, inProgressAttemptId } = viewModel
-  const [attemptId, setAttemptId] = useState<string | null>(inProgressAttemptId || null)
-  const [currentIndex, setCurrentIndex] = useState(0)
+export function QuizClient({ documentId }: { documentId: string }) {
+  const router = useRouter();
+  const supabase = createClient();
+
+  const [loading, setLoading] = useState(true);
+  const [error, setError] = useState('');
+  const [items, setItems] = useState<FSRSItem[]>([]);
+  const [sessionId, setSessionId] = useState<string | null>(null);
   
-  // State for the currently viewed question
-  const [selectedAnswer, setSelectedAnswer] = useState<string>('')
-  const [isSubmitting, setIsSubmitting] = useState(false)
+  const [currentIndex, setCurrentIndex] = useState(0);
+  const [selectedAnswer, setSelectedAnswer] = useState<string>('');
   const [feedback, setFeedback] = useState<{
     isCorrect: boolean;
     correctAnswer: string;
     explanation: string;
     sourceChunkId?: string;
-  } | null>(null)
+  } | null>(null);
+  
+  const [isSubmitting, setIsSubmitting] = useState(false);
+  const [isFinished, setIsFinished] = useState(false);
 
-  // Completion state
-  const [isCompleted, setIsCompleted] = useState(false)
-  const [finalScore, setFinalScore] = useState<number | null>(null)
-  const [error, setError] = useState<string | null>(null)
+  // Fetch session on mount
+  useEffect(() => {
+    async function startSession() {
+      try {
+        const { data: { session } } = await supabase.auth.getSession();
+        if (!session) throw new Error("Not authenticated");
 
-  const handleStart = async () => {
-    setIsSubmitting(true)
-    setError(null)
-    const res = await startQuizAttempt(document.id)
-    if (res.success && res.attemptId) {
-      setAttemptId(res.attemptId)
-    } else {
-      setError(res.error || 'Failed to start quiz')
+        const res = await fetch('/api/learning/session', {
+          method: 'POST',
+          headers: {
+            'Content-Type': 'application/json',
+            'Authorization': `Bearer ${session.access_token}`
+          },
+          body: JSON.stringify({ documentId, requestedSize: 10 })
+        });
+
+        const data = await res.json();
+        if (!res.ok) throw new Error(data.error || 'Failed to start session');
+
+        if (data.items.length === 0) {
+          setIsFinished(true);
+        } else {
+          setItems(data.items);
+          setSessionId(data.sessionId);
+        }
+      } catch (err: any) {
+        setError(err.message);
+      } finally {
+        setLoading(false);
+      }
     }
-    setIsSubmitting(false)
-  }
 
-  const handleCheckAnswer = async () => {
-    if (!selectedAnswer || !attemptId) return
+    startSession();
+  }, [documentId, supabase]);
 
-    setIsSubmitting(true)
-    setError(null)
-    const questionId = questions[currentIndex].id
-    const res = await recordQuizAnswer(attemptId, questionId, selectedAnswer)
-
-    if (res.success) {
-      setFeedback({
-        isCorrect: !!res.isCorrect,
-        correctAnswer: res.correctAnswer!,
-        explanation: res.explanation!,
-        sourceChunkId: res.sourceChunkId
-      })
-    } else {
-      setError(res.error || 'Failed to record answer')
-    }
-    setIsSubmitting(false)
-  }
-
-  const handleNext = async () => {
-    if (currentIndex < questions.length - 1) {
-      setCurrentIndex(currentIndex + 1)
-      setSelectedAnswer('')
-      setFeedback(null)
-    } else {
-      await handleComplete()
-    }
-  }
-
-  const handleComplete = async () => {
-    if (!attemptId) return
-    setIsSubmitting(true)
-    const res = await completeQuizAttempt(attemptId)
-    if (res.success) {
-      setIsCompleted(true)
-      setFinalScore(res.score ?? null)
-    } else {
-      setError(res.error || 'Failed to complete quiz')
-    }
-    setIsSubmitting(false)
-  }
-
-  if (isCompleted) {
+  if (loading) {
     return (
-      <div className="max-w-2xl mx-auto p-6 md:p-12 text-center">
-        <h1 className="text-3xl font-bold text-slate-900 mb-4">Quiz Completed!</h1>
-        <p className="text-lg text-slate-600 mb-8">
-          You scored <span className="font-bold text-2xl text-blue-600 mx-1">{finalScore}</span> out of {questions.length}
+      <div className="flex flex-col items-center justify-center min-h-[50vh] space-y-4">
+        <Loader2 className="w-8 h-8 text-indigo-500 animate-spin" />
+        <p className="text-slate-500 font-medium">Preparing your study session...</p>
+      </div>
+    );
+  }
+
+  if (error) {
+    return (
+      <div className="flex flex-col items-center justify-center min-h-[50vh] p-4 text-center">
+        <h2 className="text-xl font-semibold mb-2 text-red-600">Error</h2>
+        <p className="text-slate-500 mb-6">{error}</p>
+        <Link href={`/documents/${documentId}`} className="inline-flex items-center gap-2 px-4 py-2 bg-slate-900 text-white rounded-md">
+          <ArrowLeft className="w-4 h-4" /> Back to Study Hub
+        </Link>
+      </div>
+    );
+  }
+
+  if (isFinished) {
+    return (
+      <div className="max-w-2xl mx-auto py-12 px-4 text-center">
+        <div className="mb-8 flex justify-center">
+          <div className="h-24 w-24 bg-emerald-100 rounded-full flex items-center justify-center text-emerald-600">
+            <CheckCircle2 className="h-12 w-12" />
+          </div>
+        </div>
+        <h1 className="text-3xl font-bold text-slate-900 dark:text-white mb-4">You're all caught up!</h1>
+        <p className="text-lg text-slate-600 dark:text-slate-400 mb-10">
+          There are no more flashcards due for review right now.
         </p>
-        <div className="flex flex-col sm:flex-row items-center justify-center gap-4">
-           <button
-             onClick={() => {
-               setAttemptId(null)
-               setCurrentIndex(0)
-               setSelectedAnswer('')
-               setFeedback(null)
-               setIsCompleted(false)
-               setFinalScore(null)
-             }}
-             className="w-full sm:w-auto px-6 py-3 bg-white border border-slate-200 rounded-lg text-slate-700 font-medium hover:bg-slate-50 transition-colors flex items-center justify-center gap-2"
-           >
-             <RotateCcw className="w-4 h-4" /> Try Again
-           </button>
-           <Link
-             href={`/documents/${document.id}`}
-             className="w-full sm:w-auto px-6 py-3 bg-slate-900 text-white rounded-lg font-medium hover:bg-slate-800 transition-colors flex items-center justify-center gap-2"
-           >
-             Back to Study Hub
-           </Link>
-        </div>
+        <Link 
+          href={`/documents/${documentId}`}
+          className="inline-flex items-center justify-center gap-2 px-6 py-3 bg-indigo-600 text-white rounded-lg font-medium hover:bg-indigo-700 transition-colors"
+        >
+          <ArrowLeft className="w-5 h-5" />
+          Back to Study Hub
+        </Link>
       </div>
-    )
+    );
   }
 
-  if (!attemptId) {
-    return (
-      <div className="max-w-3xl mx-auto p-6 mt-10">
-        <div className="bg-white rounded-2xl shadow-sm border border-slate-200 p-8 text-center">
-          <h1 className="text-2xl font-bold text-slate-900 mb-2">{document.title} - Quiz</h1>
-          <p className="text-slate-500 mb-8">{questions.length} Questions</p>
-          {error && <p className="text-red-500 text-sm mb-4">{error}</p>}
-          <button
-            onClick={handleStart}
-            disabled={isSubmitting}
-            className="px-8 py-3 bg-blue-600 text-white rounded-lg font-semibold hover:bg-blue-700 transition-colors disabled:opacity-50"
-          >
-            {inProgressAttemptId ? 'Resume Quiz' : 'Start Quiz'}
-          </button>
-        </div>
-      </div>
-    )
-  }
+  const currentQuestion = items[currentIndex];
 
-  const question = questions[currentIndex]
-  const isLocked = !!feedback
+  const handleSelectAnswer = (option: string) => {
+    if (feedback || isSubmitting) return; // Prevent changing answer after grading
+    setSelectedAnswer(option);
+    
+    const isCorrect = option === currentQuestion.options[currentQuestion.correctAnswerIndex];
+    setFeedback({
+      isCorrect,
+      correctAnswer: currentQuestion.options[currentQuestion.correctAnswerIndex],
+      explanation: currentQuestion.explanation,
+      sourceChunkId: currentQuestion.sourceChunkId,
+    });
+  };
+
+  const handleRate = async (rating: number) => {
+    setIsSubmitting(true);
+    try {
+      const { data: { session } } = await supabase.auth.getSession();
+      if (!session) throw new Error("Not authenticated");
+
+      const res = await fetch('/api/learning/review', {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+          'Authorization': `Bearer ${session.access_token}`
+        },
+        body: JSON.stringify({
+          learningItemId: currentQuestion.learningItemId,
+          reviewSessionId: sessionId,
+          requestId: uuidv4(),
+          wasCorrect: feedback!.isCorrect,
+          rating
+        })
+      });
+
+      if (!res.ok) {
+        const err = await res.json();
+        throw new Error(err.error || 'Failed to submit review');
+      }
+
+      // Advance
+      if (currentIndex + 1 < items.length) {
+        setCurrentIndex(currentIndex + 1);
+        setSelectedAnswer('');
+        setFeedback(null);
+      } else {
+        setIsFinished(true);
+      }
+    } catch (err: any) {
+      alert(err.message);
+    } finally {
+      setIsSubmitting(false);
+    }
+  };
 
   return (
-    <div className="max-w-3xl mx-auto p-4 md:p-8">
-      <div className="mb-6 flex items-center justify-between">
+    <div className="max-w-3xl mx-auto py-8 px-4">
+      {/* Header */}
+      <div className="flex items-center justify-between mb-8">
         <Link 
-          href={`/documents/${document.id}`}
-          className="inline-flex items-center gap-2 text-sm font-medium text-slate-500 hover:text-slate-800 transition-colors"
+          href={`/documents/${documentId}`}
+          className="text-sm font-medium text-slate-500 hover:text-slate-900 dark:hover:text-white flex items-center gap-1 transition-colors"
         >
-          <ArrowLeft className="w-4 h-4" /> Exit
+          <ArrowLeft className="w-4 h-4" />
+          Back
         </Link>
-        <span className="text-sm font-medium text-slate-500">
-          Question {currentIndex + 1} of {questions.length}
-        </span>
+        <div className="text-sm font-medium text-slate-500">
+          Due: {currentIndex + 1} / {items.length}
+        </div>
       </div>
 
-      <div className="bg-white rounded-2xl shadow-sm border border-slate-200 overflow-hidden">
-        <div className="p-6 md:p-8">
-          <h2 className="text-xl md:text-2xl font-semibold text-slate-900 mb-8 leading-snug">
-            {question.questionText}
+      {/* Progress bar */}
+      <div className="w-full bg-slate-100 dark:bg-slate-800 rounded-full h-2 mb-10 overflow-hidden">
+        <div 
+          className="bg-indigo-600 h-2 transition-all duration-300 ease-out"
+          style={{ width: `${(currentIndex / items.length) * 100}%` }}
+        ></div>
+      </div>
+
+      {/* Question Card */}
+      <div className="bg-white dark:bg-slate-900 rounded-2xl shadow-sm border border-slate-200 dark:border-slate-800 overflow-hidden mb-6">
+        <div className="p-8">
+          <h2 className="text-xl md:text-2xl font-bold text-slate-900 dark:text-white mb-8 leading-relaxed">
+            {currentQuestion.questionText}
           </h2>
 
-          <div className="space-y-3 mb-8">
-            {question.options.map((opt, i) => {
-              const isSelected = selectedAnswer === opt
-              let optClass = "flex items-center gap-4 p-4 rounded-xl border-2 transition-all cursor-pointer "
+          <div className="space-y-3">
+            {currentQuestion.options.map((option, idx) => {
+              const isSelected = selectedAnswer === option;
+              let btnClass = "w-full text-left p-4 rounded-xl border-2 transition-all text-sm md:text-base font-medium ";
               
-              if (isLocked) {
-                optClass += " cursor-default "
-                if (feedback.correctAnswer === opt) {
-                  optClass += " border-green-500 bg-green-50 text-green-900"
-                } else if (isSelected) {
-                  optClass += " border-red-500 bg-red-50 text-red-900"
-                } else {
-                  optClass += " border-slate-100 opacity-50"
-                }
+              if (!feedback) {
+                btnClass += "border-slate-200 dark:border-slate-800 hover:border-indigo-500 hover:bg-indigo-50 dark:hover:bg-indigo-900/20 text-slate-700 dark:text-slate-300";
               } else {
-                optClass += isSelected 
-                  ? " border-blue-600 bg-blue-50" 
-                  : " border-slate-200 hover:border-blue-300 hover:bg-slate-50"
+                const isCorrectOption = idx === currentQuestion.correctAnswerIndex;
+                if (isCorrectOption) {
+                  btnClass += "border-emerald-500 bg-emerald-50 dark:bg-emerald-900/20 text-emerald-900 dark:text-emerald-100";
+                } else if (isSelected && !isCorrectOption) {
+                  btnClass += "border-red-500 bg-red-50 dark:bg-red-900/20 text-red-900 dark:text-red-100";
+                } else {
+                  btnClass += "border-slate-100 dark:border-slate-800 bg-slate-50 dark:bg-slate-800/50 text-slate-400 dark:text-slate-600 opacity-50";
+                }
               }
 
               return (
-                <label key={i} className={optClass}>
-                  <input
-                    type="radio"
-                    name={`question-${question.id}`}
-                    value={opt}
-                    checked={isSelected}
-                    disabled={isLocked || isSubmitting}
-                    onChange={() => setSelectedAnswer(opt)}
-                    className="sr-only"
-                  />
-                  <div className={`flex-shrink-0 w-6 h-6 rounded-full border-2 flex items-center justify-center ${
-                    isSelected ? (isLocked ? (feedback.isCorrect ? 'border-green-500 bg-green-500' : 'border-red-500 bg-red-500') : 'border-blue-600 bg-blue-600') : 'border-slate-300'
-                  }`}>
-                    {isSelected && <div className="w-2 h-2 rounded-full bg-white" />}
+                <button
+                  key={idx}
+                  onClick={() => handleSelectAnswer(option)}
+                  disabled={feedback !== null || isSubmitting}
+                  className={btnClass}
+                >
+                  <div className="flex items-start">
+                    <span className="flex-shrink-0 w-6 text-slate-400">{String.fromCharCode(65 + idx)}.</span>
+                    <span>{option}</span>
+                    
+                    {feedback && idx === currentQuestion.correctAnswerIndex && (
+                      <CheckCircle2 className="w-5 h-5 ml-auto text-emerald-500 flex-shrink-0" />
+                    )}
+                    {feedback && isSelected && idx !== currentQuestion.correctAnswerIndex && (
+                      <XCircle className="w-5 h-5 ml-auto text-red-500 flex-shrink-0" />
+                    )}
                   </div>
-                  <span className="font-medium text-lg flex-1">{opt}</span>
-                </label>
-              )
+                </button>
+              );
             })}
           </div>
-
-          {error && <p className="text-red-500 text-sm mb-4">{error}</p>}
-
-          {!isLocked ? (
-            <div className="flex justify-end">
-              <button
-                onClick={handleCheckAnswer}
-                disabled={!selectedAnswer || isSubmitting}
-                className="px-6 py-3 bg-slate-900 text-white rounded-lg font-medium hover:bg-slate-800 transition-colors disabled:opacity-50"
-              >
-                Check Answer
-              </button>
-            </div>
-          ) : (
-            <div className="mt-8 pt-8 border-t border-slate-100 animate-in slide-in-from-bottom-2 fade-in duration-300">
-              <div className="flex items-start gap-4 mb-4">
-                {feedback.isCorrect ? (
-                  <CheckCircle2 className="w-6 h-6 text-green-500 shrink-0 mt-1" />
-                ) : (
-                  <XCircle className="w-6 h-6 text-red-500 shrink-0 mt-1" />
-                )}
-                <div>
-                  <h3 className={`text-lg font-bold ${feedback.isCorrect ? 'text-green-700' : 'text-red-700'} mb-2`}>
-                    {feedback.isCorrect ? 'Correct!' : 'Incorrect'}
-                  </h3>
-                  <p className="text-slate-700 leading-relaxed mb-4">{feedback.explanation}</p>
-                  
-                  {feedback.sourceChunkId && (
-                    <CitationBadge chunkId={feedback.sourceChunkId} documentId={document.id} />
-                  )}
-                </div>
-              </div>
-
-              <div className="flex justify-end mt-6">
-                <button
-                  onClick={handleNext}
-                  disabled={isSubmitting}
-                  className="flex items-center gap-2 px-6 py-3 bg-blue-600 text-white rounded-lg font-medium hover:bg-blue-700 transition-colors"
-                >
-                  {currentIndex < questions.length - 1 ? 'Next Question' : 'Complete Quiz'}
-                  <ArrowRight className="w-4 h-4" />
-                </button>
-              </div>
-            </div>
-          )}
         </div>
       </div>
+
+      {/* Feedback & FSRS Rating */}
+      {feedback && (
+        <div className="bg-slate-50 dark:bg-slate-900 rounded-2xl p-6 md:p-8 border border-slate-200 dark:border-slate-800 animate-in fade-in slide-in-from-bottom-4">
+          <div className="flex items-start gap-4 mb-4">
+            {feedback.isCorrect ? (
+              <div className="h-10 w-10 bg-emerald-100 dark:bg-emerald-900/30 rounded-full flex items-center justify-center flex-shrink-0">
+                <CheckCircle2 className="h-6 w-6 text-emerald-600 dark:text-emerald-400" />
+              </div>
+            ) : (
+              <div className="h-10 w-10 bg-red-100 dark:bg-red-900/30 rounded-full flex items-center justify-center flex-shrink-0">
+                <XCircle className="h-6 w-6 text-red-600 dark:text-red-400" />
+              </div>
+            )}
+            <div>
+              <h3 className={`text-lg font-bold ${feedback.isCorrect ? 'text-emerald-700 dark:text-emerald-400' : 'text-red-700 dark:text-red-400'}`}>
+                {feedback.isCorrect ? 'Correct!' : 'Incorrect'}
+              </h3>
+              <p className="text-slate-700 dark:text-slate-300 mt-2 leading-relaxed">
+                {feedback.explanation}
+              </p>
+            </div>
+          </div>
+
+          <div className="mt-8 pt-6 border-t border-slate-200 dark:border-slate-800">
+            <h4 className="text-center text-sm font-medium text-slate-500 mb-4">How hard was this to recall?</h4>
+            <div className="grid grid-cols-2 md:grid-cols-4 gap-3">
+              <button
+                onClick={() => handleRate(1)}
+                disabled={isSubmitting}
+                className="py-3 px-4 rounded-xl border border-red-200 bg-red-50 text-red-700 font-medium hover:bg-red-100 transition-colors disabled:opacity-50 flex flex-col items-center gap-1"
+              >
+                <span>Again</span>
+                <span className="text-xs opacity-70">&lt; 1m</span>
+              </button>
+              
+              <button
+                onClick={() => handleRate(2)}
+                disabled={isSubmitting}
+                className="py-3 px-4 rounded-xl border border-orange-200 bg-orange-50 text-orange-700 font-medium hover:bg-orange-100 transition-colors disabled:opacity-50 flex flex-col items-center gap-1"
+              >
+                <span>Hard</span>
+                <span className="text-xs opacity-70">{feedback.isCorrect ? 'Correct' : 'Wrong'}</span>
+              </button>
+              
+              <button
+                onClick={() => handleRate(3)}
+                disabled={isSubmitting}
+                className="py-3 px-4 rounded-xl border border-emerald-200 bg-emerald-50 text-emerald-700 font-medium hover:bg-emerald-100 transition-colors disabled:opacity-50 flex flex-col items-center gap-1"
+              >
+                <span>Good</span>
+                <span className="text-xs opacity-70">Default</span>
+              </button>
+              
+              <button
+                onClick={() => handleRate(4)}
+                disabled={isSubmitting}
+                className="py-3 px-4 rounded-xl border border-blue-200 bg-blue-50 text-blue-700 font-medium hover:bg-blue-100 transition-colors disabled:opacity-50 flex flex-col items-center gap-1"
+              >
+                <span>Easy</span>
+                <span className="text-xs opacity-70">Too simple</span>
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
     </div>
-  )
+  );
 }

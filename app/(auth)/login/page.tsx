@@ -3,7 +3,20 @@ import { OAuthButtons } from "@/components/auth/OAuthButtons";
 import { EmailOTPForm } from "@/components/auth/EmailOTPForm";
 import Link from "next/link";
 
-export default function LoginPage() {
+export default function LoginPage({
+  searchParams,
+}: {
+  searchParams: { next?: string };
+}) {
+  let next = "/upload";
+  if (
+    searchParams.next &&
+    searchParams.next.startsWith("/") &&
+    !searchParams.next.startsWith("//")
+  ) {
+    next = searchParams.next;
+  }
+
   return (
     <AuthCard>
       <div className="space-y-6">
@@ -18,7 +31,7 @@ export default function LoginPage() {
         </div>
 
         {/* Google OAuth */}
-        <OAuthButtons redirectTo="/upload" />
+        <OAuthButtons redirectTo={next} />
 
         {/* Divider */}
         <div className="relative">
@@ -33,7 +46,7 @@ export default function LoginPage() {
         </div>
 
         {/* Email OTP */}
-        <EmailOTPForm intent="signin" />
+        <EmailOTPForm intent="signin" redirectTo={next} />
 
         {/* Sign up link */}
         <p className="text-center text-sm text-slate-500 dark:text-slate-400">

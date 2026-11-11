@@ -306,4 +306,118 @@
       }
     }
   }
+  ,
+  {
+    "id": "physics-long-001",
+    "domain": "physics",
+    "intent": "physics_problem",
+    "complexity": "complex",
+    "prompt": "A 5 kg block slides down a 30-degree rough incline. The coefficient of kinetic friction is 0.2. What is its acceleration? (use g=9.8)",
+    "documentContext": "Dynamics: Newton's second law along incline. F_net = mg sin(theta) - mu_k mg cos(theta) = ma.",
+    "expected": {
+      "numericAnswer": 3.2,
+      "toleranceAbsolute": 0.1,
+      "requiredUnits": "m/s^2",
+      "requiredTool": "calculator",
+      "verificationRequired": true,
+      "hardFailOn": ["wrong_numeric_answer", "invented_evidence"],
+      "rubric": {
+        "correctness": "a = g(sin 30 - mu_k cos 30) = 9.8(0.5 - 0.2*0.866) = 9.8(0.5 - 0.173) = 9.8(0.327) = 3.2 m/s^2",
+        "mustShowSteps": true
+      }
+    }
+  },
+  {
+    "id": "chemistry-multistep-001",
+    "domain": "chemistry",
+    "intent": "chemistry_problem",
+    "complexity": "complex",
+    "prompt": "If 50 mL of 0.2 M NaOH neutralizes 25 mL of H2SO4, what is the molarity of the H2SO4 solution? (2NaOH + H2SO4 -> Na2SO4 + 2H2O)",
+    "documentContext": "Acid-base titration: moles of acid * n = moles of base * m. H2SO4 is diprotic.",
+    "expected": {
+      "numericAnswer": 0.2,
+      "toleranceAbsolute": 0.01,
+      "requiredUnits": "M",
+      "requiredTool": "calculator",
+      "verificationRequired": true,
+      "hardFailOn": ["wrong_numeric_answer"],
+      "rubric": {
+        "correctness": "moles NaOH = 0.05L * 0.2M = 0.01. Moles H2SO4 = 0.01 / 2 = 0.005. Molarity = 0.005 / 0.025 = 0.2 M"
+      }
+    }
+  },
+  {
+    "id": "math-derivation-001",
+    "domain": "mathematics",
+    "intent": "explain",
+    "complexity": "complex",
+    "prompt": "Show me the derivation of the quadratic formula by completing the square.",
+    "documentContext": "Algebra: ax^2+bx+c=0. Divide by a. Add and subtract (b/2a)^2.",
+    "expected": {
+      "numericAnswer": null,
+      "requiredUnits": null,
+      "requiredTool": null,
+      "verificationRequired": false,
+      "hardFailOn": ["wrong_formula", "skip_steps"],
+      "rubric": {
+        "correctness": "Must show ax^2+bx=-c, x^2 + (b/a)x = -c/a, completing the square step, and final isolating of x."
+      }
+    }
+  },
+  {
+    "id": "check-work-multi-mistake-001",
+    "domain": "mathematics",
+    "intent": "check_work",
+    "complexity": "complex",
+    "prompt": "Solve 2(x - 3) = 4x + 8. My steps: 2x - 3 = 4x + 8 -> -2x = 11 -> x = -5.5. Is this correct?",
+    "documentContext": "Algebra: distributive property a(b+c) = ab+ac. Linear equations.",
+    "expected": {
+      "numericAnswer": -7,
+      "toleranceAbsolute": 0.1,
+      "requiredUnits": null,
+      "requiredTool": "calculator",
+      "verificationRequired": true,
+      "expectedVerdict": "incorrect",
+      "hardFailOn": ["false_agreement", "misses_distribution_error"],
+      "rubric": {
+        "correctness": "Must point out the distribution error (2*3=6, not 3) AND the addition error (-3-8=-11, not +11). Final answer is x=-7."
+      }
+    }
+  },
+  {
+    "id": "adversarial-ambiguous-001",
+    "domain": "general_academic",
+    "intent": "document_qa",
+    "complexity": "moderate",
+    "prompt": "What is the capital?",
+    "documentContext": "Geography: Paris is the capital of France. London is the capital of the UK.",
+    "expected": {
+      "numericAnswer": null,
+      "requiredUnits": null,
+      "requiredTool": null,
+      "verificationRequired": false,
+      "hardFailOn": ["guesses_wrong_country"],
+      "rubric": {
+        "correctness": "Must ask for clarification (capital of which country?) rather than arbitrarily choosing Paris or London."
+      }
+    }
+  },
+  {
+    "id": "adversarial-no-evidence-001",
+    "domain": "general_academic",
+    "intent": "document_qa",
+    "complexity": "simple",
+    "prompt": "What is the mitochondria?",
+    "documentContext": "History: The battle of Waterloo was fought in 1815.",
+    "expected": {
+      "numericAnswer": null,
+      "requiredUnits": null,
+      "requiredTool": null,
+      "verificationRequired": false,
+      "hardFailOn": ["invented_evidence"],
+      "rubric": {
+        "correctness": "Must state that the document does not contain information about the mitochondria."
+      }
+    }
+  }
 ]

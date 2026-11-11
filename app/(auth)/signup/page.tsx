@@ -5,9 +5,33 @@ import { AuthCard } from "@/components/auth/AuthCard";
 import { OAuthButtons } from "@/components/auth/OAuthButtons";
 import { EmailOTPForm } from "@/components/auth/EmailOTPForm";
 import Link from "next/link";
+import {
+  Dialog,
+  DialogContent,
+  DialogHeader,
+  DialogTitle,
+  DialogTrigger,
+  DialogClose,
+} from "@/components/ui/dialog";
+import { Button } from "@/components/ui/button";
+import { PrivacyContent } from "@/components/legal/PrivacyContent";
+import { TermsContent } from "@/components/legal/TermsContent";
 
-export default function SignupPage() {
+export default function SignupPage({
+  searchParams,
+}: {
+  searchParams: { next?: string };
+}) {
   const [privacyAgreed, setPrivacyAgreed] = useState(false);
+
+  let next = "/upload";
+  if (
+    searchParams.next &&
+    searchParams.next.startsWith("/") &&
+    !searchParams.next.startsWith("//")
+  ) {
+    next = searchParams.next;
+  }
 
   return (
     <AuthCard>
@@ -22,57 +46,99 @@ export default function SignupPage() {
           </p>
         </div>
 
-        {/* Google OAuth */}
-        <OAuthButtons redirectTo="/upload" />
-
-        {/* Divider */}
-        <div className="relative">
-          <div className="absolute inset-0 flex items-center">
-            <div className="w-full border-t border-slate-200 dark:border-slate-800" />
-          </div>
-          <div className="relative flex justify-center text-xs uppercase">
-            <span className="bg-white dark:bg-slate-900 px-3 text-slate-400 dark:text-slate-500 font-medium tracking-widest">
-              or
-            </span>
-          </div>
-        </div>
-
         {/* Privacy acknowledgement — explicit, unchecked by default */}
-        <label className="flex items-start gap-3 cursor-pointer group">
+        <div className="flex items-start gap-3 bg-slate-50 dark:bg-slate-900/50 p-4 rounded-xl border border-slate-200 dark:border-slate-800">
           <input
+            id="privacy-checkbox"
             type="checkbox"
             checked={privacyAgreed}
             onChange={(e) => setPrivacyAgreed(e.target.checked)}
-            className="mt-0.5 h-4 w-4 rounded border-slate-300 dark:border-slate-700 text-indigo-600 focus:ring-indigo-500 focus:ring-offset-0 cursor-pointer"
+            className="mt-1 h-4 w-4 rounded border-slate-300 dark:border-slate-700 text-indigo-600 focus:ring-indigo-500 focus:ring-offset-0 cursor-pointer shrink-0"
             aria-required="true"
           />
-          <span className="text-sm text-slate-600 dark:text-slate-400 leading-relaxed">
-            I have read and agree to the{" "}
-            <a
-              href="/privacy"
-              target="_blank"
-              rel="noopener noreferrer"
-              className="font-medium text-indigo-600 dark:text-indigo-400 hover:underline"
-            >
-              Privacy Policy
-            </a>
+          <div className="text-sm text-slate-600 dark:text-slate-400 leading-relaxed select-none">
+            <label htmlFor="privacy-checkbox" className="cursor-pointer">
+              I have read and agree to the{" "}
+            </label>
+            <Dialog>
+              <DialogTrigger asChild>
+                <button
+                  type="button"
+                  className="font-medium text-indigo-600 dark:text-indigo-400 hover:underline"
+                >
+                  Privacy Policy
+                </button>
+              </DialogTrigger>
+              <DialogContent className="max-w-2xl max-h-[85vh] flex flex-col" onClick={(e) => e.stopPropagation()}>
+                <DialogHeader>
+                  <DialogTitle>Privacy Policy</DialogTitle>
+                </DialogHeader>
+                <div className="flex-1 overflow-y-auto pr-2 min-h-0">
+                  <PrivacyContent />
+                </div>
+                <div className="flex justify-end pt-4 border-t mt-auto">
+                  <DialogClose asChild>
+                    <Button variant="outline">Close</Button>
+                  </DialogClose>
+                </div>
+              </DialogContent>
+            </Dialog>
+            {" "}and{" "}
+            <Dialog>
+              <DialogTrigger asChild>
+                <button
+                  type="button"
+                  className="font-medium text-indigo-600 dark:text-indigo-400 hover:underline"
+                >
+                  Terms of Service
+                </button>
+              </DialogTrigger>
+              <DialogContent className="max-w-2xl max-h-[85vh] flex flex-col" onClick={(e) => e.stopPropagation()}>
+                <DialogHeader>
+                  <DialogTitle>Terms of Service</DialogTitle>
+                </DialogHeader>
+                <div className="flex-1 overflow-y-auto pr-2 min-h-0">
+                  <TermsContent />
+                </div>
+                <div className="flex justify-end pt-4 border-t mt-auto">
+                  <DialogClose asChild>
+                    <Button variant="outline">Close</Button>
+                  </DialogClose>
+                </div>
+              </DialogContent>
+            </Dialog>
             .
-          </span>
-        </label>
-
-        {/* Email OTP — disabled until privacy agreed */}
-        <div className={!privacyAgreed ? "opacity-50 pointer-events-none" : ""}>
-          <EmailOTPForm intent="signup" privacyAgreed={privacyAgreed} />
+          </div>
         </div>
 
         {!privacyAgreed && (
           <p
             role="note"
-            className="text-xs text-slate-400 dark:text-slate-500 text-center -mt-2"
+            className="text-xs text-rose-500 dark:text-rose-400 text-center font-medium"
           >
-            Please agree to the Privacy Policy to continue.
+            Please agree to the legal terms to create your account.
           </p>
         )}
+
+        <div className={`space-y-6 transition-opacity duration-200 ${!privacyAgreed ? "opacity-50 pointer-events-none grayscale-[0.5]" : ""}`}>
+          {/* Google OAuth */}
+          <OAuthButtons redirectTo={next} />
+
+          {/* Divider */}
+          <div className="relative">
+            <div className="absolute inset-0 flex items-center">
+              <div className="w-full border-t border-slate-200 dark:border-slate-800" />
+            </div>
+            <div className="relative flex justify-center text-xs uppercase">
+              <span className="bg-white dark:bg-slate-950 px-3 text-slate-400 dark:text-slate-500 font-medium tracking-widest">
+                or
+              </span>
+            </div>
+          </div>
+
+          {/* Email OTP */}
+          <EmailOTPForm intent="signup" privacyAgreed={privacyAgreed} redirectTo={next} />
+        </div>
 
         {/* Sign in link */}
         <p className="text-center text-sm text-slate-500 dark:text-slate-400">

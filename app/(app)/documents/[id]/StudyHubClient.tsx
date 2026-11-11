@@ -14,10 +14,12 @@ import {
   PlayCircle,
   RefreshCw,
   Loader2,
-  BookOpen
+  BookOpen,
+  Printer
 } from "lucide-react";
 import Link from "next/link";
 import { getDocumentLifecycle, retryDocumentExtraction, retryStudyGeneration } from "@/app/actions/document-actions";
+import { ReviewerMakerDialog } from "@/components/reviewer/ReviewerMakerDialog";
 
 export default function StudyHubClient({ initialSummary }: { initialSummary: DocumentLifecycleSummary }) {
   const [summary, setSummary] = useState<DocumentLifecycleSummary>(initialSummary);
@@ -25,6 +27,7 @@ export default function StudyHubClient({ initialSummary }: { initialSummary: Doc
   const supabase = createClient();
   const [isPending, startTransition] = useTransition();
   const [activeAction, setActiveAction] = useState<string | null>(null);
+  const [showReviewerDialog, setShowReviewerDialog] = useState(false);
 
   const revalidate = useCallback(async () => {
     const res = await getDocumentLifecycle(summary.document.id);
@@ -154,8 +157,20 @@ export default function StudyHubClient({ initialSummary }: { initialSummary: Doc
             errorMessage={quiz.errorMessage}
             onAction={() => handleStudyAction('generate_quiz')}
             isPending={isPending && activeAction === 'generate_quiz'}
-            readyHref={quiz.outputId ? `/quiz/${quiz.outputId}` : undefined}
+            readyHref={quiz.status === 'ready' ? `/quiz/${document.id}` : undefined}
             actionLabels={{ ready: 'Start Quiz', generate: 'Generate Quiz' }}
+          />
+
+          {/* REVIEWER MAKER CARD */}
+          <StudyMaterialCard
+            title="Reviewer Maker"
+            description="Turn this material into a printable, exam-ready reviewer"
+            icon={<Printer className="h-6 w-6 text-orange-500" />}
+            status={extractionFailed ? 'failed' : 'ready'} // Ready as long as extraction is complete
+            errorMessage={extractionFailed ? "Cannot generate reviewer without document text" : undefined}
+            onAction={() => setShowReviewerDialog(true)}
+            isPending={false}
+            actionLabels={{ ready: 'Create Reviewer', generate: 'Create Reviewer' }}
           />
 
           {/* CHAT CARD */}

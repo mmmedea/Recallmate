@@ -40,7 +40,8 @@ export async function updateSession(request: NextRequest) {
 
   if (isProtectedRoute && !user) {
     const url = request.nextUrl.clone()
-    url.pathname = '/' // Redirect to home/login if not authenticated
+    url.pathname = '/login'
+    url.searchParams.set('next', request.nextUrl.pathname)
     return NextResponse.redirect(url)
   }
 

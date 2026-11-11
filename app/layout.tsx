@@ -2,6 +2,7 @@ import type { Metadata } from "next";
 import { Inter } from "next/font/google";
 import "@/app/globals.css";
 import { ThemeProvider } from "@/components/ThemeProvider";
+import CookieConsent from "@/components/CookieConsent";
 
 import { Toaster } from "@/components/ui/toaster";
 
@@ -18,6 +19,7 @@ export default function RootLayout({ children }: { children: React.ReactNode }) 
       <body className={`${inter.className} bg-background text-foreground min-h-screen antialiased transition-colors duration-200`}>
         <ThemeProvider attribute="class" defaultTheme="system" enableSystem>
           {children}
+          <CookieConsent />
           <Toaster />
         </ThemeProvider>
       </body>

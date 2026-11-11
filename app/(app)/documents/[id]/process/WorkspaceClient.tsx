@@ -45,7 +45,12 @@ export default function WorkspaceClient({ initialSummary }: { initialSummary: Do
         { event: 'UPDATE', schema: 'public', table: 'documents', filter: `id=eq.${summary.document.id}` },
         () => revalidate()
       )
-      .subscribe();
+      .subscribe((status) => {
+        if (status === 'SUBSCRIBED') {
+          // Fetch authoritative state on initial connect and any subsequent reconnects
+          revalidate();
+        }
+      });
 
     // 2. Subscribe to ai_jobs changes for this document
     const jobsChannel = supabase
@@ -55,27 +60,17 @@ export default function WorkspaceClient({ initialSummary }: { initialSummary: Do
         { event: '*', schema: 'public', table: 'ai_jobs', filter: `document_id=eq.${summary.document.id}` },
         () => revalidate()
       )
-      .subscribe();
-
-    // 3. Fallback polling for the case where Realtime misses something (e.g. outputs created in other tables)
-    // We poll every 10 seconds just in case Realtime disconnects or there's an edge case we missed in events.
-    const pollInterval = setInterval(() => {
-      // Only poll if not fully completed or failed
-      const isExtracting = ['uploaded', 'queued', 'extracting'].includes(summary.document.extraction.status);
-      const isNotesProcessing = ['queued', 'processing'].includes(summary.notes.status);
-      const isQuizProcessing = ['queued', 'processing'].includes(summary.quiz.status);
-      
-      if (isExtracting || isNotesProcessing || isQuizProcessing) {
-        revalidate();
-      }
-    }, 10000);
+      .subscribe((status) => {
+        if (status === 'SUBSCRIBED') {
+          revalidate();
+        }
+      });
 
     return () => {
       supabase.removeChannel(docChannel);
       supabase.removeChannel(jobsChannel);
-      clearInterval(pollInterval);
     };
-  }, [supabase, summary.document.id, summary.document.extraction.status, summary.notes.jobStatus, summary.quiz.jobStatus, revalidate]);
+  }, [supabase, summary.document.id, revalidate]);
 
   const { document, notes, quiz } = summary;
   const extStatus = document.extraction.status;
