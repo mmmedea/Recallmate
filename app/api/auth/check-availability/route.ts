@@ -1,35 +1,31 @@
 import { NextRequest, NextResponse } from "next/server";
 import { createClient as createServiceClient } from "@supabase/supabase-js";
 import { createClient } from "@/utils/supabase/server";
+import { checkRateLimit } from "@/lib/security";
+import { z } from "zod";
 
 export const runtime = "nodejs";
 
-const attempts = new Map<string, { count: number; resetAt: number }>();
-
-function isRateLimited(ip: string) {
-  const now = Date.now();
-  const current = attempts.get(ip);
-  if (!current || current.resetAt <= now) {
-    attempts.set(ip, { count: 1, resetAt: now + 60_000 });
-    return false;
-  }
-  current.count += 1;
-  return current.count > 12;
-}
+const availabilitySchema = z.object({
+  email: z.string().trim().email().max(254),
+  username: z.string().trim().regex(/^[A-Za-z0-9_]{3,30}$/),
+}).strict();
 
 export async function POST(request: NextRequest) {
-  const ip = request.headers.get("x-forwarded-for")?.split(",")[0]?.trim() || "unknown";
-  if (isRateLimited(ip)) {
-    return NextResponse.json({ error: "Too many availability checks. Please wait a minute." }, { status: 429 });
-  }
+  const ip = request.headers.get("x-real-ip")?.trim()
+    || request.headers.get("x-forwarded-for")?.split(",")[0]?.trim()
+    || "unknown";
 
   try {
-    const body = await request.json() as { email?: string; username?: string };
-    const email = String(body.email || "").trim().toLowerCase();
-    const username = String(body.username || "").trim();
-    if (!/^\S+@\S+\.\S+$/.test(email) || !/^[A-Za-z0-9_]{3,30}$/.test(username)) {
+    await checkRateLimit(`signup-availability:${ip}`, { limit: 12, windowSeconds: 60 });
+
+    const rawBody = await request.json().catch(() => null);
+    const parsed = availabilitySchema.safeParse(rawBody);
+    if (!parsed.success) {
       return NextResponse.json({ error: "Enter a valid email and username." }, { status: 400 });
     }
+    const email = parsed.data.email.toLowerCase();
+    const username = parsed.data.username;
 
     const serviceKey = process.env.SUPABASE_SERVICE_ROLE_KEY;
     const url = process.env.NEXT_PUBLIC_SUPABASE_URL;
@@ -54,8 +50,11 @@ export async function POST(request: NextRequest) {
       emailExists: availability?.email_exists === true,
       usernameExists: availability?.username_exists === true,
     });
-  } catch (error) {
-    console.error("Signup availability check failed:", error instanceof Error ? error.message : "Unknown error");
-    return NextResponse.json({ error: "Account availability checking is temporarily unavailable." }, { status: 503 });
+  } catch (error: any) {
+    const status = Number.isInteger(error?.status) ? error.status : error?.message === "Rate limit exceeded" ? 429 : 503;
+    if (status >= 500) console.error("Signup availability check failed:", error instanceof Error ? error.message : "Unknown error");
+    return NextResponse.json({
+      error: status === 429 ? "Too many availability checks. Please wait a minute." : "Account availability checking is temporarily unavailable.",
+    }, { status });
   }
 }
