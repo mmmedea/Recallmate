@@ -55,7 +55,7 @@ export async function confirmDocumentUpload(documentId: string, idempotencyKey: 
     const { supabase, user } = await requireUser()
     await checkRateLimit(`confirm-upload:${user.id}`, { limit: 10, windowSeconds: 60 })
     if (!/^[0-9a-f]{8}-[0-9a-f]{4}-[1-8][0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$/i.test(documentId)
-      || !/^[0-9a-f]{8}-[0-9a-f]{4}-[1-8][0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$/i.test(idempotencyKey)) {
+      || idempotencyKey !== `process:${documentId}:v1`) {
       throw new SecurityError('Invalid upload confirmation request', 400)
     }
     
