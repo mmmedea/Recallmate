@@ -1,6 +1,7 @@
 name: Security dependency upgrade
 
 on:
+  workflow_dispatch:
   push:
     branches:
       - security/hardening-review
@@ -27,11 +28,14 @@ jobs:
       - name: Set up Node.js
         uses: actions/setup-node@v4
         with:
-          node-version: 20
+          node-version: 22
           cache: npm
 
       - name: Upgrade Next.js to patched maintenance release
         run: npm install --save-exact next@15.5.28 eslint-config-next@15.5.28
+
+      - name: Apply non-breaking security patches to dependencies
+        run: npm audit fix
 
       - name: Commit refreshed dependency lockfile
         run: |
