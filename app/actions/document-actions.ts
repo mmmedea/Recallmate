@@ -3,6 +3,7 @@
 import { requireUser, requireEntitlement, checkRateLimit, SecurityError } from '@/lib/security'
 import { UploadDocumentSchema } from '@/lib/validations'
 import { createClient } from '@/utils/supabase/server'
+import { createClient as createAdminClient } from '@supabase/supabase-js'
 import { v4 as uuidv4 } from 'uuid'
 
 export async function createDocumentUploadSession(payload: { fileName: string; fileSize: number; contentType: string }) {
@@ -52,6 +53,11 @@ export async function createDocumentUploadSession(payload: { fileName: string; f
 export async function confirmDocumentUpload(documentId: string, idempotencyKey: string) {
   try {
     const { supabase, user } = await requireUser()
+    await checkRateLimit(`confirm-upload:${user.id}`, { limit: 10, windowSeconds: 60 })
+    if (!/^[0-9a-f]{8}-[0-9a-f]{4}-[1-8][0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$/i.test(documentId)
+      || !/^[0-9a-f]{8}-[0-9a-f]{4}-[1-8][0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$/i.test(idempotencyKey)) {
+      throw new SecurityError('Invalid upload confirmation request', 400)
+    }
     
     // Check ownership and current status
     const { data: document, error: docError } = await supabase
@@ -91,8 +97,12 @@ export async function confirmDocumentUpload(documentId: string, idempotencyKey: 
     if (size === 0) throw new SecurityError('File is empty', 400);
     if (size > 10 * 1024 * 1024) throw new SecurityError('File exceeds 10MB limit', 400);
 
-    // Execute atomic confirmation via RPC
-    const { data: jobId, error: rpcError } = await supabase
+    // Execute the service-role-only atomic RPC after the authenticated ownership and storage checks above.
+    const serviceKey = process.env.SUPABASE_SERVICE_ROLE_KEY
+    const supabaseUrl = process.env.NEXT_PUBLIC_SUPABASE_URL
+    if (!serviceKey || !supabaseUrl) throw new SecurityError('Upload confirmation is not configured', 503)
+    const admin = createAdminClient(supabaseUrl, serviceKey, { auth: { autoRefreshToken: false, persistSession: false } })
+    const { data: jobId, error: rpcError } = await admin
       .rpc('confirm_document_upload', {
         p_document_id: documentId,
         p_user_id: user.id,
