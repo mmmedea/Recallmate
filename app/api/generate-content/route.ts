@@ -1,43 +1,10 @@
 import { NextRequest, NextResponse } from "next/server";
-import { Redis } from "@upstash/redis";
 import { callGeminiRest, callGroqChat, withFallback } from "@/lib/ai-provider";
 import { buildDocumentNotesFallback } from "@/lib/ai/document-notes-fallback";
 import { requireUser, requireDocumentOwner, requireEntitlement, checkRateLimit, getOrCreateIdempotentJob } from "@/lib/security";
 
 export const runtime = "nodejs";
 export const preferredRegion = "iad1";
-
-// ==========================================
-// RATE LIMITING SETUP (Redis + In-Memory Fallback)
-// ==========================================
-
-const redisUrl = process.env.KV_REST_API_URL || process.env.UPSTASH_REDIS_REST_URL || "";
-const redisToken = process.env.KV_REST_API_TOKEN || process.env.UPSTASH_REDIS_REST_TOKEN || "";
-const hasRedis = Boolean(redisUrl && redisToken);
-
-const redis = hasRedis ? new Redis({ url: redisUrl, token: redisToken }) : null;
-
-// Fallback: Simple in-memory rate limiter for local dev or if Redis is unconfigured
-const rateLimitMap = new Map<string, { count: number; lastReset: number }>();
-const RATE_LIMIT_WINDOW = 60 * 1000; // 1 minute window
-const MAX_REQUESTS_PER_WINDOW = 5;   // Max 5 generations per minute
-
-function isRateLimitedInMemory(ip: string): boolean {
-  const now = Date.now();
-  const userRecord = rateLimitMap.get(ip);
-
-  if (!userRecord || now - userRecord.lastReset > RATE_LIMIT_WINDOW) {
-    rateLimitMap.set(ip, { count: 1, lastReset: now });
-    return false;
-  }
-
-  if (userRecord.count >= MAX_REQUESTS_PER_WINDOW) {
-    return true;
-  }
-
-  userRecord.count += 1;
-  return false;
-}
 
 // ==========================================
 // SECURITY GUARDRAILS & HELPERS
