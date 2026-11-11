@@ -1,6 +1,7 @@
 import { createClient } from '@/utils/supabase/server'
 import { createClient as createAdminClient } from '@supabase/supabase-js'
 import type { SupabaseClient } from '@supabase/supabase-js'
+import type { Database } from '@/types/supabase'
 
 export class SecurityError extends Error {
   constructor(message: string, public status: number = 403) {
@@ -68,16 +69,16 @@ export async function requireEntitlement() {
   return { supabase, user, isPremium }
 }
 
-let rateLimitClient: ReturnType<typeof createAdminClient> | null = null
+let rateLimitClient: SupabaseClient<Database> | null = null
 
-function getRateLimitClient() {
+function getRateLimitClient(): SupabaseClient<Database> {
   const url = process.env.NEXT_PUBLIC_SUPABASE_URL
   const serviceKey = process.env.SUPABASE_SERVICE_ROLE_KEY
   if (!url || !serviceKey) {
     throw new SecurityError('Rate limiting is not configured', 503)
   }
   if (!rateLimitClient) {
-    rateLimitClient = createAdminClient(url, serviceKey, {
+    rateLimitClient = createAdminClient<Database>(url, serviceKey, {
       auth: { autoRefreshToken: false, persistSession: false },
     })
   }
