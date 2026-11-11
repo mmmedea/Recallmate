@@ -10,6 +10,7 @@ interface AppState {
   isPremium: boolean;
   loseHeart: () => boolean;
   regenHearts: () => void;
+  addHeart: (amount?: number) => void;
   unlockPremium: (password: string) => boolean;
 }
 
@@ -26,6 +27,15 @@ export const useAppStore = create<AppState>()(
         if (hearts <= 0) return false;
         set({ hearts: hearts - 1, lastHeartLostAt: Date.now() });
         return true;
+      },
+
+      addHeart: (amount = 1) => {
+        const { hearts } = get();
+        const newHearts = Math.min(MAX_HEARTS, hearts + amount);
+        set({
+          hearts: newHearts,
+          lastHeartLostAt: newHearts >= MAX_HEARTS ? null : Date.now(),
+        });
       },
 
       regenHearts: () => {

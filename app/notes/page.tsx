@@ -3,6 +3,8 @@
 import { useEffect, useState } from "react";
 import { useRouter } from "next/navigation";
 import { ArrowLeft, BookOpen, BrainCircuit } from "lucide-react";
+import ProgressiveNote from "@/components/ProgressiveNote";
+import MathRenderer from "@/components/MathRenderer";
 
 export default function NotesPage() {
   const [content, setContent] = useState<any>(null);
@@ -20,9 +22,9 @@ export default function NotesPage() {
   if (!content) return null;
 
   return (
-    <div className="mx-auto max-w-3xl py-12 px-4 space-y-8 transition-colors duration-200">
+    <div className="mx-auto max-w-3xl py-10 px-4 space-y-8 pb-32 transition-colors duration-200">
       
-      {/* Top Navigation with Return Arrow */}
+      {/* Top Navigation */}
       <div className="flex justify-between items-center">
         <button 
           onClick={() => router.push("/upload")}
@@ -33,11 +35,10 @@ export default function NotesPage() {
         
         <button
           onClick={() => {
-            // Signals the upload page to open straight to the configuration options for a new quiz
             sessionStorage.setItem("recallmate-reconfigure", "true");
             router.push("/upload");
           }}
-          className="flex items-center gap-2 px-4 py-2 bg-indigo-600 hover:bg-indigo-700 text-white rounded-xl text-sm font-bold shadow-md transition-all"
+          className="flex items-center gap-2 px-4 py-2 bg-indigo-600 hover:bg-indigo-700 text-white rounded-xl text-sm font-bold shadow-md transition-all active:scale-[0.98]"
         >
           <BrainCircuit className="w-4 h-4" /> Switch to Quiz Mode
         </button>
@@ -47,32 +48,45 @@ export default function NotesPage() {
         <h1 className="text-3xl font-black text-slate-900 dark:text-white">
           {content.fileName}
         </h1>
-        <p className="text-base text-slate-600 dark:text-slate-400 leading-relaxed">
-          {content.summary}
-        </p>
+        <MathRenderer
+          content={content.summary}
+          className="text-base text-slate-600 dark:text-slate-400 leading-relaxed"
+        />
       </div>
 
-      <div className="bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-800 rounded-3xl p-8 space-y-6 shadow-sm">
-        <div className="flex items-center gap-3 text-indigo-600 dark:text-indigo-400 border-b border-slate-100 dark:border-slate-800 pb-4">
-          <BookOpen className="w-6 h-6" />
-          <h2 className="text-xl font-black text-slate-900 dark:text-white">Detailed Study Notes & Examples</h2>
+      <div className="space-y-6">
+        <div className="flex items-center justify-between border-b border-slate-200 dark:border-slate-800 pb-4">
+          <div className="flex items-center gap-3 text-indigo-600 dark:text-indigo-400">
+            <BookOpen className="w-6 h-6" />
+            <h2 className="text-xl font-black text-slate-900 dark:text-white">
+              AI Study Notes & Concepts
+            </h2>
+          </div>
+          <span className="text-xs font-semibold text-slate-400">
+            Progressive Accordions
+          </span>
         </div>
 
-        <ul className="space-y-4">
-          {content.notes?.map((note: string, idx: number) => (
-            <li 
-              key={idx} 
-              className="p-5 rounded-2xl bg-slate-50 dark:bg-slate-950/50 border border-slate-100 dark:border-slate-800 flex gap-4 text-slate-700 dark:text-slate-300"
-            >
-              <span className="flex-shrink-0 w-7 h-7 bg-indigo-100 dark:bg-indigo-950 text-indigo-600 dark:text-indigo-400 rounded-xl flex items-center justify-center font-bold text-sm">
-                {idx + 1}
-              </span>
-              <span className="leading-relaxed font-medium mt-0.5">{note}</span>
-            </li>
-          ))}
-        </ul>
+        <div className="space-y-4">
+          {content.notes?.map((note: string, idx: number) => {
+            // Extract potential title or use default heading
+            const parts = note.split(":");
+            const title = parts.length > 1 ? parts[0] : `Concept Note ${idx + 1}`;
+            const body = parts.length > 1 ? parts.slice(1).join(":").trim() : note;
+
+            return (
+              <ProgressiveNote
+                key={idx}
+                index={idx}
+                title={title}
+                content={body}
+                difficulty={idx % 4 === 3 ? "hard" : "easy"}
+              />
+            );
+          })}
+        </div>
       </div>
 
     </div>
   );
-}
+}

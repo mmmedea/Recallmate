@@ -1,0 +1,124 @@
+"use client";
+
+import { useState } from "react";
+import { useAppStore } from "@/lib/store";
+import { Heart, X, Sparkles, Brain, CheckCircle2, ArrowRight } from "lucide-react";
+
+interface FeynmanRechargeModalProps {
+  open: boolean;
+  onClose: () => void;
+  topic?: string;
+}
+
+export default function FeynmanRechargeModal({
+  open,
+  onClose,
+  topic = "a key concept from your material",
+}: FeynmanRechargeModalProps) {
+  const [explanation, setExplanation] = useState("");
+  const [error, setError] = useState("");
+  const [success, setSuccess] = useState(false);
+  const { addHeart } = useAppStore();
+
+  if (!open) return null;
+
+  const handleSubmit = (e: React.FormEvent) => {
+    e.preventDefault();
+    setError("");
+
+    if (explanation.trim().length < 25) {
+      setError("Please write at least 25 characters to synthesize the concept clearly.");
+      return;
+    }
+
+    // Award +1 Heart for active synthesis
+    addHeart(1);
+    setSuccess(true);
+
+    setTimeout(() => {
+      setSuccess(false);
+      setExplanation("");
+      onClose();
+    }, 1500);
+  };
+
+  return (
+    <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/60 backdrop-blur-sm p-4 animate-in fade-in duration-200">
+      <div className="relative w-full max-w-lg rounded-3xl bg-white dark:bg-slate-900 p-6 md:p-8 shadow-2xl border border-slate-200 dark:border-slate-800">
+        <button
+          onClick={onClose}
+          className="absolute top-4 right-4 text-slate-400 hover:text-slate-600 dark:hover:text-slate-200 transition-colors"
+        >
+          <X className="w-5 h-5" />
+        </button>
+
+        {success ? (
+          <div className="py-8 text-center space-y-4 animate-in zoom-in-95 duration-200">
+            <div className="mx-auto w-16 h-16 bg-rose-100 dark:bg-rose-950/60 text-rose-600 dark:text-rose-400 rounded-full flex items-center justify-center">
+              <Heart className="w-8 h-8 fill-rose-500 text-rose-500 animate-pulse" />
+            </div>
+            <h3 className="text-2xl font-black text-slate-900 dark:text-white">
+              +1 Heart Earned!
+            </h3>
+            <p className="text-sm text-slate-600 dark:text-slate-400 max-w-xs mx-auto">
+              Great active synthesis! You've recharged a heart through the Feynman Technique.
+            </p>
+          </div>
+        ) : (
+          <>
+            <div className="space-y-3 mb-6">
+              <div className="flex items-center gap-2">
+                <div className="w-10 h-10 bg-indigo-50 dark:bg-indigo-950/60 text-indigo-600 dark:text-indigo-400 rounded-2xl flex items-center justify-center">
+                  <Brain className="w-5 h-5" />
+                </div>
+                <span className="px-2.5 py-1 text-xs font-black uppercase tracking-wider text-rose-600 dark:text-rose-400 bg-rose-50 dark:bg-rose-950/50 rounded-full border border-rose-200 dark:border-rose-800/40">
+                  Feynman Heart Recharge
+                </span>
+              </div>
+              <h3 className="text-xl font-black text-slate-900 dark:text-white">
+                Explain It Simply
+              </h3>
+              <p className="text-sm text-slate-600 dark:text-slate-400 leading-relaxed">
+                Out of hearts? Recharge +1 Heart immediately by explaining <span className="font-semibold text-slate-900 dark:text-slate-200">"{topic}"</span> as if teaching it to a beginner.
+              </p>
+            </div>
+
+            <form onSubmit={handleSubmit} className="space-y-4">
+              <div>
+                <textarea
+                  value={explanation}
+                  onChange={(e) => setExplanation(e.target.value)}
+                  placeholder="In simple terms, this concept works by..."
+                  rows={4}
+                  autoFocus
+                  className="w-full p-4 rounded-2xl bg-slate-50 dark:bg-slate-800/80 border border-slate-200 dark:border-slate-700 text-slate-900 dark:text-white placeholder-slate-400 focus:outline-none focus:ring-2 focus:ring-indigo-500 font-medium text-sm transition-colors resize-none"
+                />
+                <div className="flex justify-between items-center mt-1.5 px-1">
+                  <span className="text-[11px] text-slate-400">
+                    {explanation.trim().length} / 25 min chars
+                  </span>
+                  <span className="text-[11px] font-semibold text-rose-500 flex items-center gap-1">
+                    <Heart className="w-3 h-3 fill-rose-500" /> +1 Heart reward
+                  </span>
+                </div>
+              </div>
+
+              {error && (
+                <p className="text-xs font-semibold text-rose-600 dark:text-rose-400 text-center">
+                  {error}
+                </p>
+              )}
+
+              <button
+                type="submit"
+                className="w-full py-3.5 bg-indigo-600 hover:bg-indigo-700 dark:bg-indigo-500 dark:hover:bg-indigo-600 text-white rounded-xl font-bold shadow-md transition-all flex items-center justify-center gap-2 active:scale-[0.98]"
+              >
+                Synthesize & Recharge Heart <ArrowRight className="w-4 h-4" />
+              </button>
+            </form>
+          </>
+        )}
+      </div>
+    </div>
+  );
+}
