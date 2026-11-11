@@ -216,7 +216,7 @@ export async function POST(req: NextRequest) {
 
   return createUIMessageStreamResponse({
     stream: createUIMessageStream({
-      execute: async (dataStream) => {
+      execute: async ({ writer }) => {
       try {
         writer.write({ type: "data-tutor-status", data: { label: "Retrieving context..." } });
 
