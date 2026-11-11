@@ -218,7 +218,7 @@ function DocumentCard({ doc }: { doc: DocumentLifecycleSummary }) {
 
         {isFailed && doc.extraction.errorMessage && (
           <p className="mt-3 text-sm text-red-600 dark:text-red-400 line-clamp-2">
-            {document.extraction.error}
+            {doc.extraction.errorMessage}
           </p>
         )}
       </div>
