@@ -39,7 +39,7 @@ Rules:
 - hard = analyze, compare, or apply the concept to a new scenario not explicitly in the text.
 - Keep answers concise (1-3 sentences).`;
 
-    const model = genAI.getGenerativeModel({ model: "gemini-1.5-flash" });
+    const model = genAI.getGenerativeModel({ model: "gemini-1.5-pro" });
     const result = await model.generateContent(prompt);
     const response = await result.response;
     const raw = response.text();
