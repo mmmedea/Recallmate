@@ -6,6 +6,16 @@ import { Loader2, Sparkles, BrainCircuit, BookOpen, ArrowLeft } from "lucide-rea
 import { useAppStore } from "@/lib/store";
 import FileUploader from "@/components/FileUploader";
 
+// ULTIMATE iOS FIX: A rock-solid legacy file reader that bypasses the WebKit arrayBuffer() crash
+const readFileSafely = (file: File): Promise<ArrayBuffer> => {
+  return new Promise((resolve, reject) => {
+    const reader = new FileReader();
+    reader.onload = () => resolve(reader.result as ArrayBuffer);
+    reader.onerror = () => reject(new Error("Browser failed to read file"));
+    reader.readAsArrayBuffer(file);
+  });
+};
+
 export default function UploadPage() {
   const [step, setStep] = useState<"upload" | "configure">("upload");
   const [status, setStatus] = useState<"idle" | "extracting" | "generating">("idle");
@@ -58,18 +68,13 @@ export default function UploadPage() {
       let mammothLib: any = null;
 
       for (const file of files) {
-        // Save the original names for the UI, but we will not trust them for the browser fetch
         fileNames.push(file.name);
         const fileName = file.name.toLowerCase();
         let extractedTextForFile = "";
         let clientSideFailed = false;
 
-        // CRITICAL SAFARI FIX 1: Read the file into memory instantly. 
-        // This bypasses Safari's buggy native File object handling.
-        const arrayBuffer = await file.arrayBuffer();
-
         // ==========================================
-        // 1. CLIENT-SIDE EXTRACTION
+        // 1. CLIENT-SIDE EXTRACTION 
         // ==========================================
         try {
           if (fileName.endsWith(".txt") || fileName.endsWith(".md") || fileName.endsWith(".csv")) {
@@ -80,6 +85,7 @@ export default function UploadPage() {
               const mammothModule = await import("mammoth");
               mammothLib = mammothModule.default || mammothModule;
             }
+            const arrayBuffer = await readFileSafely(file);
             const result = await mammothLib.extractRawText({ arrayBuffer });
             extractedTextForFile = result.value;
           }
@@ -88,9 +94,8 @@ export default function UploadPage() {
             const JSZip = zipModule.default || zipModule;
             const zip = new (JSZip as any)();
             
-            // CRITICAL SAFARI FIX 2: Use Uint8Array. JSZip is far more stable on iOS when using explicit typed arrays.
-            const uintArray = new Uint8Array(arrayBuffer);
-            const loadedZip = await zip.loadAsync(uintArray);
+            const arrayBuffer = await readFileSafely(file);
+            const loadedZip = await zip.loadAsync(arrayBuffer);
             
             for (const [relativePath, zipEntry] of Object.entries(loadedZip.files)) {
               if (relativePath.startsWith("ppt/slides/slide") && relativePath.endsWith(".xml")) {
@@ -113,6 +118,7 @@ export default function UploadPage() {
               pdfjsLib.GlobalWorkerOptions.workerSrc = `https://cdnjs.cloudflare.com/ajax/libs/pdf.js/${pdfjsLib.version}/pdf.worker.min.js`;
             }
             
+            const arrayBuffer = await readFileSafely(file);
             const uint8Array = new Uint8Array(arrayBuffer);
             const pdf = await pdfjsLib.getDocument({ data: uint8Array }).promise;
             
@@ -154,7 +160,7 @@ export default function UploadPage() {
         }
 
         // ==========================================
-        // 2. SERVER-SIDE FALLBACK (ULTIMATE SAFARI FETCH FIX)
+        // 2. SERVER-SIDE FALLBACK
         // ==========================================
         if (
           clientSideFailed || 
@@ -167,17 +173,15 @@ export default function UploadPage() {
             throw new Error(`"${file.name}" is too large. Server extraction limit is 4.5MB.`);
           }
 
-          // CRITICAL SAFARI FIX 3: We completely wipe the file's metadata here. 
-          // We assign it a generic MIME type and strip all hidden invisible characters 
-          // from the filename. This guarantees Safari's fetch() network layer will never crash.
-          const cleanBlob = new Blob([arrayBuffer], { type: "application/octet-stream" });
+          const form = new FormData();
           
+          // CRITICAL SAFARI FIX 2: Override the original filename in FormData.
+          // This strips all hidden emojis, accents, and invalid characters that crash iOS network requests.
           const extMatch = fileName.match(/\.[0-9a-z]+$/i);
           const safeExt = extMatch ? extMatch[0] : ".bin";
-          const safeName = `upload${safeExt}`;
-
-          const form = new FormData();
-          form.append("file", cleanBlob, safeName);
+          const safeName = `upload_file${safeExt}`;
+          
+          form.append("file", file, safeName);
           
           const endpoint = isMediaFile(file) ? "/api/transcribe" : "/api/extract-text";
           
