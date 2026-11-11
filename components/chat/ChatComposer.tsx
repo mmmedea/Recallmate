@@ -5,6 +5,7 @@ type ChatComposerProps = {
   input: string;
   handleInputChange: (e: React.ChangeEvent<HTMLTextAreaElement>) => void;
   handleSubmit: (e: React.FormEvent<HTMLFormElement>) => void;
+  onSendPrompt: (prompt: string) => void;
   isLoading: boolean;
   stop: () => void;
 };
@@ -16,7 +17,7 @@ const SUGGESTED_PROMPTS = [
   "Quiz me"
 ];
 
-export function ChatComposer({ input, handleInputChange, handleSubmit, isLoading, stop }: ChatComposerProps) {
+export function ChatComposer({ input, handleInputChange, handleSubmit, onSendPrompt, isLoading, stop }: ChatComposerProps) {
   const textareaRef = useRef<HTMLTextAreaElement>(null);
 
   useEffect(() => {
@@ -37,22 +38,7 @@ export function ChatComposer({ input, handleInputChange, handleSubmit, isLoading
     }
   };
 
-  const handleSuggestedPrompt = (prompt: string) => {
-    const syntheticEvent = {
-      preventDefault: () => {},
-      target: { value: prompt }
-    } as any;
-    
-    // Quick hack to submit a suggested prompt
-    // For a robust implementation, we would use the `append` function from useChat
-    // But since we only have `handleInputChange` and `handleSubmit` passed here:
-    handleInputChange({ target: { value: prompt } } as any);
-    setTimeout(() => {
-      if (textareaRef.current?.form) {
-        textareaRef.current.form.requestSubmit();
-      }
-    }, 50);
-  };
+  const handleSuggestedPrompt = (prompt: string) => onSendPrompt(prompt);
 
   return (
     <div className="flex flex-col gap-3">
