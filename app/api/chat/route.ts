@@ -131,7 +131,7 @@ export async function POST(req: NextRequest) {
       // Re-stream the recovered response
       return createUIMessageStreamResponse({
         stream: createUIMessageStream({
-          execute: async (dataStream) => {
+          execute: async ({ writer }) => {
           const { data: reply } = await serviceClient
             .from("chat_messages")
             .select("content, id")
@@ -144,11 +144,15 @@ export async function POST(req: NextRequest) {
             .select("source_chunk_id, alias")
             .eq("interaction_id", existingInteraction.id);
 
-          dataStream.writeData({ recovered: true });
+          writer.write({ type: "data-recovered", data: { recovered: true } });
           if (citations) {
-             dataStream.writeMessageAnnotation({ type: 'citations', data: citations });
+             writer.write({ type: "data-citations", data: citations });
           }
-          dataStream.writeText(reply?.content || "");
+          const recoveredText = reply?.content || "";
+          const recoveredTextId = crypto.randomUUID();
+          writer.write({ type: "text-start", id: recoveredTextId });
+          if (recoveredText) writer.write({ type: "text-delta", id: recoveredTextId, delta: recoveredText });
+          writer.write({ type: "text-end", id: recoveredTextId });
           }
         })
       });
@@ -214,7 +218,7 @@ export async function POST(req: NextRequest) {
     stream: createUIMessageStream({
       execute: async (dataStream) => {
       try {
-        dataStream.writeMessageAnnotation({ type: 'data-tutor-status', data: { label: 'Retrieving context...' } });
+        writer.write({ type: "data-tutor-status", data: { label: "Retrieving context..." } });
 
         // 7. Context Retrieval
         const retriever = new LexicalRetriever(serviceClient);
@@ -250,7 +254,7 @@ export async function POST(req: NextRequest) {
           maxHistoryMessages: 10
         });
 
-        dataStream.writeMessageAnnotation({ type: 'data-tutor-status', data: { label: 'Generating answer...' } });
+        writer.write({ type: "data-tutor-status", data: { label: "Generating answer..." } });
 
         // 9. Generate & Stream Text natively
         const stream = await ProviderAdapter.stream({
@@ -260,14 +264,17 @@ export async function POST(req: NextRequest) {
         });
 
         let fullContent = "";
+        const textId = crypto.randomUUID();
+        writer.write({ type: "text-start", id: textId });
         for await (const chunk of stream) {
            // Handle Google GenAI chunk structure
            const textChunk = chunk.text || "";
            if (textChunk) {
-              dataStream.writeText(textChunk);
+              writer.write({ type: "text-delta", id: textId, delta: textChunk });
               fullContent += textChunk;
            }
         }
+        writer.write({ type: "text-end", id: textId });
 
         // 10. Persist completion
         const { data: assistantMsg } = await serviceClient.from("chat_messages").insert({
