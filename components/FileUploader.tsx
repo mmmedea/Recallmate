@@ -54,7 +54,7 @@ export default function FileUploader({
         Drop a file or click to upload
       </p>
       
-      <p className="mt-1 text-xs font-medium text-slate-500 dark:text-slate-400">
+      <p className="text-sm text-gray-500">
         Supports PDF, PPT, PPTX, DOCX, PNG, and JPEG
       </p>
 
