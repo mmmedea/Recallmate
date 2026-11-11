@@ -149,7 +149,7 @@ export default function WorkspaceClient({ initialSummary }: { initialSummary: Do
             <TimelineItem 
               label="Text Extraction" 
               status={extractionFailed ? 'failed' : (extractionCompleted ? 'completed' : 'processing')} 
-              description={extractionFailed ? document.extraction.error || 'Failed' : undefined}
+              description={extractionFailed ? summary.extraction.errorMessage || 'Failed' : undefined}
             />
           </ul>
         </div>
