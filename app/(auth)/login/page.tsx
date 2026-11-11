@@ -12,10 +12,10 @@ export default async function LoginPage({
   let next = "/dashboard";
   if (
     resolvedSearchParams.next &&
-    searchParams.next.startsWith("/") &&
-    !searchParams.next.startsWith("//")
+    resolvedSearchParams.next.startsWith("/") &&
+    !resolvedSearchParams.next.startsWith("//")
   ) {
-    next = searchParams.next;
+    next = resolvedSearchParams.next;
   }
 
   return (
