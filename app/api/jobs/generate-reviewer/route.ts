@@ -3,33 +3,30 @@ import { createClient } from '@supabase/supabase-js';
 import { ReviewerGenerator } from '@/lib/ai/reviewer-generator';
 import { BillingService } from '@/lib/ai/billing';
 import crypto from 'crypto';
+import { z } from 'zod';
+import { checkRateLimit } from '@/lib/security';
 
 export async function POST(req: NextRequest) {
   try {
-    const { documentIds, format } = await req.json();
-
-    if (!documentIds || !Array.isArray(documentIds) || documentIds.length === 0) {
-      return NextResponse.json({ error: "Missing documentIds" }, { status: 400 });
-    }
-
-    if (format !== 'docx' && format !== 'pdf') {
-      return NextResponse.json({ error: "Invalid format. Must be pdf or docx." }, { status: 400 });
-    }
+    const body = await req.json().catch(() => null);
+    const requestSchema = z.object({ documentIds: z.array(z.string().uuid()).min(1).max(10), format: z.enum(['docx', 'pdf']), instructions: z.string().max(4000).optional().default('') }).strict();
+    const parsed = requestSchema.safeParse(body);
+    if (!parsed.success) return NextResponse.json({ error: 'Invalid reviewer generation request.' }, { status: 400 });
+    const { documentIds, format, instructions } = parsed.data;
 
     // 1. Authenticate user
     const authHeader = req.headers.get('authorization');
-    if (!authHeader) {
-      return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
-    }
-    const token = authHeader.replace('Bearer ', '');
+    if (!authHeader?.startsWith('Bearer ') || authHeader.length > 8192) return NextResponse.json({ error: 'Unauthorized' }, { status: 401 });
+    const token = authHeader.slice(7).trim();
+    if (!token || token.includes(' ')) return NextResponse.json({ error: 'Unauthorized' }, { status: 401 });
     const supabase = createClient(
       process.env.NEXT_PUBLIC_SUPABASE_URL!,
       process.env.SUPABASE_SERVICE_ROLE_KEY!
     );
     const { data: { user }, error: userError } = await supabase.auth.getUser(token);
-    if (userError || !user) {
-      return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
-    }
+    if (userError || !user) return NextResponse.json({ error: 'Unauthorized' }, { status: 401 });
+    await checkRateLimit(user.id);
+    if (!process.env.NEXT_PUBLIC_SUPABASE_URL || !process.env.SUPABASE_SERVICE_ROLE_KEY) return NextResponse.json({ error: 'Reviewer generation is not configured.' }, { status: 503 });
 
     // 2. Billing Check (Reserve 50 credits per reviewer generation)
     const billingService = new BillingService(supabase);
@@ -94,9 +91,14 @@ export async function POST(req: NextRequest) {
         rendererUrl = process.env.PDF_WORKER_URL;
         rendererSecret = process.env.WORKER_SECRET || process.env.CRON_SECRET;
       } else {
-        const baseUrl = process.env.NEXT_PUBLIC_APP_URL || (req.headers.get('host') ? `https://${req.headers.get('host')}` : 'http://localhost:3000');
-        rendererUrl = `${baseUrl}/api/jobs/render`;
+        const baseUrl = process.env.NEXT_PUBLIC_APP_URL;
+        if (!baseUrl) throw new Error('NEXT_PUBLIC_APP_URL is not configured.');
+        const parsedBaseUrl = new URL(baseUrl);
+        if (parsedBaseUrl.protocol !== 'https:' && parsedBaseUrl.hostname !== 'localhost') throw new Error('Invalid application URL configuration.');
+        rendererUrl = new URL('/api/jobs/render', parsedBaseUrl).toString();
       }
+
+      if (!rendererSecret || rendererSecret.length < 32) throw new Error('Renderer secret is not configured securely.');
 
       // Sign the payload so worker trusts us
       const payloadString = JSON.stringify({
@@ -110,6 +112,7 @@ export async function POST(req: NextRequest) {
 
       const renderRes = await fetch(rendererUrl, {
         method: 'POST',
+        signal: AbortSignal.timeout(120_000),
         headers: {
           'Content-Type': 'application/json',
           'X-Worker-Signature': signature
@@ -136,7 +139,8 @@ export async function POST(req: NextRequest) {
     }
 
   } catch (error: any) {
-    console.error("[generate-reviewer]", error);
-    return NextResponse.json({ error: error.message || "Internal Server Error" }, { status: 500 });
+    const status = Number.isInteger(error?.status) ? error.status : error?.message === 'Rate limit exceeded' ? 429 : 500;
+    if (status >= 500) console.error('[generate-reviewer] failed:', error);
+    return NextResponse.json({ error: status === 429 ? 'Rate limit exceeded. Please try again later.' : status === 401 ? 'Unauthorized' : 'Reviewer generation failed.' }, { status });
   }
 }
