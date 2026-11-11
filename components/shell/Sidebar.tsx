@@ -2,14 +2,14 @@
 
 import Link from "next/link";
 import { usePathname } from "next/navigation";
-import { Sparkles, PanelLeftClose, PanelLeftOpen } from "lucide-react";
+import { Sparkles, PanelLeftClose, PanelLeftOpen, MessageCircle } from "lucide-react";
 import { navigationConfig } from "@/lib/navigation";
 import { useAppStore } from "@/lib/store";
 import { cn } from "@/lib/utils";
 
 export function Sidebar() {
   const pathname = usePathname();
-  const { isSidebarOpen, toggleSidebar } = useAppStore();
+  const { isSidebarOpen, toggleSidebar, setChatDrawerOpen } = useAppStore();
 
   return (
     <aside
@@ -61,6 +61,17 @@ export function Sidebar() {
         })}
 
         <div className="mt-auto flex flex-col gap-1 pt-4">
+          <button
+            onClick={() => setChatDrawerOpen(true)}
+            className={cn(
+              "flex items-center gap-3 rounded-lg px-3 py-2.5 text-sm font-medium text-indigo-600 hover:bg-indigo-50 dark:text-indigo-300 dark:hover:bg-indigo-950/40",
+              !isSidebarOpen && "justify-center px-0"
+            )}
+            title={!isSidebarOpen ? "Ask Medea" : undefined}
+          >
+            <MessageCircle className="h-5 w-5 shrink-0" />
+            {isSidebarOpen && <span>Ask Medea</span>}
+          </button>
           {navigationConfig.footer.map((item) => {
             const isActive = pathname === item.href;
             const Icon = item.icon;

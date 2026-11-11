@@ -38,7 +38,6 @@ interface AttachedFile {
 }
 
 export default function OmniChatDrawer() {
-  const [isOpen, setIsOpen] = useState(false);
   const [mounted, setMounted] = useState(false);
   const [mode, setMode] = useState<"tutor" | "dictionary" | "socratic">("tutor");
   const [input, setInput] = useState("");
@@ -49,7 +48,7 @@ export default function OmniChatDrawer() {
   // Attachment chip state — does NOT trigger AI until user sends a prompt
   const [attachedFiles, setAttachedFiles] = useState<AttachedFile[]>([]);
 
-  const { isPremium, activeChatContext, addChatContext } = useAppStore();
+  const { isPremium, activeChatContext, addChatContext, chatDrawerOpen: isOpen, setChatDrawerOpen: setIsOpen } = useAppStore();
   const fileInputRef = useRef<HTMLInputElement>(null);
   const abortControllerRef = useRef<AbortController | null>(null);
 

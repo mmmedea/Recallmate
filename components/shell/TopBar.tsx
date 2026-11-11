@@ -3,6 +3,7 @@
 import { Menu, Coins } from "lucide-react";
 import { usePathname } from "next/navigation";
 import { AccountMenu } from "./AccountMenu";
+import { NotificationBell } from "./NotificationBell";
 import ThemeToggle from "@/components/ThemeToggle";
 import { Button } from "@/components/ui/button";
 import { useAppStore } from "@/lib/store";
@@ -49,6 +50,7 @@ export function TopBar({ user, credits }: TopBarProps) {
           <Coins className="h-3.5 w-3.5 text-amber-500" aria-hidden="true" />
           <span>{credits.available}</span>
         </div>
+        <NotificationBell />
         <ThemeToggle />
         <AccountMenu user={user} />
       </div>

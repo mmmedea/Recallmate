@@ -27,6 +27,28 @@ async function executeWorker(req: NextRequest) {
       process.env.NEXT_PUBLIC_SUPABASE_URL!,
       process.env.SUPABASE_SERVICE_ROLE_KEY!
     );
+
+    // Deliver due calendar reminders as in-app notifications. The cron runs this
+    // endpoint; browser notifications remain an explicit client opt-in.
+    const now = new Date().toISOString();
+    const { data: reminders } = await supabase
+      .from('calendar_reminders')
+      .select('id,event_id,user_id,calendar_events(title, starts_at)')
+      .is('delivered_at', null)
+      .lte('remind_at', now)
+      .limit(100);
+    for (const reminder of reminders || []) {
+      const event = Array.isArray(reminder.calendar_events) ? reminder.calendar_events[0] : reminder.calendar_events;
+      if (!event) continue;
+      const { error: notificationError } = await supabase.from('notifications').insert({
+        user_id: reminder.user_id,
+        event_id: reminder.event_id,
+        title: `Upcoming: ${event.title}`,
+        body: `Scheduled for ${new Date(event.starts_at).toLocaleString()}`,
+        kind: 'calendar',
+      });
+      if (!notificationError) await supabase.from('calendar_reminders').update({ delivered_at: now }).eq('id', reminder.id);
+    }
     
     // Stale Job Recovery
     const fifteenMinsAgo = new Date(Date.now() - 15 * 60 * 1000).toISOString();
