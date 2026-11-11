@@ -2,7 +2,7 @@
 
 import { useEffect, useState } from "react";
 import { useRouter } from "next/navigation";
-import { ArrowLeft, BookOpen, BrainCircuit, FilePlus2, Sparkles } from "lucide-react";
+import { ArrowLeft, BookOpen, BrainCircuit, FilePlus2, Printer, Sparkles } from "lucide-react";
 import ProgressiveNote from "@/components/ProgressiveNote";
 import MathRenderer from "@/components/MathRenderer";
 
@@ -35,6 +35,7 @@ export default function NotesPage() {
           <p className="mx-auto mt-3 max-w-xl leading-7 text-slate-600 dark:text-slate-300">No generated notes are open yet. Upload a document, slide deck, image, or text file and let Medea create organized notes you can review here.</p>
           <div className="mt-7 flex flex-col justify-center gap-3 sm:flex-row">
             <button onClick={() => router.push("/upload")} className="inline-flex items-center justify-center gap-2 rounded-xl bg-indigo-600 px-5 py-3 text-sm font-bold text-white shadow-lg shadow-indigo-500/20 transition hover:-translate-y-0.5 hover:bg-indigo-700"><FilePlus2 className="h-4 w-4" />Upload study material</button>
+            <button onClick={() => router.push("/upload?mode=reviewer")} className="inline-flex items-center justify-center gap-2 rounded-xl border border-indigo-200 bg-white px-5 py-3 text-sm font-bold text-indigo-700 transition hover:-translate-y-0.5 hover:bg-indigo-50 dark:border-indigo-500/30 dark:bg-slate-800 dark:text-indigo-200"><Printer className="h-4 w-4" />Create reviewer PDF</button>
             <button onClick={() => router.push("/topics")} className="inline-flex items-center justify-center gap-2 rounded-xl border border-slate-200 bg-white px-5 py-3 text-sm font-bold text-slate-700 transition hover:-translate-y-0.5 hover:bg-slate-50 dark:border-slate-700 dark:bg-slate-800 dark:text-slate-200"><Sparkles className="h-4 w-4" />Explore study tools</button>
           </div>
         </section>
@@ -52,15 +53,15 @@ export default function NotesPage() {
         >
           <ArrowLeft className="w-4 h-4" /> Back to Upload
         </button>
-        <button
-          onClick={() => {
-            sessionStorage.setItem("recallmate-reconfigure", "true");
-            router.push("/upload");
-          }}
-          className="flex items-center gap-2 px-4 py-2 bg-indigo-600 hover:bg-indigo-700 text-white rounded-xl text-sm font-bold shadow-md transition-all active:scale-[0.98]"
-        >
-          <BrainCircuit className="w-4 h-4" /> Switch to Quiz Mode
-        </button>
+        <div className="flex flex-wrap justify-end gap-2"><button onClick={() => router.push("/upload?mode=reviewer")} className="flex items-center gap-2 rounded-xl border border-slate-200 px-4 py-2 text-sm font-bold text-slate-700 dark:border-slate-700 dark:text-slate-200"><Printer className="h-4 w-4" />Create reviewer PDF</button><button
+            onClick={() => {
+              sessionStorage.setItem("recallmate-reconfigure", "true");
+              router.push("/upload");
+            }}
+            className="flex items-center gap-2 px-4 py-2 bg-indigo-600 hover:bg-indigo-700 text-white rounded-xl text-sm font-bold shadow-md transition-all active:scale-[0.98]"
+          >
+            <BrainCircuit className="w-4 h-4" /> Switch to Quiz Mode
+          </button></div>
       </div>
 
       <div className="space-y-3">

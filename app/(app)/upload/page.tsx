@@ -2,7 +2,7 @@
 
 import { useEffect, useState } from "react";
 import { useRouter } from "next/navigation";
-import { Loader2, ArrowLeft, AlertCircle, Layers3, Sparkles, UploadCloud } from "lucide-react";
+import { Loader2, ArrowLeft, AlertCircle, Layers3, Printer, Sparkles, UploadCloud } from "lucide-react";
 import Link from "next/link";
 import FileUploader from "@/components/FileUploader";
 import { createClient } from "@/utils/supabase/client";
@@ -11,17 +11,19 @@ import {
   confirmDocumentUpload 
 } from "@/app/actions/document-actions";
 import ManualFlashcardBuilder from "@/components/study/ManualFlashcardBuilder";
+import ReviewerPdfMaker from "@/components/reviewer/ReviewerPdfMaker";
 
 export default function UploadPage() {
   const [isUploading, setIsUploading] = useState(false);
   const [uploadStatus, setUploadStatus] = useState("");
   const [error, setError] = useState("");
-  const [mode, setMode] = useState<"upload" | "flashcards">("upload");
+  const [mode, setMode] = useState<"upload" | "flashcards" | "reviewer">("upload");
   const router = useRouter();
   const supabase = createClient();
 
   useEffect(() => {
-    if (new URLSearchParams(window.location.search).get("mode") === "flashcards") setMode("flashcards");
+    const requestedMode = new URLSearchParams(window.location.search).get("mode");
+    if (requestedMode === "flashcards" || requestedMode === "reviewer") setMode(requestedMode);
   }, []);
 
   const processFile = async (file: File) => {
@@ -96,9 +98,10 @@ export default function UploadPage() {
           </p>
         </div>
 
-        <div role="tablist" aria-label="Study creation method" className="grid grid-cols-2 gap-2 rounded-2xl border border-slate-200 bg-white p-2 shadow-sm dark:border-slate-800 dark:bg-slate-900">
+        <div role="tablist" aria-label="Study creation method" className="grid grid-cols-1 gap-2 rounded-2xl border border-slate-200 bg-white p-2 shadow-sm dark:border-slate-800 dark:bg-slate-900 sm:grid-cols-3">
           <button role="tab" aria-selected={mode === "upload"} onClick={() => setMode("upload")} className={`inline-flex min-h-12 items-center justify-center gap-2 rounded-xl px-3 text-sm font-black transition ${mode === "upload" ? "bg-indigo-600 text-white shadow-lg" : "text-slate-600 hover:bg-slate-100 dark:text-slate-300 dark:hover:bg-slate-800"}`}><UploadCloud className="h-4 w-4" />Upload & AI quiz</button>
           <button role="tab" aria-selected={mode === "flashcards"} onClick={() => setMode("flashcards")} className={`inline-flex min-h-12 items-center justify-center gap-2 rounded-xl px-3 text-sm font-black transition ${mode === "flashcards" ? "bg-indigo-600 text-white shadow-lg" : "text-slate-600 hover:bg-slate-100 dark:text-slate-300 dark:hover:bg-slate-800"}`}><Layers3 className="h-4 w-4" />Create flashcards</button>
+          <button role="tab" aria-selected={mode === "reviewer"} onClick={() => setMode("reviewer")} className={`inline-flex min-h-12 items-center justify-center gap-2 rounded-xl px-3 text-sm font-black transition ${mode === "reviewer" ? "bg-slate-950 text-white shadow-lg dark:bg-white dark:text-slate-950" : "text-slate-600 hover:bg-slate-100 dark:text-slate-300 dark:hover:bg-slate-800"}`}><Printer className="h-4 w-4" />Reviewer PDF</button>
         </div>
 
         {mode === "upload" && error && (
@@ -118,7 +121,7 @@ export default function UploadPage() {
           {isUploading ? uploadStatus : ""}
         </div>}
 
-        {mode === "flashcards" ? <ManualFlashcardBuilder /> : isUploading ? (
+        {mode === "reviewer" ? <ReviewerPdfMaker /> : mode === "flashcards" ? <ManualFlashcardBuilder /> : isUploading ? (
           <div className="flex flex-col items-center justify-center py-16 rounded-2xl border-2 border-dashed border-slate-200 dark:border-slate-800 bg-slate-50 dark:bg-slate-900/50">
             <Loader2 className="h-10 w-10 motion-safe:animate-spin text-indigo-600 dark:text-indigo-400 mb-4" />
             <h3 className="text-lg font-medium text-slate-900 dark:text-white" aria-live="off">{uploadStatus}</h3>

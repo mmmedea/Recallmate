@@ -25,6 +25,7 @@ export async function createDocumentUploadSession(payload: { fileName: string; f
         id: documentId,
         user_id: user.id,
         filename: validatedData.fileName,
+        title: validatedData.fileName,
         storage_path: storagePath,
         content_type: validatedData.contentType,
         status: 'uploaded', // Initial state

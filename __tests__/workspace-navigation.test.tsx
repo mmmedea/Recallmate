@@ -44,4 +44,11 @@ describe("study workspace navigation", () => {
     fireEvent.click(screen.getByRole("button", { name: /upload study material/i }));
     expect(routerMocks.push).toHaveBeenCalledWith("/upload");
   });
+
+  it("offers reviewer PDF creation from Study Notes", async () => {
+    render(<NotesPage />);
+    expect(await screen.findByRole("button", { name: /create reviewer pdf/i })).toBeDefined();
+    fireEvent.click(screen.getByRole("button", { name: /create reviewer pdf/i }));
+    expect(routerMocks.push).toHaveBeenCalledWith("/upload?mode=reviewer");
+  });
 });
