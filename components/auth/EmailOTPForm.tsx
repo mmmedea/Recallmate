@@ -34,7 +34,7 @@ const OTP_ERROR_MESSAGES: Record<string, string> = {
   error: "Something went wrong. Please try again.",
 };
 
-export function EmailOTPForm({ intent, privacyAgreed = true, redirectTo = "/upload" }: EmailOTPFormProps) {
+export function EmailOTPForm({ intent, privacyAgreed = true, redirectTo = "/dashboard" }: EmailOTPFormProps) {
   const router = useRouter();
   const supabase = createClient();
 
@@ -349,3 +349,4 @@ export function EmailOTPForm({ intent, privacyAgreed = true, redirectTo = "/uplo
     </form>
   );
 }
+
