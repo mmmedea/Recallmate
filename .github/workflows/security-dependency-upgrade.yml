@@ -2,11 +2,9 @@ name: Security dependency upgrade and validation (lifecycle type fixes)
 
 on:
   workflow_dispatch:
-  push:
+  pull_request:
     branches:
-      - security/hardening-review
-    paths:
-      - .github/workflows/security-dependency-upgrade.yml
+      - main
 
 permissions:
   contents: write
