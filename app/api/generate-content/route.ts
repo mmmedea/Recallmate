@@ -2,15 +2,6 @@ import { NextRequest, NextResponse } from "next/server";
 
 export const runtime = "nodejs";
 
-// A curated list of stable, universally accessible model versions.
-const CANDIDATE_MODELS = [
-  "gemini-1.5-flash-002",
-  "gemini-1.5-flash-001",
-  "gemini-1.5-pro-002",
-  "gemini-1.5-pro-001",
-  "gemini-pro"
-];
-
 export async function POST(req: NextRequest) {
   try {
     const apiKey = process.env.GEMINI_API_KEY;
@@ -23,8 +14,24 @@ export async function POST(req: NextRequest) {
     const { text, fileName } = await req.json();
 
     if (!text || text.trim().length < 20) {
-      return NextResponse.json({ error: "Not enough content extracted from this file to generate notes." }, { status: 400 });
+      return NextResponse.json({ error: "Not enough content extracted from this file." }, { status: 400 });
     }
+
+    // 1. AUTO-DISCOVERY: Fetch exactly what this API key is allowed to use
+    const listUrl = `https://generativelanguage.googleapis.com/v1beta/models?key=${apiKey}`;
+    const listRes = await fetch(listUrl);
+    const listData = await listRes.json();
+
+    if (!listRes.ok) {
+      console.error("API Key Verification Failed:", listData);
+      return NextResponse.json({ error: "Invalid API Key or blocked access by Google." }, { status: 500 });
+    }
+
+    // 2. Filter out unsupported models AND specifically block the restricted "2.5" versions
+    const validModels = (listData.models || []).filter((m: any) => 
+      m.supportedGenerationMethods?.includes("generateContent") && 
+      !m.name.includes("2.5") // Skips models we know Google blocks for new users
+    );
 
     const prompt = `You are an expert study assistant reviewing material from "${fileName || "Uploaded File"}".
 Extracted File Content:
@@ -63,12 +70,14 @@ Rules:
 - Include exact quote/source text and page/section number.`;
 
     let rawText = "";
-    let lastErrorMsg = "All model candidates failed.";
+    let lastErrorMsg = "No valid models found for this API key.";
 
-    // Iterate through the known stable models until one successfully generates content
-    for (const model of CANDIDATE_MODELS) {
-      console.log(`Attempting to generate with model: ${model}`);
-      const generateUrl = `https://generativelanguage.googleapis.com/v1beta/models/${model}:generateContent?key=${apiKey}`;
+    // 3. LOOP: Test the actual permitted models one by one until success
+    for (const model of validModels) {
+      console.log(`Trying permitted model: ${model.name}`);
+      
+      // model.name comes directly from Google (e.g., "models/gemini-1.5-flash")
+      const generateUrl = `https://generativelanguage.googleapis.com/v1beta/${model.name}:generateContent?key=${apiKey}`;
       
       const response = await fetch(generateUrl, {
         method: "POST",
@@ -88,21 +97,20 @@ Rules:
       if (response.ok) {
         rawText = aiData.candidates?.[0]?.content?.parts?.[0]?.text || "";
         if (rawText) {
-          console.log(`Success! Used model: ${model}`);
-          break; // Exit the loop on success
+          console.log(`Success! Extracted data using model: ${model.name}`);
+          break; // Stop looping! We got the notes.
         }
       } else {
-        console.warn(`Model ${model} failed with error:`, aiData.error?.message);
-        lastErrorMsg = aiData.error?.message || `Failed on model ${model}`;
+        console.warn(`Model ${model.name} failed:`, aiData.error?.message);
+        lastErrorMsg = aiData.error?.message || `Failed on ${model.name}`;
       }
     }
 
-    // If the loop finished and rawText is still empty, throw the last error we received
     if (!rawText) {
       return NextResponse.json({ error: lastErrorMsg }, { status: 500 });
     }
 
-    // Safely parse the JSON output
+    // 4. Safely parse the JSON output
     let parsedData;
     try {
       parsedData = JSON.parse(rawText.trim());
