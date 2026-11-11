@@ -1,50 +1,47 @@
-import { NextResponse } from "next/server";
+import { NextRequest, NextResponse } from "next/server";
 import { timingSafeEqual } from "crypto";
+import { checkRateLimit } from "@/lib/security";
 
-export async function POST(request: Request) {
+export async function POST(request: NextRequest) {
   try {
-    const { password } = await request.json();
+    const ip = request.headers.get("x-forwarded-for")?.split(",")[0]?.trim() || "unknown";
+    await checkRateLimit(`premium-verify:${ip}`);
 
-    if (!password || typeof password !== "string") {
+    const configuredPassword = process.env.PREMIUM_PASSWORD;
+    if (!configuredPassword || configuredPassword.length < 12) {
+      return NextResponse.json({ success: false, message: "Premium password verification is not configured." }, { status: 503 });
+    }
+
+    const body = await request.json().catch(() => null);
+    const password = body?.password;
+    if (typeof password !== "string" || password.length < 1 || password.length > 256) {
       return NextResponse.json({ success: false, message: "Invalid request" }, { status: 400 });
     }
 
-    // Default to the old password if not set in environment, but ideally set PREMIUM_PASSWORD_HASH or PREMIUM_PASSWORD
-    const actualPassword = process.env.PREMIUM_PASSWORD || "030124";
+    const expected = Buffer.from(configuredPassword);
+    const supplied = Buffer.from(password);
+    const isMatch = expected.length === supplied.length && timingSafeEqual(expected, supplied);
 
-    // Prevent timing attacks by ensuring both strings are the same length before comparison
-    // If they aren't, we still do a dummy comparison to take roughly the same amount of time
-    const expectedBuffer = Buffer.from(actualPassword);
-    const inputBuffer = Buffer.from(password);
-
-    let isMatch = false;
-    if (expectedBuffer.length === inputBuffer.length) {
-      isMatch = timingSafeEqual(expectedBuffer, inputBuffer);
-    } else {
-      // Dummy check to mitigate timing attacks on length
-      timingSafeEqual(expectedBuffer, expectedBuffer);
-    }
-
-    if (isMatch) {
-      const response = NextResponse.json({ success: true, message: "Premium unlocked successfully." });
-      
-      // Set an HTTP-Only secure cookie
-      response.cookies.set({
-        name: "recallmate_premium",
-        value: "true",
-        httpOnly: true,
-        secure: process.env.NODE_ENV === "production",
-        sameSite: "lax",
-        path: "/",
-        maxAge: 60 * 60 * 24 * 365, // 1 year
-      });
-
-      return response;
-    } else {
+    if (!isMatch) {
       return NextResponse.json({ success: false, message: "Incorrect password." }, { status: 401 });
     }
-  } catch (error) {
-    console.error("Premium verify error:", error);
-    return NextResponse.json({ success: false, message: "Internal server error" }, { status: 500 });
+
+    // This cookie is only a UI hint. Protected server routes must enforce
+    // user_entitlements through requireEntitlement(), never trust this cookie.
+    const response = NextResponse.json({ success: true, message: "Premium access code accepted." });
+    response.cookies.set({
+      name: "recallmate_premium",
+      value: "true",
+      httpOnly: true,
+      secure: process.env.NODE_ENV === "production",
+      sameSite: "lax",
+      path: "/",
+      maxAge: 60 * 60 * 24,
+    });
+    return response;
+  } catch (error: any) {
+    const status = Number.isInteger(error?.status) ? error.status : error?.message === "Rate limit exceeded" ? 429 : 500;
+    if (status >= 500) console.error("Premium verification failed:", error);
+    return NextResponse.json({ success: false, message: status === 429 ? "Too many attempts. Please try again later." : status === 503 ? "Premium verification is temporarily unavailable." : "Internal server error" }, { status });
   }
 }
