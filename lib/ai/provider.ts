@@ -67,7 +67,6 @@ export class ProviderAdapter {
   
   static async generate(request: GenerateRequest): Promise<GenerateResponse> {
     const config = ModelRegistry[request.operation];
-    const client = getClient();
 
     const generationConfig: any = {
       max_output_tokens: config.maxOutputTokens,
@@ -98,13 +97,17 @@ export class ProviderAdapter {
          } else {
              // Basic deepseek completion (not needed right now but adding for safety)
              const client = getDeepSeekClient();
+             const deepSeekMessages: OpenAI.Chat.Completions.ChatCompletionMessageParam[] = [
+               { role: 'system', content: request.systemInstruction || '' },
+               ...(request.messages || []).map((message) => ({
+                 role: (message.role === 'assistant' ? 'assistant' : 'user') as 'assistant' | 'user',
+                 content: message.content,
+               })),
+               { role: 'user', content: request.prompt },
+             ];
              const response = await client.chat.completions.create({
                 model: config.model === 'gemini-1.5-flash' ? 'deepseek-chat' : config.model,
-                messages: [
-                    { role: 'system', content: request.systemInstruction || '' },
-                    ...history || [],
-                    { role: 'user', content: request.prompt }
-                ]
+                messages: deepSeekMessages
              });
              return {
                  text: response.choices[0].message.content || "",
@@ -116,6 +119,8 @@ export class ProviderAdapter {
              }
          }
       }
+
+      const client = getClient();
 
       if (request.responseSchema) {
         const response = await client.models.generateContent({
@@ -165,8 +170,26 @@ export class ProviderAdapter {
 
   static async stream(request: GenerateRequest): Promise<AsyncIterable<any>> {
      const config = ModelRegistry[request.operation];
+
+     if (config.provider === 'deepseek') {
+       const client = getDeepSeekClient();
+       const messages: OpenAI.Chat.Completions.ChatCompletionMessageParam[] = [
+         { role: 'system', content: request.systemInstruction || '' },
+         ...(request.messages || []).map((message) => ({
+           role: (message.role === 'assistant' ? 'assistant' : 'user') as 'assistant' | 'user',
+           content: message.content,
+         })),
+         { role: 'user', content: request.prompt },
+       ];
+
+       return await client.chat.completions.create({
+         model: config.model === 'gemini-1.5-flash' ? 'deepseek-chat' : config.model,
+         messages,
+         stream: true,
+       });
+     }
+
      const client = getClient();
-     
      const generationConfig: any = {
         max_output_tokens: config.maxOutputTokens,
      };
