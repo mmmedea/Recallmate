@@ -52,7 +52,7 @@ export default async function DashboardPage() {
     : "/upload";
 
   return (
-    <div className="mx-auto max-w-7xl space-y-8 px-4 py-7 sm:px-6 lg:px-8">
+    <div className="dashboard-canvas mx-auto max-w-7xl space-y-8 px-4 py-7 sm:px-6 lg:px-8">
       <header className="flex flex-col gap-4 sm:flex-row sm:items-end sm:justify-between">
         <div className="space-y-2">
           <p className="font-pixelify text-xs uppercase tracking-[0.24em] text-[#bda5ff]">YOUR STUDY SPACE</p>
