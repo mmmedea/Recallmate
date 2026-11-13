@@ -153,15 +153,23 @@ export function EmailOTPForm({
       const { error } = await supabase.auth.signInWithPassword({ email: normalizedEmail, password: signInPassword });
       if (error) {
         const message = error.message.toLowerCase();
-        const key = message.includes("invalid login credentials") || message.includes("invalid_credentials") || message.includes("user not found")
-          ? "invalid_credentials"
-          : message.includes("email not confirmed")
-            ? "email_unconfirmed"
-            : message.includes("rate") || error.status === 429
-              ? "rate_limited"
-              : message.includes("invalid api key") || message.includes("supabase_url") || message.includes("supabase_key")
-                ? "service_configuration"
-                : "service_unavailable";
+        const code = "code" in error && typeof error.code === "string" ? error.code.toLowerCase() : "";
+        const status = Number(error.status);
+        const key =
+          code === "invalid_credentials" || message.includes("invalid login credentials") || message.includes("user not found") || status === 400 || status === 401
+            ? "invalid_credentials"
+            : message.includes("email not confirmed") || code === "email_not_confirmed"
+              ? "email_unconfirmed"
+              : status === 429 || message.includes("rate") || code.includes("rate")
+                ? "rate_limited"
+                : message.includes("invalid api key") || message.includes("supabase_url") || message.includes("supabase_key")
+                  ? "service_configuration"
+                  : status >= 500
+                    ? "service_unavailable"
+                    : "network";
+        if (status >= 500) {
+          console.error("[auth] password sign-in failed", { status, code: code || "unknown" });
+        }
         setErrorKey(key);
         return;
       }
