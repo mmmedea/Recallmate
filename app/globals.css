@@ -195,3 +195,49 @@ input:autofill {
 @media (prefers-reduced-motion: reduce) {
   .dashboard-canvas, .dashboard-canvas::before { animation: none !important; }
 }
+
+
+/* Keep secondary workspaces inside the same dark, lavender and rose system. */
+.create-workspace-canvas [class*="bg-white"],
+.create-workspace-canvas [class*="bg-slate-50"],
+.create-workspace-canvas [class*="bg-slate-100"] {
+  background-color: #15111e !important;
+}
+.create-workspace-canvas [class*="text-slate-950"],
+.create-workspace-canvas [class*="text-slate-900"],
+.create-workspace-canvas [class*="text-slate-800"] {
+  color: #f7f2ff !important;
+}
+.create-workspace-canvas [class*="text-slate-700"],
+.create-workspace-canvas [class*="text-slate-600"],
+.create-workspace-canvas [class*="text-slate-500"] {
+  color: rgba(238, 230, 255, .62) !important;
+}
+.create-workspace-canvas [class*="border-slate-"] {
+  border-color: rgba(196, 181, 253, .18) !important;
+}
+.create-workspace-canvas [class*="bg-indigo-600"],
+.create-workspace-canvas [class*="bg-violet-600"] {
+  background: linear-gradient(115deg, #a78bfa, #f43f5e) !important;
+}
+.schedule-canvas [class*="bg-white"],
+.schedule-canvas [class*="bg-slate-50"],
+.schedule-canvas [class*="bg-slate-100"] {
+  background-color: #15111e !important;
+}
+.schedule-canvas [class*="text-slate-950"],
+.schedule-canvas [class*="text-slate-900"],
+.schedule-canvas [class*="text-slate-800"] {
+  color: #f7f2ff !important;
+}
+.schedule-canvas [class*="text-slate-700"],
+.schedule-canvas [class*="text-slate-600"],
+.schedule-canvas [class*="text-slate-500"] {
+  color: rgba(238, 230, 255, .62) !important;
+}
+.schedule-canvas [class*="border-slate-"] {
+  border-color: rgba(196, 181, 253, .16) !important;
+}
+.schedule-canvas [class*="bg-indigo-600"] {
+  background: linear-gradient(115deg, #a78bfa, #f43f5e) !important;
+}
