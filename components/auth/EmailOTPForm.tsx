@@ -28,6 +28,7 @@ interface EmailOTPFormProps {
   confirmPassword?: string;
   onConfirmPasswordChange?: (value: string) => void;
   privacyControl?: React.ReactNode;
+  passwordReset?: boolean;
 }
 
 type FormStage = "credentials" | "otp" | "recovery-email" | "recovery-code" | "recovery-password";
@@ -402,7 +403,7 @@ export function EmailOTPForm({
 
   if (intent === "signin") {
     return <form onSubmit={handlePasswordSignIn} className="space-y-4" noValidate>
-      {typeof window !== "undefined" && new URLSearchParams(window.location.search).get("passwordReset") === "success" && <p role="status" className="rounded-xl border border-emerald-200 bg-emerald-50 px-3 py-2 text-sm font-semibold text-emerald-800">Your password has been reset. Please sign in with your new password.</p>}
+      {passwordReset && <p role="status" className="rounded-xl border border-emerald-200 bg-emerald-50 px-3 py-2 text-sm font-semibold text-emerald-800">Your password has been reset. Please sign in with your new password.</p>}
       <div className="space-y-1.5"><Label htmlFor="signin-email" className="font-quicksand font-bold text-[#43364f]">Email</Label><Input id="signin-email" type="email" value={email} onChange={event => setEmail(event.target.value)} placeholder="you@email.com" className="border-[#ded0ef] bg-white/90 text-[#21152d] shadow-[0_2px_8px_rgba(40,20,55,.035)] transition-all duration-200 placeholder:text-[#a49aaa] hover:border-[#c5a9e8] focus-visible:border-[#a879e8] focus-visible:ring-2 focus-visible:ring-[#c4a7ff]/50 focus-visible:ring-offset-2 focus-visible:ring-offset-[#fffaff]" autoComplete="email" autoFocus disabled={isLoading} required /></div>
       <div className="space-y-1.5"><Label htmlFor="signin-password" className="font-quicksand font-bold text-[#43364f]">Password</Label><PasswordInput id="signin-password" value={signInPassword} onChange={event => setSignInPassword(event.target.value)} placeholder="Your RecallMate password" className="border-[#ded0ef] bg-white/90 text-[#21152d] shadow-[0_2px_8px_rgba(40,20,55,.035)] transition-all duration-200 placeholder:text-[#a49aaa] hover:border-[#c5a9e8] focus-visible:border-[#a879e8] focus-visible:ring-2 focus-visible:ring-[#c4a7ff]/50 focus-visible:ring-offset-2 focus-visible:ring-offset-[#fffaff]" autoComplete="current-password" disabled={isLoading} required /></div>
       <div className="flex justify-end -mt-1"><button type="button" onClick={() => { setErrorKey(null); setOtpValue(""); setRecoveryNotice(false); setStage("recovery-email"); }} className="rounded-md text-xs font-bold text-[#9465cf] underline-offset-4 hover:text-[#d34c69] hover:underline focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[#c4a7ff]">Forgot password?</button></div>
