@@ -4,7 +4,17 @@ import { createClient as createServiceClient } from "@supabase/supabase-js";
 import { syncEventsToGoogle, type GoogleSyncEvent } from "@/lib/integrations/google-calendar";
 
 function safeInternalPath(value: string | null) {
-  return value?.startsWith("/") && !value.startsWith("//") ? value : "/dashboard";
+  // OAuth must finish inside RecallMate, not send authenticated users back to
+  // the public marketing homepage or another auth endpoint.
+  const isInternalAppPath =
+    Boolean(value) &&
+    value!.startsWith("/") &&
+    value !== "/" &&
+    !value!.startsWith("//") &&
+    !value!.startsWith("/login") &&
+    !value!.startsWith("/signup") &&
+    !value!.startsWith("/auth/");
+  return isInternalAppPath ? value! : "/dashboard";
 }
 
 export async function GET(request: Request) {
