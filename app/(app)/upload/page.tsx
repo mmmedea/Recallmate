@@ -78,7 +78,7 @@ export default function UploadPage() {
   };
 
   return (
-    <div className="mx-auto max-w-6xl space-y-7 px-4 py-8 font-nunito sm:px-6 sm:py-10">
+    <div className="create-workspace-canvas mx-auto max-w-6xl space-y-7 px-4 py-8 font-nunito sm:px-6 sm:py-10">
       <div className="mb-8 flex items-center justify-between">
         <Link 
           href="/dashboard"
