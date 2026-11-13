@@ -1,7 +1,7 @@
 "use client";
 
 import { useCallback, useEffect, useState } from "react";
-import { Gift, RotateCcw, Sparkles, X, Coins, Heart } from "lucide-react";
+import { Gift, RotateCcw, Flame, X, Coins, Heart } from "lucide-react";
 
 type EconomyAccount = {
   coins: number;
@@ -69,6 +69,7 @@ export default function EconomyDashboard() {
       const data = await response.json();
       if (!response.ok) throw new Error(data.error || "That action could not be completed.");
       if (data.account) setAccount(data.account);
+      window.dispatchEvent(new Event("economy:updated"));
       const status = data.result?.status;
       if (status === "restore_available") {
         setMessage("You missed one study day. Restore your streak for 200 coins to keep it going.");
@@ -136,7 +137,7 @@ export default function EconomyDashboard() {
             <div className="mt-5 grid grid-cols-3 gap-2">
               <div className="rounded-xl bg-amber-50 p-3 text-center dark:bg-amber-950/40"><Coins className="mx-auto h-4 w-4 text-amber-600" /><p className="mt-1 text-sm font-black text-slate-900 dark:text-white">{loading ? "…" : account?.coins.toLocaleString()}</p><p className="text-[11px] text-slate-500">Coins</p></div>
               <div className="rounded-xl bg-rose-50 p-3 text-center dark:bg-rose-950/40"><Heart className="mx-auto h-4 w-4 text-rose-600" /><p className="mt-1 text-sm font-black text-slate-900 dark:text-white">{loading ? "…" : account?.hearts}</p><p className="text-[11px] text-slate-500">Hearts</p></div>
-              <div className="rounded-xl bg-orange-50 p-3 text-center dark:bg-orange-950/40"><Sparkles className="mx-auto h-4 w-4 text-orange-600" /><p className="mt-1 text-sm font-black text-slate-900 dark:text-white">{loading ? "…" : account?.current_streak}</p><p className="text-[11px] text-slate-500">Day streak</p></div>
+              <div className="rounded-xl bg-orange-50 p-3 text-center dark:bg-orange-950/40"><Flame className="mx-auto h-5 w-5 fill-orange-500 text-orange-600 motion-safe:animate-[streak-flame_1.5s_ease-in-out_infinite]" /><p className="mt-1 text-sm font-black text-slate-900 dark:text-white">{loading ? "…" : account?.current_streak}</p><p className="text-[11px] text-slate-500">Day streak</p></div>
             </div>
 
             {canClaim && <button type="button" disabled={busy || loading} onClick={() => void mutate("/api/economy/daily-reward", {})} className="mt-5 w-full rounded-xl bg-indigo-600 px-4 py-3 font-bold text-white hover:bg-indigo-700 disabled:opacity-50">{busy ? "Processing…" : "Claim today's reward"}</button>}
