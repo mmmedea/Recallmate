@@ -78,11 +78,11 @@ export default function UploadPage() {
   };
 
   return (
-    <div className="mx-auto max-w-5xl px-4 py-8 transition-colors duration-200 sm:py-12">
+    <div className="mx-auto max-w-6xl space-y-7 px-4 py-8 font-nunito sm:px-6 sm:py-10">
       <div className="mb-8 flex items-center justify-between">
         <Link 
           href="/dashboard"
-          className="flex items-center text-sm font-medium text-slate-500 hover:text-slate-900 dark:text-slate-400 dark:hover:text-slate-100 transition-colors"
+          className="inline-flex items-center gap-2 text-sm font-bold text-white/50 transition hover:text-[#d9c8ff]"
         >
           <ArrowLeft className="mr-2 h-4 w-4" />
           Back to Dashboard
@@ -90,18 +90,18 @@ export default function UploadPage() {
       </div>
 
       <div className="space-y-6">
-        <div className="rounded-3xl border border-indigo-200/70 bg-gradient-to-br from-white via-indigo-50 to-violet-100 p-6 dark:border-indigo-500/20 dark:from-slate-900 dark:via-indigo-950/40 dark:to-violet-950/40 sm:p-8">
-          <p className="text-sm font-black uppercase tracking-[0.2em] text-indigo-600">Study creator</p>
-          <h1 className="mt-2 text-3xl font-black text-slate-900 dark:text-white sm:text-4xl">Upload, quiz, or build flashcards</h1>
-          <p className="mt-2 text-slate-600 dark:text-slate-300">
+        <div className="relative isolate overflow-hidden rounded-[2rem] border border-[#a78bfa]/25 bg-[radial-gradient(ellipse_at_85%_10%,rgba(244,63,94,.20),transparent_38%),linear-gradient(130deg,#1a1224,#100d18_58%,#160d18)] p-7 shadow-[0_24px_80px_rgba(0,0,0,.28)] sm:p-10">
+          <p className="font-pixelify text-[10px] uppercase tracking-[0.24em] text-[#ff8799]">YOUR CREATION STUDIO</p>
+          <h1 className="mt-3 font-fredoka text-3xl font-semibold text-white sm:text-4xl">Create your next study tool.</h1>
+          <p className="mt-3 max-w-2xl font-quicksand text-sm leading-6 text-white/60 sm:text-base">
             Use one workspace to turn a file into AI notes and quizzes, or create your own tap-to-flip flashcard deck.
           </p>
         </div>
 
-        <div role="tablist" aria-label="Study creation method" className="grid grid-cols-1 gap-2 rounded-2xl border border-slate-200 bg-white p-2 shadow-sm dark:border-slate-800 dark:bg-slate-900 sm:grid-cols-3">
-          <button role="tab" aria-selected={mode === "upload"} onClick={() => setMode("upload")} className={`inline-flex min-h-12 items-center justify-center gap-2 rounded-xl px-3 text-sm font-black transition ${mode === "upload" ? "bg-indigo-600 text-white shadow-lg" : "text-slate-600 hover:bg-slate-100 dark:text-slate-300 dark:hover:bg-slate-800"}`}><UploadCloud className="h-4 w-4" />Upload & AI quiz</button>
+        <div role="tablist" aria-label="Study creation method" className="grid grid-cols-1 gap-2 rounded-2xl border border-white/10 bg-[#111019] p-2 shadow-xl shadow-black/10 sm:grid-cols-3">
+          <button role="tab" aria-selected={mode === "upload"} onClick={() => setMode("upload")} className={`inline-flex min-h-12 items-center justify-center gap-2 rounded-xl px-3 text-sm font-black transition ${mode === "upload" ? "bg-gradient-to-r from-[#a78bfa] to-[#c4b5fd] text-[#160f20] shadow-lg shadow-[#a78bfa]/20" : "text-white/55 hover:bg-white/[0.06] hover:text-white"}`}><UploadCloud className="h-4 w-4" />Upload & AI quiz</button>
           <button role="tab" aria-selected={mode === "flashcards"} onClick={() => setMode("flashcards")} className={`inline-flex min-h-12 items-center justify-center gap-2 rounded-xl px-3 text-sm font-black transition ${mode === "flashcards" ? "bg-indigo-600 text-white shadow-lg" : "text-slate-600 hover:bg-slate-100 dark:text-slate-300 dark:hover:bg-slate-800"}`}><Layers3 className="h-4 w-4" />Create flashcards</button>
-          <button role="tab" aria-selected={mode === "reviewer"} onClick={() => setMode("reviewer")} className={`inline-flex min-h-12 items-center justify-center gap-2 rounded-xl px-3 text-sm font-black transition ${mode === "reviewer" ? "bg-slate-950 text-white shadow-lg dark:bg-white dark:text-slate-950" : "text-slate-600 hover:bg-slate-100 dark:text-slate-300 dark:hover:bg-slate-800"}`}><Printer className="h-4 w-4" />Reviewer PDF</button>
+          <button role="tab" aria-selected={mode === "reviewer"} onClick={() => setMode("reviewer")} className={`inline-flex min-h-12 items-center justify-center gap-2 rounded-xl px-3 text-sm font-black transition ${mode === "reviewer" ? "bg-gradient-to-r from-[#fb7185] to-[#f43f5e] text-white shadow-lg shadow-[#f43f5e]/20" : "text-white/55 hover:bg-white/[0.06] hover:text-white"}`}><Printer className="h-4 w-4" />Reviewer PDF</button>
         </div>
 
         {mode === "upload" && error && (
@@ -122,13 +122,13 @@ export default function UploadPage() {
         </div>}
 
         {mode === "reviewer" ? <ReviewerPdfMaker /> : mode === "flashcards" ? <ManualFlashcardBuilder /> : isUploading ? (
-          <div className="flex flex-col items-center justify-center py-16 rounded-2xl border-2 border-dashed border-slate-200 dark:border-slate-800 bg-slate-50 dark:bg-slate-900/50">
+          <div className="flex flex-col items-center justify-center rounded-3xl border-2 border-dashed border-[#a78bfa]/30 bg-[#111019] py-16">
             <Loader2 className="h-10 w-10 motion-safe:animate-spin text-indigo-600 dark:text-indigo-400 mb-4" />
-            <h3 className="text-lg font-medium text-slate-900 dark:text-white" aria-live="off">{uploadStatus}</h3>
-            <p className="text-sm text-slate-500 dark:text-slate-400 mt-2">Please keep this tab open</p>
+            <h3 className="font-fredoka text-xl font-semibold text-white" aria-live="off">{uploadStatus}</h3>
+            <p className="mt-2 font-quicksand text-sm text-white/45">Please keep this tab open</p>
           </div>
         ) : (
-          <div className="space-y-4"><div className="flex items-center gap-2 text-sm font-bold text-indigo-600"><Sparkles className="h-4 w-4" />Medea will generate organized notes and a quiz after upload.</div><FileUploader onFileSelected={processFile} /></div>
+          <div className="space-y-4"><div className="rounded-2xl border border-[#a78bfa]/20 bg-[#a78bfa]/[0.07] px-4 py-3 font-quicksand text-sm text-[#d9c8ff]">Upload a lesson file and Medea will organize it into study-ready notes and practice questions.</div><FileUploader onFileSelected={processFile} /></div>
         )}
       </div>
     </div>
