@@ -402,7 +402,7 @@ export function EmailOTPForm({
     ? "border-[#e5485f] bg-white text-[#21152d] ring-2 ring-[#ff6478]/15 focus-visible:border-[#e5485f] focus-visible:ring-[#ff6478]/30"
     : "border-[#ded0ef] bg-white text-[#21152d] shadow-[0_2px_8px_rgba(40,20,55,.035)] transition-all duration-200 placeholder:text-[#a49aaa] hover:border-[#c5a9e8] focus-visible:border-[#a879e8] focus-visible:ring-2 focus-visible:ring-[#c4a7ff]/50 focus-visible:ring-offset-2 focus-visible:ring-offset-[#fffaff]";
 
-  if (intent === "signin") {
+  if (intent === "signin" && stage === "credentials") {
     return <form onSubmit={handlePasswordSignIn} className="space-y-4" noValidate>
       {passwordReset && <p role="status" className="rounded-xl border border-emerald-200 bg-emerald-50 px-3 py-2 text-sm font-semibold text-emerald-800">Your password has been reset. Please sign in with your new password.</p>}
       <div className="space-y-1.5"><Label htmlFor="signin-email" className="font-quicksand font-bold text-[#43364f]">Email</Label><Input id="signin-email" type="email" value={email} onChange={event => setEmail(event.target.value)} placeholder="you@email.com" className="border-[#ded0ef] bg-white/90 text-[#21152d] shadow-[0_2px_8px_rgba(40,20,55,.035)] transition-all duration-200 placeholder:text-[#a49aaa] hover:border-[#c5a9e8] focus-visible:border-[#a879e8] focus-visible:ring-2 focus-visible:ring-[#c4a7ff]/50 focus-visible:ring-offset-2 focus-visible:ring-offset-[#fffaff]" autoComplete="email" autoFocus disabled={isLoading} required /></div>
