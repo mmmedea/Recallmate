@@ -123,3 +123,24 @@ input:autofill {
   50% { transform: translateY(0) scale(0.96); filter: drop-shadow(0 0 2px rgba(251, 146, 60, 0.35)); }
   75% { transform: translateY(-1px) scale(1.08); filter: drop-shadow(0 0 6px rgba(249, 115, 22, 0.45)); }
 }
+
+
+@keyframes streak-fire-dance {
+  0%, 100% { transform: translateY(0) rotate(-2deg) scale(1); filter: drop-shadow(0 0 5px rgba(249,115,22,.25)); }
+  30% { transform: translateY(-3px) rotate(2deg) scale(1.08); filter: drop-shadow(0 0 13px rgba(249,115,22,.65)); }
+  60% { transform: translateY(1px) rotate(-1deg) scale(.97); filter: drop-shadow(0 0 8px rgba(251,146,60,.45)); }
+}
+@keyframes streak-orb-breathe {
+  0%, 100% { opacity: .45; transform: scale(.92); }
+  50% { opacity: .8; transform: scale(1.08); }
+}
+@keyframes streak-modal-enter {
+  from { opacity: 0; transform: translateY(18px) scale(.97); }
+  to { opacity: 1; transform: translateY(0) scale(1); }
+}
+.streak-fire { display: inline-flex; transform-origin: center bottom; animation: streak-fire-dance 1.35s ease-in-out infinite; }
+.streak-orb { animation: streak-orb-breathe 3.4s ease-in-out infinite; }
+.streak-modal { animation: streak-modal-enter .28s cubic-bezier(.2,.8,.2,1) both; }
+@media (prefers-reduced-motion: reduce) {
+  .streak-fire, .streak-orb, .streak-modal { animation: none !important; }
+}
