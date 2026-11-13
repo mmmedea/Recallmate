@@ -13,14 +13,14 @@ export function AppShell({
   bootstrap: AppBootstrap;
 }) {
   return (
-    <div className="flex h-screen overflow-hidden bg-[#08070d] transition-colors duration-200">
+    <div className="recallmate-shell flex h-screen overflow-hidden bg-[#08070d] transition-colors duration-200">
       <Sidebar />
 
       <div className="flex flex-1 flex-col min-w-0">
         <TopBar user={bootstrap.user} credits={bootstrap.credits} />
 
         {/* Main Content Area */}
-        <main className="flex-1 overflow-y-auto pb-16 md:pb-0 relative">
+        <main className="recallmate-main relative flex-1 overflow-y-auto pb-16 md:pb-0">
           <div className="mx-auto max-w-6xl px-4 py-6 md:p-8">
             {children}
           </div>
