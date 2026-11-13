@@ -3,10 +3,8 @@
 import { useState, useEffect, useRef } from "react";
 import { createPortal } from "react-dom";
 import {
-  Sparkles,
   X,
   Send,
-  Bot,
   User,
   RefreshCw,
   Paperclip,
@@ -299,10 +297,10 @@ export default function OmniChatDrawer() {
       <button
         onClick={() => setIsOpen(!isOpen)}
         aria-label="Toggle Medea AI Chatbot"
-        className="fixed bottom-24 right-4 sm:bottom-6 sm:right-6 z-[999] flex items-center gap-2.5 px-4 py-3 bg-gradient-to-r from-indigo-600 to-purple-600 hover:from-indigo-500 hover:to-purple-500 text-white font-bold rounded-full shadow-2xl transition-all duration-300 hover:scale-105 active:scale-95 group border border-white/20"
+        className="fixed bottom-24 right-4 sm:bottom-6 sm:right-6 z-[999] flex items-center gap-3 rounded-2xl border border-[#c4b5fd]/30 bg-[linear-gradient(120deg,#a78bfa,#6d28d9_55%,#f43f5e)] px-4 py-3 font-nunito font-extrabold text-white shadow-[0_12px_40px_rgba(124,58,237,.4)] transition duration-300 hover:-translate-y-1 hover:shadow-[0_16px_48px_rgba(244,63,94,.25)] active:scale-95"
       >
         <div className="relative">
-          <span aria-hidden="true" className="font-fredoka text-2xl leading-none">✦</span>
+          <img src="https://lh3.googleusercontent.com/d/1VBjuDg72zKakz032deRqbBJp0SYUFDuu=w1200" alt="" className="h-9 w-9 rounded-xl object-contain" />
           <span className="absolute -top-1 -right-1 w-2.5 h-2.5 bg-emerald-400 rounded-full border border-indigo-700" />
         </div>
         <span className="text-sm tracking-wide">Medea AI</span>
@@ -313,16 +311,16 @@ export default function OmniChatDrawer() {
         <div onClick={() => setIsOpen(false)} className="fixed inset-0 h-[100dvh] z-[9999] flex justify-end bg-black/50 backdrop-blur-sm animate-in fade-in duration-200">
           <div
             onClick={(e) => e.stopPropagation()}
-            className="relative w-full sm:w-[450px] md:w-[500px] h-[100dvh] max-h-[100dvh] bg-white dark:bg-slate-900 shadow-2xl flex flex-col border-l border-slate-200 dark:border-slate-800 animate-in slide-in-from-right duration-300"
+            className="medea-panel relative flex h-[100dvh] max-h-[100dvh] w-full flex-col border-l border-[#a78bfa]/20 bg-[#0c0a12] shadow-2xl animate-in slide-in-from-right duration-300 sm:w-[450px] md:w-[500px]"
           >
             {/* Header */}
-            <div className="p-4 border-b border-slate-200 dark:border-slate-800 flex justify-between items-center bg-slate-50/80 dark:bg-slate-950/80 backdrop-blur-md">
+            <div className="flex items-center justify-between border-b border-white/10 bg-[radial-gradient(ellipse_at_85%_0%,rgba(244,63,94,.14),transparent_48%),#111019] p-4 backdrop-blur-md">
               <div className="flex items-center gap-3">
                 <div className="w-10 h-10 rounded-2xl bg-indigo-600 text-white flex items-center justify-center shadow-md">
                   <Bot className="w-5 h-5" />
                 </div>
                 <div>
-                  <h2 className="font-black text-slate-900 dark:text-white text-base flex items-center gap-1.5">
+                  <h2 className="flex items-center gap-1.5 font-fredoka text-base font-semibold text-white">
                     Medea AI
                     {isPremium ? (
                       <span className="px-2 py-0.5 text-[10px] font-black uppercase tracking-wider text-slate-950 bg-gradient-to-r from-amber-400 to-yellow-500 rounded-full flex items-center gap-1">
@@ -334,7 +332,7 @@ export default function OmniChatDrawer() {
                       </span>
                     )}
                   </h2>
-                  <p className="text-xs text-slate-500 dark:text-slate-400">
+                  <p className="font-quicksand text-xs text-white/45">
                     One assistant for every subject
                   </p>
                 </div>
@@ -425,7 +423,7 @@ export default function OmniChatDrawer() {
             {hasUploadedMaterial && (
               <div className="px-4 py-2 bg-slate-50 dark:bg-slate-950 border-t border-slate-200 dark:border-slate-800 animate-in fade-in duration-200">
                 <p className="text-[10px] font-bold uppercase tracking-wider text-slate-400 mb-1.5 flex items-center gap-1">
-                  <Sparkles className="w-3 h-3 text-indigo-500" /> Recommended Action Prompts
+                  <span className="h-1.5 w-1.5 rounded-full bg-[#f43f5e]" /> QUICK PROMPTS
                 </p>
                 <div className="flex gap-1.5 overflow-x-auto pb-1 text-xs">
                   {getRecommendationPills().map((item, idx) => (
