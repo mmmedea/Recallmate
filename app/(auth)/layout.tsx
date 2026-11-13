@@ -12,16 +12,18 @@ export default async function AuthLayout({
   // Auth pages must remain renderable even when Supabase is temporarily
   // unreachable or an old session cookie cannot be decoded. A failed session
   // lookup is not a reason to replace the sign-in form with an error boundary.
+  let hasValidSession = false;
   try {
     const { data, error } = await supabase.auth.getClaims();
-    if (!error && data?.claims) {
-      redirect("/dashboard");
-    }
+    hasValidSession = !error && Boolean(data?.claims);
   } catch (error) {
     console.error("[auth-layout] session lookup failed; keeping auth page available", {
       name: error instanceof Error ? error.name : "UnknownError",
       message: error instanceof Error ? error.message : "Unknown error",
     });
+  }
+  if (hasValidSession) {
+    redirect("/dashboard");
   }
 
   return (
