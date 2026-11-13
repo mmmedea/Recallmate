@@ -1,6 +1,5 @@
 "use client";
 
-import { Menu } from "lucide-react";
 import { usePathname } from "next/navigation";
 import { AccountMenu } from "./AccountMenu";
 import { NotificationBell } from "./NotificationBell";
@@ -24,7 +23,7 @@ export function TopBar({ user }: TopBarProps) {
   const pageTitle = currentRoute ? currentRoute.label : "RecallMate";
 
   return (
-    <header className="sticky top-0 z-30 flex h-14 items-center justify-between border-b border-slate-200 dark:border-slate-800 bg-white/80 dark:bg-slate-900/80 px-4 backdrop-blur-md transition-colors duration-300">
+    <header className="sticky top-0 z-30 flex h-16 items-center justify-between border-b border-white/10 bg-[#0b0a11]/90 px-4 backdrop-blur-xl transition-colors duration-300">
       <div className="flex items-center gap-3">
         <Button
           variant="ghost"
@@ -33,9 +32,9 @@ export function TopBar({ user }: TopBarProps) {
           onClick={() => setMobileNavOpen(true)}
           aria-label="Open mobile navigation"
         >
-          <Menu className="h-5 w-5" />
+          <span aria-hidden="true" className="text-lg">☰</span>
         </Button>
-        <h1 className="text-sm font-semibold tracking-tight text-slate-900 dark:text-white">
+        <h1 className="font-fredoka text-sm font-semibold tracking-tight text-white">
           {pageTitle}
         </h1>
       </div>
