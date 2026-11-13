@@ -9,11 +9,11 @@ export function AuthCard({ children, className }: AuthCardProps) {
   return (
     <div
       className={cn(
-        "w-full max-w-md",
-        "bg-white/90 dark:bg-slate-900/90 backdrop-blur-sm",
-        "border border-slate-200/80 dark:border-slate-800/80",
-        "rounded-2xl shadow-xl shadow-slate-200/60 dark:shadow-slate-950/60",
-        "px-8 py-10",
+        "w-full max-w-md font-nunito",
+        "bg-[#17111f]/95 backdrop-blur-xl",
+        "border border-[#a78bfa]/30",
+        "rounded-[2rem] shadow-[0_24px_80px_rgba(0,0,0,.48)]",
+        "px-5 py-8 sm:px-8 sm:py-10",
         className
       )}
     >
