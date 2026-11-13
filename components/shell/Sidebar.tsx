@@ -4,6 +4,7 @@ import Link from "next/link";
 import { usePathname } from "next/navigation";
 import { navigationConfig } from "@/lib/navigation";
 import { useAppStore } from "@/lib/store";
+import { Menu } from "lucide-react";
 import { cn } from "@/lib/utils";
 
 export function Sidebar() {
@@ -45,9 +46,10 @@ export function Sidebar() {
       </nav>
 
       <div className="border-t border-white/10 p-3">
-        <button onClick={toggleSidebar} aria-label={isSidebarOpen ? "Collapse sidebar" : "Expand sidebar"} aria-expanded={isSidebarOpen}
-          className="flex h-9 w-full items-center justify-center rounded-xl font-nunito text-xs font-bold text-white/45 transition hover:bg-white/[0.06] hover:text-white">
-          {isSidebarOpen ? "← Collapse" : "→"}
+        <button onClick={toggleSidebar} aria-label={isSidebarOpen ? "Collapse sidebar menu" : "Expand sidebar menu"} aria-expanded={isSidebarOpen}
+          className="flex h-10 w-full items-center justify-center gap-3 rounded-xl border border-white/[0.06] font-nunito text-xs font-bold text-white/45 transition hover:border-[#a78bfa]/25 hover:bg-[#a78bfa]/10 hover:text-white">
+          <Menu className="h-5 w-5" />
+          {isSidebarOpen && <span>Collapse menu</span>}
         </button>
       </div>
     </aside>
