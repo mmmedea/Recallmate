@@ -59,7 +59,7 @@ function SignupPageContent() {
                         Privacy Policy
                       </button>
                     </DialogTrigger>
-                    <DialogContent className="group relative flex max-h-[min(86vh,820px)] max-w-3xl flex-col overflow-hidden rounded-[1.75rem] border border-[#5c456f] bg-[#100b16] p-0 text-[#f8f2ff] shadow-[0_35px_110px_rgba(0,0,0,.72),0_0_55px_rgba(167,139,250,.12)] sm:max-w-3xl" onClick={(e) => e.stopPropagation()}>
+                    <DialogContent className="!fixed !left-1/2 !top-1/2 !z-[100] !w-[calc(100vw-2rem)] !max-w-3xl !-translate-x-1/2 !-translate-y-1/2 !gap-0 !p-0 flex max-h-[min(86dvh,820px)] flex-col overflow-hidden rounded-[1.75rem] border border-[#5c456f] bg-[#100b16] text-[#f8f2ff] shadow-[0_35px_110px_rgba(0,0,0,.72),0_0_55px_rgba(167,139,250,.12)] sm:max-w-3xl">
                       <DialogHeader className="relative border-b border-[#6a527b]/40 bg-[radial-gradient(ellipse_at_top_left,rgba(167,139,250,.22),transparent_55%),linear-gradient(110deg,#181020,#1c101b)] px-6 pb-5 pt-6 text-left sm:px-8">
                         <p className="font-pixelify text-[10px] tracking-[.24em] text-[#c4a7ff]">RECALLMATE · YOUR DATA</p>
                         <DialogTitle className="font-fredoka text-2xl font-semibold tracking-tight text-white sm:text-3xl">Privacy Policy</DialogTitle>
@@ -85,18 +85,18 @@ function SignupPageContent() {
                         Terms of Service
                       </button>
                     </DialogTrigger>
-                    <DialogContent className="max-w-2xl max-h-[85vh] flex flex-col" onClick={(e) => e.stopPropagation()}>
+                    <DialogContent className="!fixed !left-1/2 !top-1/2 !z-[100] !w-[calc(100vw-2rem)] !max-w-3xl !-translate-x-1/2 !-translate-y-1/2 !gap-0 !p-0 flex max-h-[min(86dvh,820px)] flex-col overflow-hidden rounded-[1.75rem] border border-[#5c456f] bg-[#100b16] text-[#f8f2ff] shadow-[0_35px_110px_rgba(0,0,0,.72),0_0_55px_rgba(167,139,250,.12)] sm:max-w-3xl">
                       <DialogHeader className="relative border-b border-[#6a527b]/40 bg-[radial-gradient(ellipse_at_top_left,rgba(167,139,250,.22),transparent_55%),linear-gradient(110deg,#181020,#1c101b)] px-6 pb-5 pt-6 text-left sm:px-8">
                         <p className="font-pixelify text-[10px] tracking-[.24em] text-[#ff7185]">RECALLMATE · THE AGREEMENT</p>
                         <DialogTitle className="font-fredoka text-2xl font-semibold tracking-tight text-white sm:text-3xl">Terms of Service</DialogTitle>
                         <p className="font-quicksand text-sm text-[#b8a9c8]">The guidelines for using RecallMate.</p>
                       </DialogHeader>
-                      <div className="flex-1 overflow-y-auto pr-2 min-h-0">
+                      <div className="min-h-0 flex-1 overflow-y-auto px-6 py-5 pr-4 [scrollbar-color:#8b6aa8_#211829] [scrollbar-width:thin] sm:px-8 sm:py-6">
                         <TermsContent />
                       </div>
-                      <div className="flex justify-end pt-4 border-t mt-auto">
+                      <div className="mt-auto flex justify-end border-t border-[#6a527b]/40 bg-[#120d18] px-6 py-4 sm:px-8">
                         <DialogClose asChild>
-                          <Button variant="outline">Close</Button>
+                          <Button variant="outline" className="h-10 rounded-xl border-[#80618e] bg-[#211729] px-6 font-fredoka text-sm text-[#f8f2ff] transition-all hover:border-[#ff7185] hover:bg-[#34203a] hover:text-white">Close</Button>
                         </DialogClose>
                       </div>
                     </DialogContent>
