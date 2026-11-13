@@ -8,9 +8,10 @@ import { OAUTH_PROVIDERS, type OAuthProviderId } from "@/lib/config/auth";
 
 interface OAuthButtonsProps {
   redirectTo?: string;
+  intent?: "signin" | "signup";
 }
 
-export function OAuthButtons({ redirectTo = "/dashboard" }: OAuthButtonsProps) {
+export function OAuthButtons({ redirectTo = "/dashboard", intent = "signin" }: OAuthButtonsProps) {
   const [loadingProvider, setLoadingProvider] = useState<OAuthProviderId | null>(null);
   const [errorProvider, setErrorProvider] = useState<OAuthProviderId | null>(null);
   const supabase = createClient();
@@ -84,7 +85,7 @@ export function OAuthButtons({ redirectTo = "/dashboard" }: OAuthButtonsProps) {
             <Button
               type="button"
               variant="outline"
-              className="font-quicksand w-full h-12 rounded-xl border-[#a78bfa]/35 bg-[#241a30] font-bold text-[#f5efff] hover:border-[#ff7185]/60 hover:bg-[#30203b] hover:text-white gap-3"
+              className="font-quicksand relative flex h-12 w-full items-center justify-center gap-3 rounded-xl border border-[#ded6e7] bg-white font-bold text-[#30233b] shadow-sm hover:border-[#c4a7ff] hover:bg-[#faf7ff] hover:text-[#21152d]"
               onClick={() => handleOAuthSignIn(provider.id)}
               disabled={loadingProvider !== null}
               aria-label={provider.label}
@@ -94,7 +95,7 @@ export function OAuthButtons({ redirectTo = "/dashboard" }: OAuthButtonsProps) {
               ) : (
                 getIcon(provider.id)
               )}
-              {provider.label}
+              {provider.id === "google" ? (intent === "signup" ? "Sign up with Google" : "Continue with Google") : provider.label}
             </Button>
             
             {hasError && (
