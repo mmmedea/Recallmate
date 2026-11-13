@@ -343,12 +343,12 @@ export function EmailOTPForm({
     await handleSendOTP();
   }, [handleSendOTP]);
 
-  const requestRecoveryCode = useCallback(async (event?: React.FormEvent) => {
+  const requestRecoveryCode = useCallback(async (event?: React.FormEvent): Promise<boolean> => {
     event?.preventDefault();
     const normalizedEmail = email.trim().toLowerCase();
-    if (!/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(normalizedEmail)) {
+    if (!/^[^\\s@]+@[^\\s@]+\\.[^\\s@]+$/.test(normalizedEmail)) {
       setErrorKey("email_invalid");
-      return;
+      return false;
     }
     try {
       setIsLoading(true);
@@ -360,14 +360,16 @@ export function EmailOTPForm({
       if (error) {
         const message = error.message.toLowerCase();
         setErrorKey(message.includes("rate") ? "rate_limited" : message.includes("invalid api key") ? "service_configuration" : "email_delivery");
-        return;
+        return false;
       }
       setRecoveryNotice(true);
       setStage("recovery-code");
       setOtpValue("");
       setErrorKey(null);
+      return true;
     } catch {
       setErrorKey("network");
+      return false;
     } finally {
       setIsLoading(false);
     }
@@ -484,7 +486,7 @@ export function EmailOTPForm({
       <OTPInput length={AUTH_OTP_LENGTH} value={otpValue} onChange={setOtpValue} disabled={isLoading} hasError={Boolean(currentError)} aria-describedby={currentError ? errorId : undefined} />
       {currentError && <p id={errorId} role="alert" className="text-center text-sm text-[#bd4668]">{currentError}</p>}
       <Button type="submit" disabled={isLoading || otpValue.length !== AUTH_OTP_LENGTH} className="font-fredoka h-12 w-full rounded-xl bg-gradient-to-r from-[#a78bfa] via-[#c4a7ff] to-[#ff7185] font-bold text-[#1b1025] disabled:opacity-40">{isLoading ? <Loader2 className="h-4 w-4 animate-spin" /> : "Verify recovery code"}</Button>
-      <div className="flex justify-between text-xs font-semibold"><button type="button" disabled={isLoading} onClick={() => void requestRecoveryCode()} className="text-[#9465cf] hover:text-[#d34c69] hover:underline">Resend code</button><button type="button" onClick={() => { setStage("credentials"); setErrorKey(null); setRecoveryNotice(false); }} className="text-[#81758c] hover:text-[#d34c69]">Back to sign in</button></div>
+      <div className="flex items-center justify-between text-xs font-semibold"><ResendButton onResend={requestRecoveryCode} cooldownSeconds={120} disabled={isLoading} /><button type="button" disabled={isLoading} onClick={() => { setStage("credentials"); setErrorKey(null); setRecoveryNotice(false); }} className="text-[#81758c] hover:text-[#d34c69] disabled:opacity-50">Back to sign in</button></div>
     </form>;
   }
 
