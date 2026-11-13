@@ -193,9 +193,9 @@ export function EmailOTPForm({
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({ email: normalizedEmail, username: username.trim() }),
       });
-      const availability = await availabilityResponse.json() as { emailExists?: boolean; usernameExists?: boolean; error?: string };
+      const availability = await availabilityResponse.json() as { emailExists?: boolean; usernameExists?: boolean; error?: string; code?: string };
       if (!availabilityResponse.ok) {
-        setErrorKey(availabilityResponse.status === 429 ? "rate_limited" : "service_unavailable");
+        setErrorKey(availability.code === "service_configuration" ? "service_configuration" : availabilityResponse.status === 429 ? "rate_limited" : "service_unavailable");
         setOTPState("error");
         return;
       }
