@@ -31,6 +31,8 @@ export default async function LoginPage({
           </p>
         </div>
 
+        {/* Email OTP */}
+        <EmailOTPForm intent="signin" redirectTo={next} />
         {/* Divider */}
         <div className="relative">
           <div className="absolute inset-0 flex items-center">
@@ -43,12 +45,10 @@ export default async function LoginPage({
           </div>
         </div>
 
-        {/* Email OTP */}
-        <EmailOTPForm intent="signin" redirectTo={next} />
         <OAuthButtons redirectTo={next} intent="signin" />
 
         {/* Sign up link */}
-        <p className="text-center text-sm text-[#c9c2d5]">
+        <p className="text-center text-sm text-[#746a80]">
           New to RecallMate?{" "}
           <Link
             href="/signup"
