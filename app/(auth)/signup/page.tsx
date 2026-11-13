@@ -40,10 +40,10 @@ function SignupPageContent() {
       <div className="space-y-6">
         {/* Heading */}
         <div className="space-y-1 text-center">
-          <h1 className="text-2xl font-extrabold tracking-tight text-slate-900 dark:text-white">
+          <h1 className="font-fredoka text-3xl font-semibold tracking-tight text-[#fffaff]">
             Create your account
           </h1>
-          <p className="text-sm text-slate-500 dark:text-slate-400">
+          <p className="font-quicksand text-sm font-semibold text-[#c9c2d5]">
             Start learning smarter with RecallMate
           </p>
         </div>
@@ -55,10 +55,10 @@ function SignupPageContent() {
           {/* Divider */}
           <div className="relative">
             <div className="absolute inset-0 flex items-center">
-              <div className="w-full border-t border-slate-200 dark:border-slate-800" />
+              <div className="w-full border-t border-[#a78bfa]/25" />
             </div>
             <div className="relative flex justify-center text-xs uppercase">
-              <span className="bg-white dark:bg-slate-950 px-3 text-slate-400 dark:text-slate-500 font-medium tracking-widest">
+              <span className="bg-[#17111f] px-3 font-pixelify text-[#c4a7ff] font-medium tracking-widest">
                 or
               </span>
             </div>
@@ -70,7 +70,7 @@ function SignupPageContent() {
 
         {/* Privacy acknowledgement */}
         <div className="flex flex-col items-center gap-3 mt-4">
-          <div className="flex items-start gap-3 bg-slate-50 dark:bg-slate-900/50 p-4 rounded-xl border border-slate-200 dark:border-slate-800 w-full">
+          <div className="flex items-start gap-3 bg-[#21172a]/90 p-4 rounded-2xl border border-[#a78bfa]/25 w-full">
             <input
               id="privacy-checkbox"
               type="checkbox"
@@ -79,7 +79,7 @@ function SignupPageContent() {
               className="mt-1 h-4 w-4 rounded border-slate-300 dark:border-slate-700 text-indigo-600 focus:ring-indigo-500 focus:ring-offset-0 cursor-pointer shrink-0"
               aria-required="true"
             />
-            <div className="text-sm text-slate-600 dark:text-slate-400 leading-relaxed select-none">
+            <div className="text-sm text-[#c9c2d5] leading-relaxed select-none">
               <label htmlFor="privacy-checkbox" className="cursor-pointer">
                 I have read and agree to the{" "}
               </label>
@@ -87,7 +87,7 @@ function SignupPageContent() {
                 <DialogTrigger asChild>
                   <button
                     type="button"
-                    className="font-medium text-indigo-600 dark:text-indigo-400 hover:underline"
+                    className="font-medium text-[#ff7185] hover:underline"
                   >
                     Privacy Policy
                   </button>
@@ -136,7 +136,7 @@ function SignupPageContent() {
         </div>
 
         {/* Sign in link */}
-        <p className="text-center text-sm text-slate-500 dark:text-slate-400 pt-2">
+        <p className="text-center text-sm text-[#c9c2d5] pt-2">
           Already have an account?{" "}
           <Link
             href="/login"
