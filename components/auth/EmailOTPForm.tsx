@@ -26,6 +26,7 @@ interface EmailOTPFormProps {
   onPasswordChange?: (value: string) => void;
   confirmPassword?: string;
   onConfirmPasswordChange?: (value: string) => void;
+  privacyControl?: React.ReactNode;
 }
 
 type FormStage = "credentials" | "otp";
@@ -65,6 +66,7 @@ export function EmailOTPForm({
   onPasswordChange,
   confirmPassword = "",
   onConfirmPasswordChange,
+  privacyControl,
 }: EmailOTPFormProps) {
   const router = useRouter();
   const supabase = useMemo(() => createClient(), []);
@@ -278,7 +280,7 @@ export function EmailOTPForm({
   if (stage === "credentials") {
     return <form onSubmit={handleSendOTP} className="space-y-4" noValidate>
       <div className="space-y-1.5"><Label htmlFor="username-input" className="font-quicksand font-bold text-[#43364f]">Username</Label><Input id="username-input" value={username} onChange={event => onUsernameChange?.(event.target.value)} placeholder="e.g., your_username" className="border-[#ddd4e7] bg-white text-[#21152d] placeholder:text-[#a49aaa] focus-visible:ring-[#a78bfa] focus-visible:ring-offset-white" autoComplete="username" disabled={isLoading} required /></div>
-      <div className="space-y-1.5"><Label htmlFor="signup-email" className="font-quicksand font-bold text-[#43364f]">Email</Label><Input id="signup-email" type="email" value={email} onChange={event => setEmail(event.target.value)} placeholder="you@email.com" className="border-[#ddd4e7] bg-white text-[#21152d] placeholder:text-[#a49aaa] focus-visible:ring-[#a78bfa] focus-visible:ring-offset-white" autoComplete="email" disabled={isLoading} required /><p className="text-xs text-[#bdb3cc]">Gmail and other valid email addresses are supported.</p></div>
+      <div className="space-y-1.5"><Label htmlFor="signup-email" className="font-quicksand font-bold text-[#43364f]">Email</Label><Input id="signup-email" type="email" value={email} onChange={event => setEmail(event.target.value)} placeholder="you@email.com" className="border-[#ddd4e7] bg-white text-[#21152d] placeholder:text-[#a49aaa] focus-visible:ring-[#a78bfa] focus-visible:ring-offset-white" autoComplete="email" disabled={isLoading} required /><p className="text-xs text-[#81758c]">Gmail and other valid email addresses are supported.</p></div>
       <div className="space-y-1.5"><Label htmlFor="password-input" className="font-quicksand font-bold text-[#43364f]">Password</Label><PasswordInput id="password-input" value={password} onChange={event => onPasswordChange?.(event.target.value)} placeholder="Create a strong password" className="border-[#ddd4e7] bg-white text-[#21152d] placeholder:text-[#a49aaa] focus-visible:ring-[#a78bfa] focus-visible:ring-offset-white" autoComplete="new-password" disabled={isLoading} required /></div>
       <ul aria-label="Password requirements" className="grid grid-cols-2 gap-x-3 gap-y-2 rounded-xl border border-[#e7def0] bg-[#f5f0fa] p-3">
         {passwordRules.map((rule) => (
@@ -289,6 +291,7 @@ export function EmailOTPForm({
         ))}
       </ul>
       <div className="space-y-1.5"><Label htmlFor="confirm-password-input" className="font-quicksand font-bold text-[#43364f]">Confirm password</Label><PasswordInput id="confirm-password-input" value={confirmPassword} onChange={event => onConfirmPasswordChange?.(event.target.value)} className="border-[#ddd4e7] bg-white text-[#21152d] placeholder:text-[#a49aaa] focus-visible:ring-[#a78bfa] focus-visible:ring-offset-white" autoComplete="new-password" disabled={isLoading} required />{confirmPassword.length > 0 && <p className={`text-xs font-semibold ${confirmValid ? "text-emerald-700" : "text-[#bd4668]"}`}>{confirmValid ? "Passwords match" : "Passwords do not match yet"}</p>}</div>
+      {privacyControl}
       {captchaEnabled && <TurnstileCaptcha onVerify={setCaptchaToken} onExpire={() => setCaptchaToken(null)} onError={() => { setCaptchaToken(null); setErrorKey("captcha_failed"); }} />}
       {currentError && <p id={errorId} role="alert" className="text-sm text-[#bd4668]">{currentError}</p>}
       <Button type="submit" className="font-fredoka h-12 w-full rounded-xl border border-[#b69ae8] bg-gradient-to-r from-[#a78bfa] via-[#c4a7ff] to-[#ff7185] font-bold text-[#1b1025] shadow-[0_8px_24px_rgba(167,139,250,.24)] transition-all hover:-translate-y-0.5 hover:brightness-105 disabled:translate-y-0 disabled:cursor-not-allowed disabled:opacity-40" disabled={isLoading || !signupReady}>{isLoading ? <Loader2 className="h-4 w-4 animate-spin" /> : "Sign up"}</Button>
