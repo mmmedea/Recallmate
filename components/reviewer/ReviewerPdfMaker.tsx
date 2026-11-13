@@ -1,7 +1,7 @@
 "use client";
 
 import { useRef, useState } from "react";
-import { CheckCircle2, Download, FileText, FileUp, Loader2, ShieldCheck, Sparkles, BookOpen, Columns2 } from "lucide-react";
+import { CheckCircle2, Download, FileText, FileUp, Loader2, ShieldCheck, BookOpen } from "lucide-react";
 import { createReviewerArtifacts, downloadReviewerArtifact, readReviewerFile, REVIEWER_THEMES, type ReviewerArtifacts, type ReviewerSection } from "@/lib/reviewer/browser-reviewer";
 
 export default function ReviewerPdfMaker() {
