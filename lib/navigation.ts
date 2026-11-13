@@ -15,6 +15,7 @@ export const navigationConfig: { main: NavItem[]; footer: NavItem[] } = {
     { label: "Schedule", href: "/calendar", symbol: "04", requiresAuth: true, mobileVisible: true },
   ],
   footer: [
+    { label: "Help & Support", href: "/help", symbol: "?", requiresAuth: true, mobileVisible: true },
     { label: "Settings & Profile", href: "/settings", symbol: "05", requiresAuth: true, mobileVisible: true },
   ],
 };
