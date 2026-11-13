@@ -90,16 +90,14 @@ export function OAuthButtons({ redirectTo = "/dashboard", intent = "signin" }: O
               disabled={loadingProvider !== null}
               aria-label={provider.label}
             >
-              {isThisLoading ? (
-                <Loader2 className="h-4 w-4 animate-spin" aria-hidden="true" />
-              ) : (
-                getIcon(provider.id)
-              )}
-              {provider.id === "google" ? (intent === "signup" ? "Sign up with Google" : "Continue with Google") : provider.label}
+              <span className="absolute left-4 inline-flex items-center justify-center">
+                {isThisLoading ? <Loader2 className="h-4 w-4 animate-spin" aria-hidden="true" /> : getIcon(provider.id)}
+              </span>
+              <span>{provider.id === "google" ? (intent === "signup" ? "Sign up with Google" : "Continue with Google") : provider.label}</span>
             </Button>
             
             {hasError && (
-              <p className="text-xs text-[#ff8293] text-center flex items-center justify-center gap-1.5 animate-in slide-in-from-top-1 duration-200">
+              <p className="text-xs text-[#bd4668] text-center flex items-center justify-center gap-1.5 animate-in slide-in-from-top-1 duration-200">
                 <AlertCircle className="h-3 w-3" />
                 {provider.label.split(" ")[2]} sign-in is temporarily unavailable.
               </p>
