@@ -59,7 +59,16 @@ const AUTH_ERRORS: Record<string, string> = {
 };
 
 function safeInternalPath(path: string) {
-  return path.startsWith("/") && !path.startsWith("//") ? path : "/dashboard";
+  // Never treat the marketing homepage or an auth endpoint as a post-login
+  // destination. Successful sign-in and sign-up should enter the app.
+  const isInternalAppPath =
+    path.startsWith("/") &&
+    path !== "/" &&
+    !path.startsWith("//") &&
+    !path.startsWith("/login") &&
+    !path.startsWith("/signup") &&
+    !path.startsWith("/auth/");
+  return isInternalAppPath ? path : "/dashboard";
 }
 
 export function EmailOTPForm({
