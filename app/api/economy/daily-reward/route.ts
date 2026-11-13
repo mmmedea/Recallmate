@@ -1,6 +1,6 @@
 import { NextResponse } from "next/server";
 import { z } from "zod";
-import { getEconomyContext, readEconomyAccount } from "@/lib/economy/server";
+import { economyRpc, getEconomyContext, readEconomyAccount } from "@/lib/economy/server";
 
 export const runtime = "nodejs";
 
@@ -13,7 +13,7 @@ export async function POST(request: Request) {
     const body = schema.safeParse(await request.json().catch(() => null));
     if (!body.success) return NextResponse.json({ error: "Invalid reward request." }, { status: 400 });
 
-    const { data, error } = await context.admin.rpc("service_claim_daily_reward", {
+    const { data, error } = await economyRpc(context.admin, "service_claim_daily_reward", {
       p_user_id: context.user.id,
       p_idempotency_key: body.data.idempotencyKey,
     });
