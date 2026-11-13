@@ -50,13 +50,42 @@ export async function POST(request: NextRequest) {
       emailExists: availability?.email_exists === true,
       usernameExists: availability?.username_exists === true,
     });
-  } catch (error: any) {
-    const status = Number.isInteger(error?.status) ? error.status : error?.message === "Rate limit exceeded" ? 429 : 503;
-    if (status >= 500) console.error("Signup availability check failed:", error instanceof Error ? error.message : "Unknown error");
-    const invalidApiKey = error instanceof Error && /invalid api key/i.test(error.message);
-    return NextResponse.json({
-      code: invalidApiKey ? "service_configuration" : status === 429 ? "rate_limited" : "service_unavailable",
-      error: invalidApiKey ? "The server authentication key is invalid." : status === 429 ? "Too many availability checks. Please wait a minute." : "Account availability checking is temporarily unavailable.",
-    }, { status });
+  } catch (error: unknown) {
+    const failure = error as { status?: unknown; code?: unknown; message?: unknown; name?: unknown };
+    const status =
+      typeof failure.status === "number" && Number.isInteger(failure.status)
+        ? failure.status
+        : failure.message === "Rate limit exceeded"
+          ? 429
+          : 503;
+    const message = typeof failure.message === "string" ? failure.message : "Unknown error";
+    const code = typeof failure.code === "string" ? failure.code : "unknown";
+    const invalidApiKey = /invalid api key|invalid jwt|invalid supabase key/i.test(message);
+    const responseCode = invalidApiKey
+      ? "service_configuration"
+      : status === 429
+        ? "rate_limited"
+        : "service_unavailable";
+
+    // Keep operational diagnostics useful without logging request emails,
+    // usernames, cookies, or any secret key material.
+    console.error("[auth] signup availability dependency failed", {
+      name: typeof failure.name === "string" ? failure.name : "UnknownError",
+      status,
+      code,
+      message: message.slice(0, 240),
+    });
+
+    return NextResponse.json(
+      {
+        code: responseCode,
+        error: invalidApiKey
+          ? "The server authentication key is invalid."
+          : status === 429
+            ? "Too many availability checks. Please wait a minute."
+            : "Account availability checking is temporarily unavailable.",
+      },
+      { status, headers: { "Cache-Control": "no-store" } }
+    );
   }
 }
