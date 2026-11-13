@@ -41,7 +41,7 @@ export function NotificationBell() {
     <div className="relative">
       <button type="button" onClick={() => { setOpen(value => !value); if (!open) void load(); }} aria-label="Open notifications"
         className="relative rounded-xl p-2.5 text-lg text-white/70 transition hover:bg-white/[0.07] hover:text-white">
-        <span aria-hidden="true">♧</span>
+        <span aria-hidden="true">🔔</span>
         {unread > 0 && <span className="absolute right-1 top-1 min-w-4 rounded-full bg-[#f43f5e] px-1 text-[10px] font-bold leading-4 text-white">{unread > 9 ? "9+" : unread}</span>}
       </button>
       {open && <div className="absolute right-0 top-12 z-50 w-80 overflow-hidden rounded-2xl border border-white/10 bg-[#15131d] shadow-2xl">
