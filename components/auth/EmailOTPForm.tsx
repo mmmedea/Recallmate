@@ -38,6 +38,7 @@ const AUTH_ERRORS: Record<string, string> = {
   expired: "Your code has expired. Request a new verification code.",
   rate_limited: "Too many authentication requests came from this network. Please wait a few minutes before trying again.",
   email_rate_limited: "RecallMate's email provider has reached its hourly sending limit. This affects all users, so please try again later. For reliable recovery emails, the project needs a custom email provider.",
+  email_not_authorized: "The current Supabase test email service can only send to project team members. To send recovery codes to Gmail and other addresses, RecallMate needs a custom SMTP provider such as Resend.",
   captcha_required: "Please complete the security check to continue.",
   captcha_failed: "Security verification failed. Please try again.",
   email_delivery: "We couldn't send the email. Check the address and try again.",
@@ -369,7 +370,7 @@ export function EmailOTPForm({
             : code === "over_request_rate_limit" || status === 429
               ? "rate_limited"
               : code === "email_address_not_authorized"
-                ? "email_delivery"
+                ? "email_not_authorized"
                 : message.includes("invalid api key")
                   ? "service_configuration"
                   : message.includes("invalid") && message.includes("email")
