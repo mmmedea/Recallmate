@@ -19,7 +19,7 @@ export function TopBar({ user }: TopBarProps) {
   const pathname = usePathname();
 
   const allRoutes = [...navigationConfig.main, ...navigationConfig.footer];
-  const currentRoute = allRoutes.find((r) => r.href === pathname);
+  const currentRoute = allRoutes.find((r) => r.href === pathname || (r.href !== "/dashboard" && pathname.startsWith(r.href + "/")));
   const pageTitle = currentRoute ? currentRoute.label : "RecallMate";
 
   return (
