@@ -26,7 +26,7 @@ export const PasswordInput = React.forwardRef<HTMLInputElement, PasswordInputPro
           aria-pressed={visible}
           onClick={() => setVisible((current) => !current)}
           disabled={disabled}
-          className="absolute inset-y-0 right-0 grid w-11 place-items-center rounded-r-md text-slate-500 transition-colors hover:text-indigo-600 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-inset focus-visible:ring-indigo-500 disabled:cursor-not-allowed disabled:opacity-50 dark:text-slate-400 dark:hover:text-indigo-300"
+          className="absolute inset-y-0 right-0 grid w-11 place-items-center rounded-r-md text-[#887a96] transition-colors hover:text-[#bd4668] focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-inset focus-visible:ring-[#a78bfa] disabled:cursor-not-allowed disabled:opacity-50"
         >
           {visible ? <EyeOff className="h-4 w-4" aria-hidden="true" /> : <Eye className="h-4 w-4" aria-hidden="true" />}
         </button>
