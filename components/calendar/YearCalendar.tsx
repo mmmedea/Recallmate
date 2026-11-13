@@ -86,7 +86,7 @@ export default function YearCalendar({ initialEvents, initialYear, loadError }: 
     }
   }
 
-  return <div className="space-y-6 pb-24 font-nunito sm:space-y-7">
+  return <div className="schedule-canvas space-y-6 pb-24 font-nunito sm:space-y-7">
     <header className="relative isolate overflow-hidden rounded-[2rem] border border-[#a78bfa]/25 bg-[radial-gradient(ellipse_at_90%_5%,rgba(244,63,94,.2),transparent_40%),linear-gradient(130deg,#1a1224,#100d18_58%,#160d18)] p-6 shadow-[0_24px_80px_rgba(0,0,0,.25)] sm:p-9">
       <div className="flex flex-col gap-5 xl:flex-row xl:items-end xl:justify-between">
         <div><p className="font-pixelify text-[10px] uppercase tracking-[0.22em] text-[#ff8799]">YOUR STUDY TIMELINE</p><h1 className="mt-2 font-fredoka text-3xl font-semibold tracking-tight text-white sm:text-4xl">{view === 'month' ? `${monthNames[month]} ${year}` : `${year} Calendar`}</h1><p className="mt-3 max-w-2xl font-quicksand text-sm leading-6 text-white/55 sm:text-base">Plan notes, deadlines, exams, and reminders in one clear timeline.</p></div>
