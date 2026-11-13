@@ -118,24 +118,11 @@ function SignupPageContent() {
 
         <div className="space-y-6">
 
-          {/* Divider */}
-          <div className="relative">
-            <div className="absolute inset-0 flex items-center">
-              <div className="w-full border-t border-[#a78bfa]/25" />
-            </div>
-            <div className="relative flex justify-center text-xs uppercase">
-              <span className="bg-[#fffaff] px-3 font-pixelify text-xs font-medium tracking-widest text-[#8b779f]">
-                OR CONTINUE WITH
-              </span>
-            </div>
-          </div>
-
           {/* Email OTP */}
           <EmailOTPForm intent="signup" privacyAgreed={privacyAgreed} redirectTo={next} username={username} onUsernameChange={setUsername} password={password} onPasswordChange={setPassword} confirmPassword={confirmPassword} onConfirmPasswordChange={setConfirmPassword} privacyControl={privacyControl} />
           <OAuthButtons redirectTo={next} intent="signup" />
         </div>
 
-        {/* Privacy acknowledgement */}
         {/* Sign in link */}
         <p className="text-center text-sm text-[#746a80] pt-2">
           Already have an account?{" "}
@@ -165,4 +152,15 @@ export default function SignupPage() {
       <SignupPageContent />
     </Suspense>
   );
-}
+}          <div className="relative">
+            <div className="absolute inset-0 flex items-center">
+              <div className="w-full border-t border-[#a78bfa]/25" />
+            </div>
+            <div className="relative flex justify-center text-xs uppercase">
+              <span className="bg-[#fffaff] px-3 font-pixelify text-xs font-medium tracking-widest text-[#8b779f]">
+                OR CONTINUE WITH
+              </span>
+            </div>
+          </div>
+
+
