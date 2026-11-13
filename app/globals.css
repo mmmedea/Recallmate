@@ -78,28 +78,40 @@ html { scroll-behavior: smooth; }
 }
 
 
-/* Keep browser autofill readable in both themes. WebKit autofill can override
-   Tailwind text/background utilities, so explicitly set both colors per theme. */
-:root:not(.dark) input:-webkit-autofill,
-:root:not(.dark) input:-webkit-autofill:hover,
-:root:not(.dark) input:-webkit-autofill:focus,
-:root:not(.dark) input:-webkit-autofill:active,
-:root:not(.dark) input:autofill {
-  -webkit-text-fill-color: #21152d !important;
-  caret-color: #21152d !important;
-  -webkit-box-shadow: 0 0 0 1000px #ffffff inset !important;
-  box-shadow: 0 0 0 1000px #ffffff inset !important;
-  transition: background-color 9999s ease-out 0s;
+/* All editable form fields stay white with black text in every theme.
+   This also overrides dark-mode utilities and browser autofill styling. */
+input:not([type="checkbox]):not([type="radio]):not([type="range]):not([type="color]):not([type="file]):not([type="hidden]):not([type="button]):not([type="submit]):not([type="reset]):not([type="image"]),
+textarea,
+select {
+  background-color: #ffffff !important;
+  color: #000000 !important;
+  -webkit-text-fill-color: #000000 !important;
+  caret-color: #000000 !important;
+  color-scheme: light !important;
 }
 
-.dark input:-webkit-autofill,
-.dark input:-webkit-autofill:hover,
-.dark input:-webkit-autofill:focus,
-.dark input:-webkit-autofill:active,
-.dark input:autofill {
-  -webkit-text-fill-color: #ffffff !important;
-  caret-color: #ffffff !important;
-  -webkit-box-shadow: 0 0 0 1000px #020617 inset !important;
-  box-shadow: 0 0 0 1000px #020617 inset !important;
+input:not([type="checkbox]):not([type="radio]):not([type="range]):not([type="color]):not([type="file]):not([type="hidden]):not([type="button]):not([type="submit]):not([type="reset]):not([type="image"])::placeholder,
+textarea::placeholder {
+  color: #6b7280 !important;
+  -webkit-text-fill-color: #6b7280 !important;
+  opacity: 1 !important;
+}
+
+select option {
+  background-color: #ffffff !important;
+  color: #000000 !important;
+}
+
+/* Chrome, Edge, and Safari autofill must use the same white/black palette. */
+input:-webkit-autofill,
+input:-webkit-autofill:hover,
+input:-webkit-autofill:focus,
+input:-webkit-autofill:active,
+input:autofill {
+  -webkit-text-fill-color: #000000 !important;
+  caret-color: #000000 !important;
+  -webkit-box-shadow: 0 0 0 1000px #ffffff inset !important;
+  box-shadow: 0 0 0 1000px #ffffff inset !important;
+  color-scheme: light !important;
   transition: background-color 9999s ease-out 0s;
 }
