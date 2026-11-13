@@ -16,7 +16,7 @@ export function MobileNav() {
           <Link key={item.href} href={item.href} aria-current={active ? "page" : undefined}
             className={cn("flex min-w-0 flex-1 flex-col items-center justify-center gap-1 py-2 font-nunito text-[9px] font-bold transition", active ? "text-[#d8c7ff]" : "text-white/40")}>
             <span className={cn("flex h-6 min-w-7 items-center justify-center rounded-lg px-1 font-pixelify text-[9px]", active ? "bg-[#a78bfa]/20 text-[#d8c7ff]" : "bg-white/[0.04]")}>{item.symbol}</span>
-            <span className="max-w-full truncate px-1">{item.label}</span>
+            <span className="max-w-full whitespace-normal px-1 text-center leading-tight">{item.label}</span>
           </Link>
         );
       })}
