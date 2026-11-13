@@ -167,20 +167,20 @@ export function EmailOTPForm({
         const key =
           status === 429 || code.includes("rate") || message.includes("rate limit")
             ? "rate_limited"
-            : code === "invalid_credentials" ||
-                message.includes("invalid login credentials") ||
-                message.includes("invalid credentials") ||
-                message.includes("user not found") ||
-                status === 400 ||
-                status === 401
-              ? "invalid_credentials"
-              : message.includes("email not confirmed") || code === "email_not_confirmed"
-                ? "email_unconfirmed"
-                : message.includes("invalid api key") ||
-                    message.includes("supabase_url") ||
-                    message.includes("supabase_key") ||
-                    code === "invalid_api_key"
-                  ? "service_configuration"
+            : message.includes("email not confirmed") || code === "email_not_confirmed"
+              ? "email_unconfirmed"
+              : message.includes("invalid api key") ||
+                  message.includes("supabase_url") ||
+                  message.includes("supabase_key") ||
+                  code === "invalid_api_key"
+                ? "service_configuration"
+                : code === "invalid_credentials" ||
+                    message.includes("invalid login credentials") ||
+                    message.includes("invalid credentials") ||
+                    message.includes("user not found") ||
+                    status === 400 ||
+                    status === 401
+                  ? "invalid_credentials"
                   : status >= 500
                     ? "service_unavailable"
                     : "network";
