@@ -30,7 +30,11 @@ function SignupPageContent() {
   if (
     requestedNext &&
     requestedNext.startsWith("/") &&
-    !requestedNext.startsWith("//")
+    requestedNext !== "/" &&
+    !requestedNext.startsWith("//") &&
+    !requestedNext.startsWith("/login") &&
+    !requestedNext.startsWith("/signup") &&
+    !requestedNext.startsWith("/auth/")
   ) {
     next = requestedNext;
   }
