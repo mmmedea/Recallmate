@@ -2,7 +2,7 @@
 
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { useRouter } from "next/navigation";
-import { Loader2, LockKeyhole, Mail } from "lucide-react";
+import { Loader2, LockKeyhole, Mail, Check, Circle } from "lucide-react";
 import { v4 as uuidv4 } from "uuid";
 import { createClient } from "@/utils/supabase/client";
 import { Button } from "@/components/ui/button";
@@ -45,7 +45,7 @@ const AUTH_ERRORS: Record<string, string> = {
   network: "Connection error. Check your connection and try again.",
   invalid_credentials: "We couldn't find a matching RecallMate account, or the password is incorrect. If you haven't signed up yet, create an account first.",
   username_required: "Choose a username using 3–30 letters, numbers, or underscores.",
-  weak_password: "Use at least 8 characters and include one special symbol.",
+  weak_password: "Use at least 8 characters, uppercase and lowercase letters, and one special symbol.",
   password_mismatch: "The passwords do not match.",
   privacy_required: "Please agree to the Privacy Policy and Terms of Service.",
   error: "Something went wrong. Please try again.",
@@ -140,7 +140,7 @@ export function EmailOTPForm({
     if (!normalizedEmail) return;
     if (!privacyAgreed) return setErrorKey("privacy_required");
     if (!/^[A-Za-z0-9_]{3,30}$/.test(username.trim())) return setErrorKey("username_required");
-    if (password.length < 8 || !/[^A-Za-z0-9]/.test(password)) return setErrorKey("weak_password");
+    if (password.length < 8 || !/[A-Z]/.test(password) || !/[a-z]/.test(password) || !/[^A-Za-z0-9]/.test(password)) return setErrorKey("weak_password");
     if (password !== confirmPassword) return setErrorKey("password_mismatch");
     if (captchaEnabled && !captchaToken) return setErrorKey("captcha_required");
 
@@ -254,25 +254,45 @@ export function EmailOTPForm({
   }, [handleSendOTP]);
 
   const currentError = errorKey ? AUTH_ERRORS[errorKey] : null;
+  const passwordRules = [
+    { label: "At least 8 characters", met: password.length >= 8 },
+    { label: "One uppercase letter", met: /[A-Z]/.test(password) },
+    { label: "One lowercase letter", met: /[a-z]/.test(password) },
+    { label: "One special symbol", met: /[^A-Za-z0-9]/.test(password) },
+  ];
+  const passwordValid = passwordRules.every((rule) => rule.met);
+  const usernameValid = /^[A-Za-z0-9_]{3,30}$/.test(username.trim());
+  const emailValid = /^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(email.trim());
+  const confirmValid = password.length > 0 && password === confirmPassword;
+  const signupReady = usernameValid && emailValid && passwordValid && confirmValid && privacyAgreed && (!captchaEnabled || Boolean(captchaToken));
 
   if (intent === "signin") {
     return <form onSubmit={handlePasswordSignIn} className="space-y-4" noValidate>
-      <div className="space-y-1.5"><Label htmlFor="signin-email">Email</Label><Input id="signin-email" type="email" value={email} onChange={event => setEmail(event.target.value)} placeholder="you@example.com" autoComplete="email" autoFocus disabled={isLoading} required /></div>
-      <div className="space-y-1.5"><Label htmlFor="signin-password">Password</Label><PasswordInput id="signin-password" value={signInPassword} onChange={event => setSignInPassword(event.target.value)} placeholder="Your RecallMate password" autoComplete="current-password" disabled={isLoading} required /></div>
+      <div className="space-y-1.5"><Label htmlFor="signin-email" className="font-quicksand font-bold text-[#43364f]">Email</Label><Input id="signin-email" type="email" value={email} onChange={event => setEmail(event.target.value)} placeholder="you@email.com" className="border-[#ddd4e7] bg-white text-[#21152d] placeholder:text-[#a49aaa] focus-visible:ring-[#a78bfa] focus-visible:ring-offset-white" autoComplete="email" autoFocus disabled={isLoading} required /></div>
+      <div className="space-y-1.5"><Label htmlFor="signin-password" className="font-quicksand font-bold text-[#43364f]">Password</Label><PasswordInput id="signin-password" value={signInPassword} onChange={event => setSignInPassword(event.target.value)} placeholder="Your RecallMate password" className="border-[#ddd4e7] bg-white text-[#21152d] placeholder:text-[#a49aaa] focus-visible:ring-[#a78bfa] focus-visible:ring-offset-white" autoComplete="current-password" disabled={isLoading} required /></div>
       {currentError && <p id={errorId} role="alert" className="text-sm text-[#ff8293]">{currentError}</p>}
-      <Button type="submit" className="font-fredoka h-12 w-full rounded-xl border border-[#c4a7ff]/50 bg-gradient-to-r from-[#a78bfa] via-[#c4a7ff] to-[#ff7185] font-bold text-[#100a19] shadow-[0_8px_24px_rgba(167,139,250,.2)] hover:brightness-110" disabled={isLoading || !email.trim() || !signInPassword}>{isLoading ? <Loader2 className="h-4 w-4 animate-spin" /> : <><LockKeyhole className="h-4 w-4" />Sign in</>}</Button>
+      <Button type="submit" className="font-fredoka h-12 w-full rounded-xl border border-[#b69ae8] bg-gradient-to-r from-[#a78bfa] via-[#c4a7ff] to-[#ff7185] font-bold text-[#1b1025] shadow-[0_8px_24px_rgba(167,139,250,.24)] transition-all hover:-translate-y-0.5 hover:brightness-105" disabled={isLoading || !email.trim() || !signInPassword}>{isLoading ? <Loader2 className="h-4 w-4 animate-spin" /> : <><LockKeyhole className="h-4 w-4" />Sign in</>}</Button>
     </form>;
   }
 
   if (stage === "credentials") {
     return <form onSubmit={handleSendOTP} className="space-y-4" noValidate>
-      <div className="space-y-1.5"><Label htmlFor="username-input">Username</Label><Input id="username-input" value={username} onChange={event => onUsernameChange?.(event.target.value)} placeholder="your_username" autoComplete="username" disabled={isLoading} required /></div>
-      <div className="space-y-1.5"><Label htmlFor="signup-email">Email</Label><Input id="signup-email" type="email" value={email} onChange={event => setEmail(event.target.value)} placeholder="you@gmail.com" autoComplete="email" disabled={isLoading} required /><p className="text-xs text-[#bdb3cc]">Gmail and other valid email addresses are supported.</p></div>
-      <div className="space-y-1.5"><Label htmlFor="password-input">Password</Label><PasswordInput id="password-input" value={password} onChange={event => onPasswordChange?.(event.target.value)} placeholder="8+ characters and 1 special symbol" autoComplete="new-password" disabled={isLoading} required /></div>
-      <div className="space-y-1.5"><Label htmlFor="confirm-password-input">Confirm password</Label><PasswordInput id="confirm-password-input" value={confirmPassword} onChange={event => onConfirmPasswordChange?.(event.target.value)} autoComplete="new-password" disabled={isLoading} required /></div>
+      <div className="space-y-1.5"><Label htmlFor="username-input" className="font-quicksand font-bold text-[#43364f]">Username</Label><Input id="username-input" value={username} onChange={event => onUsernameChange?.(event.target.value)} placeholder="e.g., your_username" className="border-[#ddd4e7] bg-white text-[#21152d] placeholder:text-[#a49aaa] focus-visible:ring-[#a78bfa] focus-visible:ring-offset-white" autoComplete="username" disabled={isLoading} required /></div>
+      <div className="space-y-1.5"><Label htmlFor="signup-email" className="font-quicksand font-bold text-[#43364f]">Email</Label><Input id="signup-email" type="email" value={email} onChange={event => setEmail(event.target.value)} placeholder="you@email.com" className="border-[#ddd4e7] bg-white text-[#21152d] placeholder:text-[#a49aaa] focus-visible:ring-[#a78bfa] focus-visible:ring-offset-white" autoComplete="email" disabled={isLoading} required /><p className="text-xs text-[#bdb3cc]">Gmail and other valid email addresses are supported.</p></div>
+      <div className="space-y-1.5"><Label htmlFor="password-input" className="font-quicksand font-bold text-[#43364f]">Password</Label><PasswordInput id="password-input" value={password} onChange={event => onPasswordChange?.(event.target.value)} placeholder="Create a strong password" className="border-[#ddd4e7] bg-white text-[#21152d] placeholder:text-[#a49aaa] focus-visible:ring-[#a78bfa] focus-visible:ring-offset-white" autoComplete="new-password" disabled={isLoading} required /></div>
+      <ul aria-label="Password requirements" className="grid grid-cols-2 gap-x-3 gap-y-2 rounded-xl border border-[#e7def0] bg-[#f5f0fa] p-3">
+        {passwordRules.map((rule) => (
+          <li key={rule.label} className={`flex items-center gap-2 text-xs font-semibold transition-colors ${rule.met ? "text-emerald-700" : "text-[#8a8292]"}`}>
+            {rule.met ? <Check className="h-4 w-4 shrink-0" aria-hidden="true" /> : <Circle className="h-3.5 w-3.5 shrink-0" aria-hidden="true" />}
+            <span>{rule.label}</span>
+          </li>
+        ))}
+      </ul>
+      <div className="space-y-1.5"><Label htmlFor="confirm-password-input" className="font-quicksand font-bold text-[#43364f]">Confirm password</Label><PasswordInput id="confirm-password-input" value={confirmPassword} onChange={event => onConfirmPasswordChange?.(event.target.value)} className="border-[#ddd4e7] bg-white text-[#21152d] placeholder:text-[#a49aaa] focus-visible:ring-[#a78bfa] focus-visible:ring-offset-white" autoComplete="new-password" disabled={isLoading} required />{confirmPassword.length > 0 && <p className={`text-xs font-semibold ${confirmValid ? "text-emerald-700" : "text-[#bd4668]"}`}>{confirmValid ? "Passwords match" : "Passwords do not match yet"}</p>}</div>
       {captchaEnabled && <TurnstileCaptcha onVerify={setCaptchaToken} onExpire={() => setCaptchaToken(null)} onError={() => { setCaptchaToken(null); setErrorKey("captcha_failed"); }} />}
-      {currentError && <p id={errorId} role="alert" className="text-sm text-rose-600 dark:text-rose-400">{currentError}</p>}
-      <Button type="submit" className="h-11 w-full bg-indigo-600 font-semibold hover:bg-indigo-700" disabled={isLoading || !email.trim()}>{isLoading ? <Loader2 className="h-4 w-4 animate-spin" /> : <><Mail className="h-4 w-4" />Create account & send code</>}</Button>
+      {currentError && <p id={errorId} role="alert" className="text-sm text-[#bd4668]">{currentError}</p>}
+      <Button type="submit" className="font-fredoka h-12 w-full rounded-xl border border-[#b69ae8] bg-gradient-to-r from-[#a78bfa] via-[#c4a7ff] to-[#ff7185] font-bold text-[#1b1025] shadow-[0_8px_24px_rgba(167,139,250,.24)] transition-all hover:-translate-y-0.5 hover:brightness-105 disabled:translate-y-0 disabled:cursor-not-allowed disabled:opacity-40" disabled={isLoading || !signupReady}>{isLoading ? <Loader2 className="h-4 w-4 animate-spin" /> : "Sign up"}</Button>
+      <p className="text-center text-xs text-[#81758c]">We’ll email you a one-time code to verify your address.</p>
     </form>;
   }
 
@@ -282,9 +302,9 @@ export function EmailOTPForm({
   const maskedEmail = maskEmail(otpFlowContext?.email ?? email);
   return <form onSubmit={event => { event.preventDefault(); void verifyCode(otpValue); }} className="space-y-6" noValidate>
     <div className="space-y-2 text-center">
-      <p className="text-sm text-[#c9c2d5]">Enter the verification code sent to</p>
-      <p className="text-sm font-semibold text-[#fffaff]">{maskedEmail}</p>
-      <p className="text-xs text-slate-500 dark:text-slate-400">Check your inbox for your {AUTH_OTP_LENGTH}-digit RecallMate code. Paste or type only the newest code if you requested more than one. Resend becomes available after one minute.</p>
+      <p className="text-sm text-[#746a80]">Enter the verification code sent to</p>
+      <p className="text-sm font-semibold text-[#21152d]">{maskedEmail}</p>
+      <p className="text-xs text-[#81758c]">Check your inbox for your {AUTH_OTP_LENGTH}-digit RecallMate code. Paste or type only the newest code if you requested more than one. Resend becomes available after one minute.</p>
       <p className="text-xs font-medium text-[#d8cce8]">The verification email is automated. Please do not reply to it.</p>
       <p className="rounded-xl border border-[#ff7185]/30 bg-[#ff526b]/10 px-3 py-2 text-xs font-medium leading-relaxed text-[#ffd4dc]">
         No code yet? Check your Spam or Junk folder. If you find it there, mark it as not spam so future RecallMate codes reach your inbox.
