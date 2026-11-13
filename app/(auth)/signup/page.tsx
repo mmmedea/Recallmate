@@ -120,6 +120,14 @@ function SignupPageContent() {
 
           {/* Email OTP */}
           <EmailOTPForm intent="signup" privacyAgreed={privacyAgreed} redirectTo={next} username={username} onUsernameChange={setUsername} password={password} onPasswordChange={setPassword} confirmPassword={confirmPassword} onConfirmPasswordChange={setConfirmPassword} privacyControl={privacyControl} />
+          <div className="relative py-1">
+            <div className="absolute inset-0 flex items-center">
+              <div className="w-full border-t border-[#a78bfa]/30" />
+            </div>
+            <div className="relative flex justify-center">
+              <span className="bg-[#fffaff] px-3 font-pixelify text-[11px] tracking-[0.18em] text-[#8b779f]">OR CONTINUE WITH</span>
+            </div>
+          </div>
           <OAuthButtons redirectTo={next} intent="signup" />
         </div>
 
