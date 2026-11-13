@@ -296,8 +296,8 @@ export default function OmniChatDrawer() {
       {/* Floating Trigger Button (Bottom Right) */}
       <button
         onClick={() => setIsOpen(!isOpen)}
-        aria-label="Toggle Medea AI Chatbot"
-        className="fixed bottom-24 right-4 sm:bottom-6 sm:right-6 z-[999] flex items-center gap-3 rounded-2xl border border-[#c4b5fd]/30 bg-[linear-gradient(120deg,#a78bfa,#6d28d9_55%,#f43f5e)] px-4 py-3 font-nunito font-extrabold text-white shadow-[0_12px_40px_rgba(124,58,237,.4)] transition duration-300 hover:-translate-y-1 hover:shadow-[0_16px_48px_rgba(244,63,94,.25)] active:scale-95"
+        aria-label="Open Medea AI assistant"
+        className="fixed bottom-24 right-4 sm:bottom-6 sm:right-6 z-[999] flex items-center gap-3 rounded-2xl border border-[#c4b5fd]/30 bg-[linear-gradient(120deg,#b49aff,#8b5cf6_52%,#f43f5e)] px-4 py-3 font-nunito font-extrabold text-white shadow-[0_12px_40px_rgba(124,58,237,.4)] transition duration-300 hover:-translate-y-1 hover:shadow-[0_16px_48px_rgba(244,63,94,.25)] active:scale-95"
       >
         <div className="relative">
           <img src="https://lh3.googleusercontent.com/d/1VBjuDg72zKakz032deRqbBJp0SYUFDuu=w1200" alt="" className="h-9 w-9 rounded-xl object-contain" />
@@ -311,7 +311,7 @@ export default function OmniChatDrawer() {
         <div onClick={() => setIsOpen(false)} className="fixed inset-0 h-[100dvh] z-[9999] flex justify-end bg-black/50 backdrop-blur-sm animate-in fade-in duration-200">
           <div
             onClick={(e) => e.stopPropagation()}
-            className="medea-panel relative flex h-[100dvh] max-h-[100dvh] w-full flex-col border-l border-[#a78bfa]/20 bg-[#0c0a12] shadow-2xl animate-in slide-in-from-right duration-300 sm:w-[450px] md:w-[500px]"
+            className="medea-panel relative flex h-[100dvh] max-h-[100dvh] w-full flex-col border-l border-[#a78bfa]/20 bg-[#15111f] shadow-2xl animate-in slide-in-from-right duration-300 sm:w-[450px] md:w-[500px]"
           >
             {/* Header */}
             <div className="flex items-center justify-between border-b border-white/10 bg-[radial-gradient(ellipse_at_85%_0%,rgba(244,63,94,.14),transparent_48%),#111019] p-4 backdrop-blur-md">
@@ -378,7 +378,7 @@ export default function OmniChatDrawer() {
                   <div
                     className={`max-w-[82%] rounded-2xl p-4 space-y-1 shadow-sm text-sm ${
                       msg.role === "user"
-                        ? "bg-indigo-600 text-white rounded-br-none"
+                        ? "bg-[linear-gradient(120deg,#8b5cf6,#c084fc_58%,#f43f5e)] text-white rounded-br-none"
                         : "bg-slate-100 dark:bg-slate-800/90 text-slate-900 dark:text-slate-100 rounded-bl-none border border-slate-200/50 dark:border-slate-700/50"
                     }`}
                   >
