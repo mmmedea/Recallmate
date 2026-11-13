@@ -3,7 +3,6 @@
 import { ChangeEvent, useEffect, useMemo, useState } from "react";
 import { useRouter } from "next/navigation";
 import { createClient } from "@/utils/supabase/client";
-import ThemeToggle from "@/components/ThemeToggle";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { PasswordInput } from "@/components/ui/password-input";
@@ -211,12 +210,7 @@ export default function SettingsPage() {
             </div>
           </section>
 
-          <section className="grid gap-4 md:grid-cols-2">
-            <div className="rounded-3xl border border-white/10 bg-[#111019] p-6">
-              <h2 className="font-fredoka text-lg font-semibold text-white">Appearance</h2>
-              <p className="mb-4 mt-1 font-quicksand text-sm text-white/45">Choose the theme that feels right for your study space.</p>
-              <ThemeToggle />
-            </div>
+          <section className="grid gap-4">
             <div className="rounded-3xl border border-white/10 bg-[#111019] p-6">
               <h2 className="font-fredoka text-lg font-semibold text-white">Notifications</h2>
               <label className="my-4 flex items-center gap-3 font-nunito text-sm font-bold text-white/80"><Checkbox checked={profile.notificationsEnabled} onCheckedChange={(checked) => setProfile({ ...profile, notificationsEnabled: checked === true })} />Enable study reminders</label>
