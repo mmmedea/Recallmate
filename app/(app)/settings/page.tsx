@@ -242,8 +242,8 @@ export default function SettingsPage() {
           <div className="space-y-3">
             <h3 className="flex items-center gap-2 font-bold dark:text-white"><KeyRound className="h-4 w-4" />Change password</h3>
             <p className="text-xs text-slate-500">Use 8+ characters with at least one special symbol.</p>
-            <PasswordInput aria-label="New password" autoComplete="new-password" value={newPassword} onChange={(event) => setNewPassword(event.target.value)} placeholder="New strong password" />
-            <PasswordInput aria-label="Confirm new password" autoComplete="new-password" value={confirmPassword} onChange={(event) => setConfirmPassword(event.target.value)} placeholder="Confirm password" />
+            <PasswordInput aria-label="New password" autoComplete="new-password" value={newPassword} onChange={(event) => setNewPassword(event.target.value)} className="bg-white text-slate-950 placeholder:text-slate-400 dark:bg-slate-950 dark:text-white dark:placeholder:text-slate-500" placeholder="New strong password" />
+            <PasswordInput aria-label="Confirm new password" autoComplete="new-password" value={confirmPassword} onChange={(event) => setConfirmPassword(event.target.value)} className="bg-white text-slate-950 placeholder:text-slate-400 dark:bg-slate-950 dark:text-white dark:placeholder:text-slate-500" placeholder="Confirm password" />
             <Button variant="outline" onClick={changePassword} disabled={busy !== null}>{busy === "password" ? "Changing…" : "Change password"}</Button>
           </div>
         </div>
