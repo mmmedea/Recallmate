@@ -132,7 +132,7 @@ export default function EconomyDashboard() {
                 <div className="rounded-2xl border border-white/10 bg-white/[0.045] p-3"><p className="font-pixelify text-[9px] tracking-widest text-white/40">PERSONAL BEST</p><p className="mt-1 font-fredoka text-2xl text-white">{account.longest_streak}<span className="ml-1 text-xs text-white/45">days</span></p></div>
                 <div className="rounded-2xl border border-[#fb923c]/20 bg-[#fb923c]/[0.07] p-3"><p className="font-pixelify text-[9px] tracking-widest text-[#ffbd83]/65">NEXT REWARD</p><p className="mt-1 font-fredoka text-2xl text-[#ffd0a5]">DAY {nextRewardDay}</p></div>
               </div>
-              <button type="button" onClick={() => setWelcomeOpen(false)} className="mt-6 min-h-12 w-full rounded-2xl bg-gradient-to-r from-[#fb923c] via-[#f97316] to-[#f43f5e] px-5 py-3 font-nunito text-sm font-black text-[#1c1020] shadow-lg shadow-[#f97316]/20 transition hover:-translate-y-0.5 hover:shadow-xl hover:shadow-[#f97316]/30">Let's keep the fire going</button>
+              <button type="button" onClick={() => { setWelcomeOpen(false); if (canClaim || canRestore) setOpen(true); }} className="mt-6 min-h-12 w-full rounded-2xl bg-gradient-to-r from-[#fb923c] via-[#f97316] to-[#f43f5e] px-5 py-3 font-nunito text-sm font-black text-[#1c1020] shadow-lg shadow-[#f97316]/20 transition hover:-translate-y-0.5 hover:shadow-xl hover:shadow-[#f97316]/30">Let's keep the fire going</button>
               <button type="button" onClick={() => { setWelcomeOpen(false); setOpen(true); }} className="mt-3 min-h-10 w-full rounded-xl font-nunito text-xs font-bold text-[#d8c9ff] transition hover:bg-white/[0.05]">View streak rewards</button>
             </div>
           </section>
