@@ -6,7 +6,7 @@ import Link from "next/link";
 export default async function LoginPage({
   searchParams,
 }: {
-  searchParams: Promise<{ next?: string }>;
+  searchParams: Promise<{ next?: string; passwordReset?: string }>;
 }) {
   const resolvedSearchParams = await searchParams;
   let next = "/dashboard";
@@ -32,7 +32,7 @@ export default async function LoginPage({
         </div>
 
         {/* Email OTP */}
-        <EmailOTPForm intent="signin" redirectTo={next} />
+        <EmailOTPForm intent="signin" redirectTo={next} passwordReset={resolvedSearchParams.passwordReset === "success"} />
         {/* Divider */}
         <div className="relative">
           <div className="absolute inset-0 flex items-center">
