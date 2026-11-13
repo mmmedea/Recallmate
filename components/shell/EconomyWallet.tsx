@@ -31,7 +31,11 @@ export default function EconomyWallet() {
     void load();
     const onFocus = () => void load();
     window.addEventListener("focus", onFocus);
-    return () => window.removeEventListener("focus", onFocus);
+    window.addEventListener("economy:updated", onFocus);
+    return () => {
+      window.removeEventListener("focus", onFocus);
+      window.removeEventListener("economy:updated", onFocus);
+    };
   }, [load]);
 
   return (
