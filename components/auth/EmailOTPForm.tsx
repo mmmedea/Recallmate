@@ -165,20 +165,30 @@ export function EmailOTPForm({
         const code = "code" in error && typeof error.code === "string" ? error.code.toLowerCase() : "";
         const status = Number(error.status);
         const key =
-          code === "invalid_credentials" || message.includes("invalid login credentials") || message.includes("user not found") || status === 400 || status === 401
-            ? "invalid_credentials"
-            : message.includes("email not confirmed") || code === "email_not_confirmed"
-              ? "email_unconfirmed"
-              : status === 429 || message.includes("rate") || code.includes("rate")
-                ? "rate_limited"
-                : message.includes("invalid api key") || message.includes("supabase_url") || message.includes("supabase_key")
+          status === 429 || code.includes("rate") || message.includes("rate limit")
+            ? "rate_limited"
+            : code === "invalid_credentials" ||
+                message.includes("invalid login credentials") ||
+                message.includes("invalid credentials") ||
+                message.includes("user not found") ||
+                status === 400 ||
+                status === 401
+              ? "invalid_credentials"
+              : message.includes("email not confirmed") || code === "email_not_confirmed"
+                ? "email_unconfirmed"
+                : message.includes("invalid api key") ||
+                    message.includes("supabase_url") ||
+                    message.includes("supabase_key") ||
+                    code === "invalid_api_key"
                   ? "service_configuration"
                   : status >= 500
                     ? "service_unavailable"
                     : "network";
-        if (status >= 500) {
-          console.error("[auth] password sign-in failed", { status, code: code || "unknown" });
-        }
+        console.error("[auth] password sign-in rejected", {
+          status: Number.isFinite(status) ? status : "unknown",
+          code: code || "unknown",
+          category: key,
+        });
         setErrorKey(key);
         return;
       }
@@ -210,9 +220,28 @@ export function EmailOTPForm({
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({ email: normalizedEmail, username: username.trim() }),
       });
-      const availability = await availabilityResponse.json() as { emailExists?: boolean; usernameExists?: boolean; error?: string; code?: string };
+      const availability = await availabilityResponse.json().catch(() => ({})) as {
+        emailExists?: boolean;
+        usernameExists?: boolean;
+        error?: string;
+        code?: string;
+      };
       if (!availabilityResponse.ok) {
-        setErrorKey(availability.code === "service_configuration" ? "service_configuration" : availabilityResponse.status === 429 ? "rate_limited" : "service_unavailable");
+        const failure =
+          availability.code === "service_configuration"
+            ? "service_configuration"
+            : availabilityResponse.status === 429 || availability.code === "rate_limited"
+              ? "rate_limited"
+              : availabilityResponse.status >= 500 || availability.code === "service_unavailable"
+                ? "service_unavailable"
+                : availabilityResponse.status === 400
+                  ? "email_invalid"
+                  : "network";
+        console.error("[auth] signup availability check rejected", {
+          status: availabilityResponse.status,
+          code: availability.code || "unknown",
+        });
+        setErrorKey(failure);
         setOTPState("error");
         return;
       }
