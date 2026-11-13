@@ -1,10 +1,37 @@
-"use client"
+"use client";
 
-import Link from 'next/link'
-import { BookOpen, Upload, Sparkles } from 'lucide-react'
-import { useAppStore } from '@/lib/store'
+import Link from "next/link";
 
 export default function TopicsPage() {
-  const openMedea = useAppStore(state => state.setChatDrawerOpen)
-  return <div className="motion-safe:animate-in motion-safe:fade-in duration-500"><div className="mb-8 flex flex-col gap-4 sm:flex-row sm:items-end sm:justify-between"><div><p className="text-sm font-semibold text-indigo-600">Learn your way</p><h1 className="text-3xl font-bold dark:text-white">Topics & flashcards</h1><p className="mt-2 text-slate-500">Create cards yourself or let Medea turn uploaded material into a quiz.</p></div><Link href="/upload" className="inline-flex items-center gap-2 rounded-xl bg-indigo-600 px-4 py-2.5 font-semibold text-white hover:bg-indigo-700"><Upload className="h-4 w-4" />Upload material</Link></div><div className="grid gap-5 md:grid-cols-3"><Link href="/upload?mode=flashcards" className="rounded-2xl border border-indigo-200 bg-indigo-50 p-6 transition hover:-translate-y-1 hover:shadow-lg dark:border-indigo-900 dark:bg-indigo-950/30"><BookOpen className="mb-4 h-8 w-8 text-indigo-600" /><h2 className="font-bold dark:text-white">Create flashcards</h2><p className="mt-2 text-sm text-slate-500">Write the prompt and answer you want to remember.</p></Link><Link href="/upload" className="rounded-2xl border border-violet-200 bg-violet-50 p-6 transition hover:-translate-y-1 hover:shadow-lg dark:border-violet-900 dark:bg-violet-950/30"><Upload className="mb-4 h-8 w-8 text-violet-600" /><h2 className="font-bold dark:text-white">Upload & AI quiz</h2><p className="mt-2 text-sm text-slate-500">Upload once to generate notes and practice questions.</p></Link><button type="button" onClick={() => openMedea(true)} className="rounded-2xl border border-rose-200 bg-rose-50 p-6 text-left transition hover:-translate-y-1 hover:shadow-lg dark:border-rose-900 dark:bg-rose-950/30"><Sparkles className="mb-4 h-8 w-8 text-rose-600" /><h2 className="font-bold dark:text-white">Ask Medea</h2><p className="mt-2 text-sm text-slate-500">Open Medea AI here and ask any simple or complex question.</p></button></div></div>
+  return (
+    <div className="mx-auto max-w-6xl space-y-7 px-4 py-8 sm:px-6">
+      <header className="flex flex-col gap-4 sm:flex-row sm:items-end sm:justify-between">
+        <div>
+          <p className="font-pixelify text-[10px] uppercase tracking-[0.22em] text-[#c4a7ff]">YOUR STUDY COLLECTION</p>
+          <h1 className="mt-2 font-fredoka text-3xl font-semibold text-white sm:text-4xl">My Library</h1>
+          <p className="mt-2 font-quicksand text-sm text-white/50">Keep your materials, notes, reviewers and practice sets organized in one place.</p>
+        </div>
+        <Link href="/upload" className="inline-flex min-h-11 items-center justify-center rounded-xl bg-gradient-to-r from-[#a78bfa] to-[#c4a7ff] px-5 py-3 font-nunito text-sm font-black text-[#170f23] transition hover:-translate-y-0.5 hover:brightness-110">+ Add material</Link>
+      </header>
+      <div className="grid gap-4 md:grid-cols-2">
+        <Link href="/upload?mode=flashcards" className="group rounded-3xl border border-[#a78bfa]/25 bg-gradient-to-br from-[#a78bfa]/15 to-[#111019] p-6 transition duration-300 hover:-translate-y-1 hover:border-[#c4b5fd]/50 hover:shadow-xl hover:shadow-[#8b5cf6]/10">
+          <span className="font-pixelify text-[10px] uppercase tracking-[0.2em] text-[#d6c4ff]">01 · BUILD</span>
+          <h2 className="mt-4 font-fredoka text-2xl font-semibold text-white">Create flashcards</h2>
+          <p className="mt-2 max-w-md font-quicksand text-sm leading-6 text-white/50">Make your own question-and-answer cards and practice active recall at your pace.</p>
+          <span className="mt-6 inline-flex font-nunito text-sm font-extrabold text-[#d6c4ff] transition group-hover:translate-x-1">Create a deck →</span>
+        </Link>
+        <Link href="/upload" className="group rounded-3xl border border-[#f43f5e]/20 bg-gradient-to-br from-[#f43f5e]/10 to-[#111019] p-6 transition duration-300 hover:-translate-y-1 hover:border-[#fb7185]/50 hover:shadow-xl hover:shadow-[#f43f5e]/10">
+          <span className="font-pixelify text-[10px] uppercase tracking-[0.2em] text-[#ff9aaa]">02 · GENERATE</span>
+          <h2 className="mt-4 font-fredoka text-2xl font-semibold text-white">Upload & build a reviewer</h2>
+          <p className="mt-2 max-w-md font-quicksand text-sm leading-6 text-white/50">Turn PDFs and study documents into clear notes, generated reviewers and quizzes.</p>
+          <span className="mt-6 inline-flex font-nunito text-sm font-extrabold text-[#ff9aaa] transition group-hover:translate-x-1">Open workspace →</span>
+        </Link>
+      </div>
+      <div className="rounded-3xl border border-dashed border-white/10 bg-[#111019] px-6 py-10 text-center">
+        <p className="font-fredoka text-xl font-semibold text-white">Your collection lives here.</p>
+        <p className="mx-auto mt-2 max-w-lg font-quicksand text-sm leading-6 text-white/45">Your uploaded materials and generated study outputs are available from your recent activity on the dashboard. Open a material to continue working with it.</p>
+        <Link href="/dashboard" className="mt-5 inline-flex font-nunito text-sm font-extrabold text-[#d6c4ff] hover:text-white">Back to Study →</Link>
+      </div>
+    </div>
+  );
 }
