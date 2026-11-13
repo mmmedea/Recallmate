@@ -259,15 +259,15 @@ export function EmailOTPForm({
     return <form onSubmit={handlePasswordSignIn} className="space-y-4" noValidate>
       <div className="space-y-1.5"><Label htmlFor="signin-email">Email</Label><Input id="signin-email" type="email" value={email} onChange={event => setEmail(event.target.value)} placeholder="you@example.com" autoComplete="email" autoFocus disabled={isLoading} required /></div>
       <div className="space-y-1.5"><Label htmlFor="signin-password">Password</Label><PasswordInput id="signin-password" value={signInPassword} onChange={event => setSignInPassword(event.target.value)} placeholder="Your RecallMate password" autoComplete="current-password" disabled={isLoading} required /></div>
-      {currentError && <p id={errorId} role="alert" className="text-sm text-rose-600 dark:text-rose-400">{currentError}</p>}
-      <Button type="submit" className="h-11 w-full bg-indigo-600 font-semibold hover:bg-indigo-700" disabled={isLoading || !email.trim() || !signInPassword}>{isLoading ? <Loader2 className="h-4 w-4 animate-spin" /> : <><LockKeyhole className="h-4 w-4" />Sign in</>}</Button>
+      {currentError && <p id={errorId} role="alert" className="text-sm text-[#ff8293]">{currentError}</p>}
+      <Button type="submit" className="font-fredoka h-12 w-full rounded-xl border border-[#c4a7ff]/50 bg-gradient-to-r from-[#a78bfa] via-[#c4a7ff] to-[#ff7185] font-bold text-[#100a19] shadow-[0_8px_24px_rgba(167,139,250,.2)] hover:brightness-110" disabled={isLoading || !email.trim() || !signInPassword}>{isLoading ? <Loader2 className="h-4 w-4 animate-spin" /> : <><LockKeyhole className="h-4 w-4" />Sign in</>}</Button>
     </form>;
   }
 
   if (stage === "credentials") {
     return <form onSubmit={handleSendOTP} className="space-y-4" noValidate>
       <div className="space-y-1.5"><Label htmlFor="username-input">Username</Label><Input id="username-input" value={username} onChange={event => onUsernameChange?.(event.target.value)} placeholder="your_username" autoComplete="username" disabled={isLoading} required /></div>
-      <div className="space-y-1.5"><Label htmlFor="signup-email">Email</Label><Input id="signup-email" type="email" value={email} onChange={event => setEmail(event.target.value)} placeholder="you@gmail.com" autoComplete="email" disabled={isLoading} required /><p className="text-xs text-slate-500 dark:text-slate-400">Gmail and other valid email addresses are supported.</p></div>
+      <div className="space-y-1.5"><Label htmlFor="signup-email">Email</Label><Input id="signup-email" type="email" value={email} onChange={event => setEmail(event.target.value)} placeholder="you@gmail.com" autoComplete="email" disabled={isLoading} required /><p className="text-xs text-[#bdb3cc]">Gmail and other valid email addresses are supported.</p></div>
       <div className="space-y-1.5"><Label htmlFor="password-input">Password</Label><PasswordInput id="password-input" value={password} onChange={event => onPasswordChange?.(event.target.value)} placeholder="8+ characters and 1 special symbol" autoComplete="new-password" disabled={isLoading} required /></div>
       <div className="space-y-1.5"><Label htmlFor="confirm-password-input">Confirm password</Label><PasswordInput id="confirm-password-input" value={confirmPassword} onChange={event => onConfirmPasswordChange?.(event.target.value)} autoComplete="new-password" disabled={isLoading} required /></div>
       {captchaEnabled && <TurnstileCaptcha onVerify={setCaptchaToken} onExpire={() => setCaptchaToken(null)} onError={() => { setCaptchaToken(null); setErrorKey("captcha_failed"); }} />}
@@ -282,16 +282,16 @@ export function EmailOTPForm({
   const maskedEmail = maskEmail(otpFlowContext?.email ?? email);
   return <form onSubmit={event => { event.preventDefault(); void verifyCode(otpValue); }} className="space-y-6" noValidate>
     <div className="space-y-2 text-center">
-      <p className="text-sm text-slate-600 dark:text-slate-400">Enter the verification code sent to</p>
-      <p className="text-sm font-semibold text-slate-900 dark:text-white">{maskedEmail}</p>
+      <p className="text-sm text-[#c9c2d5]">Enter the verification code sent to</p>
+      <p className="text-sm font-semibold text-[#fffaff]">{maskedEmail}</p>
       <p className="text-xs text-slate-500 dark:text-slate-400">Check your inbox for your {AUTH_OTP_LENGTH}-digit RecallMate code. Paste or type only the newest code if you requested more than one. Resend becomes available after one minute.</p>
-      <p className="text-xs font-medium text-slate-600 dark:text-slate-300">The verification email is automated. Please do not reply to it.</p>
-      <p className="rounded-xl border border-amber-300/70 bg-amber-50 px-3 py-2 text-xs font-medium leading-relaxed text-amber-900 dark:border-amber-400/25 dark:bg-amber-400/10 dark:text-amber-200">
+      <p className="text-xs font-medium text-[#d8cce8]">The verification email is automated. Please do not reply to it.</p>
+      <p className="rounded-xl border border-[#ff7185]/30 bg-[#ff526b]/10 px-3 py-2 text-xs font-medium leading-relaxed text-[#ffd4dc]">
         No code yet? Check your Spam or Junk folder. If you find it there, mark it as not spam so future RecallMate codes reach your inbox.
       </p>
     </div>
     <div className="space-y-3"><OTPInput length={AUTH_OTP_LENGTH} value={otpValue} onChange={value => { setOtpValue(value); if (value.length === AUTH_OTP_LENGTH) void verifyCode(value); }} disabled={isLoading} hasError={Boolean(currentError)} aria-describedby={currentError ? errorId : undefined} />{currentError && <p id={errorId} role="alert" aria-live="assertive" className="text-center text-sm text-rose-600 dark:text-rose-400">{currentError}</p>}</div>
     <Button type="submit" className="h-11 w-full bg-indigo-600 font-semibold hover:bg-indigo-700" disabled={isLoading || otpValue.length !== AUTH_OTP_LENGTH}>{isLoading ? <Loader2 className="h-4 w-4 animate-spin" /> : "Verify code & continue"}</Button>
-    <div className="flex items-center justify-between text-sm"><ResendButton onResend={handleResend} disabled={isLoading} /><button type="button" onClick={changeEmail} className="rounded text-slate-500 transition-colors hover:text-indigo-600 dark:text-slate-400">Change email</button></div>
+    <div className="flex items-center justify-between text-sm"><ResendButton onResend={handleResend} disabled={isLoading} /><button type="button" onClick={changeEmail} className="rounded text-[#bdb3cc] transition-colors hover:text-[#ff7185]">Change email</button></div>
   </form>;
 }
