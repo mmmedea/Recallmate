@@ -30,7 +30,7 @@ interface EmailOTPFormProps {
   privacyControl?: React.ReactNode;
 }
 
-type FormStage = "credentials" | "otp";
+type FormStage = "credentials" | "otp" | "recovery-code" | "recovery-password";
 
 const AUTH_ERRORS: Record<string, string> = {
   invalid: "That code isn't valid or is no longer the newest code. Check it, or request a new verification code.",
@@ -50,6 +50,10 @@ const AUTH_ERRORS: Record<string, string> = {
   weak_password: "Use at least 8 characters, uppercase and lowercase letters, and one special symbol.",
   password_mismatch: "The passwords do not match.",
   privacy_required: "Please agree to the Privacy Policy and Terms of Service.",
+  recovery_sent: "If an account exists for this email, a password recovery code has been sent. Check your inbox and spam folder.",
+  recovery_password: "Choose a new password that meets all the requirements.",
+  recovery_mismatch: "The new passwords do not match.",
+  service_configuration: "RecallMate authentication needs attention. Please try again later or contact support.",
   error: "Something went wrong. Please try again.",
 };
 
@@ -75,6 +79,9 @@ export function EmailOTPForm({
   const [stage, setStage] = useState<FormStage>("credentials");
   const [email, setEmail] = useState("");
   const [signInPassword, setSignInPassword] = useState("");
+  const [recoveryPassword, setRecoveryPassword] = useState("");
+  const [recoveryPasswordConfirm, setRecoveryPasswordConfirm] = useState("");
+  const [recoveryNotice, setRecoveryNotice] = useState(false);
   const [otpValue, setOtpValue] = useState("");
   const [isLoading, setIsLoading] = useState(false);
   const [errorKey, setErrorKey] = useState<string | null>(null);
@@ -118,13 +125,15 @@ export function EmailOTPForm({
       const { error } = await supabase.auth.signInWithPassword({ email: normalizedEmail, password: signInPassword });
       if (error) {
         const message = error.message.toLowerCase();
-        const key = message.includes("invalid login credentials") || message.includes("user not found")
+        const key = message.includes("invalid login credentials") || message.includes("invalid_credentials") || message.includes("user not found")
           ? "invalid_credentials"
           : message.includes("email not confirmed")
             ? "email_unconfirmed"
-            : message.includes("rate")
+            : message.includes("rate") || error.status === 429
               ? "rate_limited"
-              : "service_unavailable";
+              : message.includes("invalid api key") || message.includes("supabase_url") || message.includes("supabase_key")
+                ? "service_configuration"
+                : "service_unavailable";
         setErrorKey(key);
         return;
       }
@@ -183,13 +192,17 @@ export function EmailOTPForm({
       });
       if (error) {
         const message = error.message.toLowerCase();
-        const key = message.includes("already") || message.includes("registered") || message.includes("exists")
-          ? "account_exists"
-          : message.includes("invalid") && message.includes("email")
-            ? "email_invalid"
-            : message.includes("rate")
-              ? "rate_limited"
-              : "email_delivery";
+        const key = message.includes("profiles_username_unique_ci") || (message.includes("duplicate key") && message.includes("username"))
+          ? "username_exists"
+          : message.includes("already") || message.includes("registered") || message.includes("exists")
+            ? "account_exists"
+            : message.includes("invalid") && message.includes("email")
+              ? "email_invalid"
+              : message.includes("rate")
+                ? "rate_limited"
+                : message.includes("invalid api key")
+                  ? "service_configuration"
+                  : "email_delivery";
         setErrorKey(key);
         setOTPState(key === "rate_limited" ? "rate_limited" : "error");
         return;
@@ -256,6 +269,94 @@ export function EmailOTPForm({
     await handleSendOTP();
   }, [handleSendOTP]);
 
+  const requestRecoveryCode = useCallback(async (event?: React.FormEvent) => {
+    event?.preventDefault();
+    const normalizedEmail = email.trim().toLowerCase();
+    if (!/^[^\\s@]+@[^\\s@]+\\.[^\\s@]+$/.test(normalizedEmail)) {
+      setErrorKey("email_invalid");
+      return;
+    }
+    try {
+      setIsLoading(true);
+      setErrorKey(null);
+      const { error } = await supabase.auth.resetPasswordForEmail(normalizedEmail, {
+        redirectTo: typeof window !== "undefined" ? `${window.location.origin}/login` : undefined,
+        ...(captchaToken ? { captchaToken } : {}),
+      });
+      if (error) {
+        const message = error.message.toLowerCase();
+        setErrorKey(message.includes("rate") ? "rate_limited" : message.includes("invalid api key") ? "service_configuration" : "email_delivery");
+        return;
+      }
+      setRecoveryNotice(true);
+      setStage("recovery-code");
+      setOtpValue("");
+      setErrorKey(null);
+    } catch {
+      setErrorKey("network");
+    } finally {
+      setIsLoading(false);
+    }
+  }, [captchaToken, email, supabase]);
+
+  const verifyRecoveryCode = useCallback(async (event?: React.FormEvent) => {
+    event?.preventDefault();
+    const normalizedEmail = email.trim().toLowerCase();
+    const code = otpValue.replace(/\\D/g, "").slice(0, AUTH_OTP_LENGTH);
+    if (code.length !== AUTH_OTP_LENGTH) return;
+    try {
+      setIsLoading(true);
+      setErrorKey(null);
+      const { error } = await supabase.auth.verifyOtp({ email: normalizedEmail, token: code, type: "recovery" });
+      if (error) {
+        const message = error.message.toLowerCase();
+        setErrorKey(message.includes("expired") ? "expired" : message.includes("rate") ? "rate_limited" : "invalid");
+        setOtpValue("");
+        return;
+      }
+      setStage("recovery-password");
+    } catch {
+      setErrorKey("network");
+    } finally {
+      setIsLoading(false);
+    }
+  }, [email, otpValue, supabase]);
+
+  const saveRecoveredPassword = useCallback(async (event?: React.FormEvent) => {
+    event?.preventDefault();
+    if (recoveryPassword.length < 8 || !/[A-Z]/.test(recoveryPassword) || !/[a-z]/.test(recoveryPassword) || !/[^\\sA-Za-z0-9]/.test(recoveryPassword)) {
+      setErrorKey("weak_password");
+      return;
+    }
+    if (recoveryPassword !== recoveryPasswordConfirm) {
+      setErrorKey("recovery_mismatch");
+      return;
+    }
+    try {
+      setIsLoading(true);
+      setErrorKey(null);
+      const { error } = await supabase.auth.updateUser({ password: recoveryPassword });
+      if (error) {
+        setErrorKey(error.message.toLowerCase().includes("rate") ? "rate_limited" : "error");
+        return;
+      }
+      setSignInPassword("");
+      setRecoveryPassword("");
+      setRecoveryPasswordConfirm("");
+      setOtpValue("");
+      setStage("credentials");
+      setErrorKey(null);
+      setRecoveryNotice(false);
+      await supabase.auth.signOut();
+      router.replace("/login?passwordReset=success");
+      router.refresh();
+    } catch {
+      setErrorKey("network");
+    } finally {
+      setIsLoading(false);
+    }
+  }, [recoveryPassword, recoveryPasswordConfirm, router, supabase]);
+
   const currentError = errorKey ? AUTH_ERRORS[errorKey] : null;
   const passwordRules = [
     { label: "At least 8 characters", met: password.length >= 8 },
@@ -275,10 +376,39 @@ export function EmailOTPForm({
 
   if (intent === "signin") {
     return <form onSubmit={handlePasswordSignIn} className="space-y-4" noValidate>
+      {typeof window !== "undefined" && new URLSearchParams(window.location.search).get("passwordReset") === "success" && <p role="status" className="rounded-xl border border-emerald-200 bg-emerald-50 px-3 py-2 text-sm font-semibold text-emerald-800">Your password has been reset. Please sign in with your new password.</p>}
       <div className="space-y-1.5"><Label htmlFor="signin-email" className="font-quicksand font-bold text-[#43364f]">Email</Label><Input id="signin-email" type="email" value={email} onChange={event => setEmail(event.target.value)} placeholder="you@email.com" className="border-[#ded0ef] bg-white/90 text-[#21152d] shadow-[0_2px_8px_rgba(40,20,55,.035)] transition-all duration-200 placeholder:text-[#a49aaa] hover:border-[#c5a9e8] focus-visible:border-[#a879e8] focus-visible:ring-2 focus-visible:ring-[#c4a7ff]/50 focus-visible:ring-offset-2 focus-visible:ring-offset-[#fffaff]" autoComplete="email" autoFocus disabled={isLoading} required /></div>
       <div className="space-y-1.5"><Label htmlFor="signin-password" className="font-quicksand font-bold text-[#43364f]">Password</Label><PasswordInput id="signin-password" value={signInPassword} onChange={event => setSignInPassword(event.target.value)} placeholder="Your RecallMate password" className="border-[#ded0ef] bg-white/90 text-[#21152d] shadow-[0_2px_8px_rgba(40,20,55,.035)] transition-all duration-200 placeholder:text-[#a49aaa] hover:border-[#c5a9e8] focus-visible:border-[#a879e8] focus-visible:ring-2 focus-visible:ring-[#c4a7ff]/50 focus-visible:ring-offset-2 focus-visible:ring-offset-[#fffaff]" autoComplete="current-password" disabled={isLoading} required /></div>
-      {currentError && <p id={errorId} role="alert" className="text-sm text-[#ff8293]">{currentError}</p>}
+      <div className="flex justify-end -mt-1"><button type="button" onClick={() => { setErrorKey(null); setOtpValue(""); setRecoveryNotice(false); setStage("recovery-code"); }} className="rounded-md text-xs font-bold text-[#9465cf] underline-offset-4 hover:text-[#d34c69] hover:underline focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[#c4a7ff]">Forgot password?</button></div>
+      {currentError && <p id={errorId} role="alert" className="text-sm text-[#bd4668]">{currentError}</p>}
       <Button type="submit" className="font-fredoka h-12 w-full rounded-xl border border-[#b69ae8] bg-gradient-to-r from-[#a78bfa] via-[#c4a7ff] to-[#ff7185] font-bold text-[#1b1025] shadow-[0_8px_24px_rgba(167,139,250,.24)] transition-all hover:-translate-y-0.5 hover:brightness-105" disabled={isLoading || !email.trim() || !signInPassword}>{isLoading ? <Loader2 className="h-4 w-4 animate-spin" /> : <><LockKeyhole className="h-4 w-4" />Sign in</>}</Button>
+    </form>;
+  }
+
+  if (stage === "recovery-code") {
+    return <form onSubmit={verifyRecoveryCode} className="space-y-5" noValidate>
+      <div className="space-y-2 text-center">
+        <h2 className="font-fredoka text-2xl font-semibold text-[#21152d]">Reset your password</h2>
+        <p className="font-quicksand text-sm font-semibold text-[#746a80]">Enter the 6-digit recovery code sent to your email address.</p>
+        <p className="text-sm font-bold text-[#21152d]">{maskEmail(email)}</p>
+        {recoveryNotice && <p role="status" className="rounded-xl border border-[#b9a1e8] bg-[#f2ecff] px-3 py-2 text-xs font-semibold text-[#59416f]">If this email is registered, a recovery code is on its way. Check your inbox and spam folder.</p>}
+      </div>
+      <OTPInput length={AUTH_OTP_LENGTH} value={otpValue} onChange={setOtpValue} disabled={isLoading} hasError={Boolean(currentError)} aria-describedby={currentError ? errorId : undefined} />
+      {currentError && <p id={errorId} role="alert" className="text-center text-sm text-[#bd4668]">{currentError}</p>}
+      <Button type="submit" disabled={isLoading || otpValue.length !== AUTH_OTP_LENGTH} className="font-fredoka h-12 w-full rounded-xl bg-gradient-to-r from-[#a78bfa] via-[#c4a7ff] to-[#ff7185] font-bold text-[#1b1025] disabled:opacity-40">{isLoading ? <Loader2 className="h-4 w-4 animate-spin" /> : "Verify recovery code"}</Button>
+      <div className="flex justify-between text-xs font-semibold"><button type="button" disabled={isLoading} onClick={() => void requestRecoveryCode()} className="text-[#9465cf] hover:text-[#d34c69] hover:underline">Resend code</button><button type="button" onClick={() => { setStage("credentials"); setErrorKey(null); setRecoveryNotice(false); }} className="text-[#81758c] hover:text-[#d34c69]">Back to sign in</button></div>
+    </form>;
+  }
+
+  if (stage === "recovery-password") {
+    const rulesMet = recoveryPassword.length >= 8 && /[A-Z]/.test(recoveryPassword) && /[a-z]/.test(recoveryPassword) && /[^\\sA-Za-z0-9]/.test(recoveryPassword);
+    return <form onSubmit={saveRecoveredPassword} className="space-y-4" noValidate>
+      <div className="text-center"><h2 className="font-fredoka text-2xl font-semibold text-[#21152d]">Choose a new password</h2><p className="font-quicksand text-sm text-[#746a80]">Your email code is verified. Create a fresh password for RecallMate.</p></div>
+      <div className="space-y-1.5"><Label htmlFor="recovery-new-password" className="font-quicksand font-bold text-[#43364f]">New password</Label><PasswordInput id="recovery-new-password" value={recoveryPassword} onChange={event => setRecoveryPassword(event.target.value)} autoComplete="new-password" disabled={isLoading} required /></div>
+      <div className="space-y-1.5"><Label htmlFor="recovery-confirm-password" className="font-quicksand font-bold text-[#43364f]">Confirm new password</Label><PasswordInput id="recovery-confirm-password" value={recoveryPasswordConfirm} onChange={event => setRecoveryPasswordConfirm(event.target.value)} autoComplete="new-password" disabled={isLoading} required /></div>
+      <p className={`text-xs font-semibold ${rulesMet ? "text-emerald-700" : "text-[#81758c]"}`}>At least 8 characters, uppercase, lowercase, and one special symbol.</p>
+      {currentError && <p id={errorId} role="alert" className="text-sm text-[#bd4668]">{currentError}</p>}
+      <Button type="submit" disabled={isLoading || !rulesMet || recoveryPassword !== recoveryPasswordConfirm} className="font-fredoka h-12 w-full rounded-xl bg-gradient-to-r from-[#a78bfa] via-[#c4a7ff] to-[#ff7185] font-bold text-[#1b1025] disabled:opacity-40">{isLoading ? <Loader2 className="h-4 w-4 animate-spin" /> : "Save new password"}</Button>
     </form>;
   }
 
