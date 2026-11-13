@@ -16,14 +16,13 @@ export async function POST(request: Request) {
     const body = schema.safeParse(await request.json().catch(() => null));
     if (!body.success) return NextResponse.json({ error: "Invalid heart purchase." }, { status: 400 });
 
-    const { data, error } = await economyRpc(context.admin, "service_purchase_hearts", {
+    const result = await economyRpc(context.admin, "service_purchase_hearts", {
       p_user_id: context.user.id,
       p_kind: body.data.kind,
       p_idempotency_key: body.data.idempotencyKey,
     });
-    if (error) throw error;
     const account = await readEconomyAccount(context.admin, context.user.id);
-    return NextResponse.json({ result: data, account });
+    return NextResponse.json({ result, account });
   } catch (error) {
     console.error("[economy/heart-shop]", error);
     return NextResponse.json({ error: "Unable to complete the heart purchase." }, { status: 400 });
