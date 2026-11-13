@@ -9,18 +9,7 @@ export default async function LoginPage({
   searchParams: Promise<{ next?: string; passwordReset?: string }>;
 }) {
   const resolvedSearchParams = await searchParams;
-  let next = "/dashboard";
-  if (
-    resolvedSearchParams.next &&
-    resolvedSearchParams.next.startsWith("/") &&
-    resolvedSearchParams.next !== "/" &&
-    !resolvedSearchParams.next.startsWith("//") &&
-    !resolvedSearchParams.next.startsWith("/login") &&
-    !resolvedSearchParams.next.startsWith("/signup") &&
-    !resolvedSearchParams.next.startsWith("/auth/")
-  ) {
-    next = resolvedSearchParams.next;
-  }
+  const next = "/dashboard";
 
   return (
     <AuthCard>
