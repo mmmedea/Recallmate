@@ -10,10 +10,10 @@ export function AuthCard({ children, className }: AuthCardProps) {
     <div
       className={cn(
         "w-full max-w-md font-nunito",
-        "bg-[#17111f]/95 backdrop-blur-xl",
-        "border border-[#a78bfa]/30",
-        "rounded-[2rem] shadow-[0_24px_80px_rgba(0,0,0,.48)]",
-        "px-5 py-8 sm:px-8 sm:py-10",
+        "bg-[#fffaff] text-[#21152d] backdrop-blur-xl",
+        "border border-[#c4a7ff] ring-1 ring-white/70",
+        "rounded-3xl shadow-[0_24px_80px_rgba(8,5,15,.42)]",
+        "px-5 py-7 sm:px-8 sm:py-8",
         className
       )}
     >
