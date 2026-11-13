@@ -3,7 +3,6 @@ import Link from "next/link";
 import { createClient } from "@/utils/supabase/server";
 import { getRecentDocuments } from "@/app/actions/document-actions";
 import { DocumentLifecycleSummary } from "@/app/actions/document-lifecycle";
-import EconomyDashboard from "@/components/dashboard/EconomyDashboard";
 
 export const metadata = {
   title: "Dashboard | RecallMate",
@@ -90,9 +89,6 @@ export default async function DashboardPage() {
               <span className="absolute -bottom-3 -left-3 rounded-full border border-[#c4b5fd]/30 bg-[#a78bfa]/15 px-3 py-1 font-pixelify text-[10px] text-[#d9c8ff]">RECALL</span>
             </div>
           </div>
-        </div>
-        <div className="mt-8 border-t border-white/10 pt-4">
-          <EconomyDashboard />
         </div>
       </section>
 
