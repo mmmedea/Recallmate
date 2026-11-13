@@ -1,7 +1,6 @@
 "use client";
 
 import { Suspense, useState } from "react";
-import { useSearchParams } from "next/navigation";
 import { AuthCard } from "@/components/auth/AuthCard";
 import { OAuthButtons } from "@/components/auth/OAuthButtons";
 import { EmailOTPForm } from "@/components/auth/EmailOTPForm";
@@ -19,25 +18,12 @@ import { PrivacyContent } from "@/components/legal/PrivacyContent";
 import { TermsContent } from "@/components/legal/TermsContent";
 
 function SignupPageContent() {
-  const searchParams = useSearchParams();
-  const requestedNext = searchParams.get("next");
   const [privacyAgreed, setPrivacyAgreed] = useState(false);
   const [username, setUsername] = useState("");
   const [password, setPassword] = useState("");
   const [confirmPassword, setConfirmPassword] = useState("");
 
-  let next = "/dashboard";
-  if (
-    requestedNext &&
-    requestedNext.startsWith("/") &&
-    requestedNext !== "/" &&
-    !requestedNext.startsWith("//") &&
-    !requestedNext.startsWith("/login") &&
-    !requestedNext.startsWith("/signup") &&
-    !requestedNext.startsWith("/auth/")
-  ) {
-    next = requestedNext;
-  }
+  const next = "/dashboard";
 
   const privacyControl = (
             <div className="mt-4 flex flex-col items-center gap-3">
