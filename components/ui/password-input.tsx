@@ -18,7 +18,7 @@ export const PasswordInput = React.forwardRef<HTMLInputElement, PasswordInputPro
           ref={ref}
           type={visible ? "text" : "password"}
           disabled={disabled}
-          className={cn("!bg-white !text-[#21152d] placeholder:!text-[#a49aaa] dark:!bg-slate-950 dark:!text-white dark:placeholder:!text-slate-500 pr-11", className)}
+          className={cn("!bg-white !text-[#21152d] !caret-[#21152d] placeholder:!text-[#a49aaa] [color-scheme:light] dark:!bg-slate-950 dark:!text-white dark:!caret-white dark:placeholder:!text-slate-400 dark:[color-scheme:dark] pr-11", className)}
         />
         <button
           type="button"
