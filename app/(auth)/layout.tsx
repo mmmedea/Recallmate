@@ -9,12 +9,19 @@ export default async function AuthLayout({
 }) {
   const supabase = await createClient();
 
-  // getClaims() — validates JWT locally.
-  // If a valid session exists, the user is already authenticated → send them in.
-  const { data } = await supabase.auth.getClaims();
-
-  if (data?.claims) {
-    redirect("/dashboard");
+  // Auth pages must remain renderable even when Supabase is temporarily
+  // unreachable or an old session cookie cannot be decoded. A failed session
+  // lookup is not a reason to replace the sign-in form with an error boundary.
+  try {
+    const { data, error } = await supabase.auth.getClaims();
+    if (!error && data?.claims) {
+      redirect("/dashboard");
+    }
+  } catch (error) {
+    console.error("[auth-layout] session lookup failed; keeping auth page available", {
+      name: error instanceof Error ? error.name : "UnknownError",
+      message: error instanceof Error ? error.message : "Unknown error",
+    });
   }
 
   return (
