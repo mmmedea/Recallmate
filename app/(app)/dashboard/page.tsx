@@ -10,6 +10,7 @@ import Link from "next/link";
 import { Button } from "@/components/ui/button";
 import ThemeToggle from "@/components/ThemeToggle";
 import MedeaWelcomeCard from "@/components/dashboard/MedeaWelcomeCard";
+import EconomyDashboard from "@/components/dashboard/EconomyDashboard";
 
 export const metadata = {
   title: "Dashboard | RecallMate",
@@ -49,8 +50,10 @@ export default async function DashboardPage() {
         </div>
       </div>
 
+      <EconomyDashboard />
+
       {/* Top Stats Cards */}
-      <div className="grid grid-cols-1 gap-4 sm:grid-cols-2 lg:grid-cols-4 mb-6">
+      <div className="grid grid-cols-1 gap-4 sm:grid-cols-2 lg:grid-cols-3 mb-6">
         {/* Total Cards */}
         <div className="rounded-2xl border border-slate-200 dark:border-slate-800 bg-white dark:bg-slate-900 p-6 shadow-sm flex flex-col justify-between">
           <div className="flex justify-between items-start">
@@ -93,22 +96,6 @@ export default async function DashboardPage() {
           </div>
         </div>
 
-        {/* Study Streak */}
-        <div className="rounded-2xl border border-slate-200 dark:border-slate-800 bg-white dark:bg-slate-900 p-6 shadow-sm flex flex-col justify-between">
-          <div className="flex justify-between items-start">
-            <span className="text-sm font-medium text-slate-500 dark:text-slate-400">Study Streak</span>
-            <div className="p-2 rounded-lg bg-orange-50 dark:bg-orange-500/10 text-orange-500 dark:text-orange-400">
-              <Flame className="h-5 w-5" />
-            </div>
-          </div>
-          <div>
-            <div className="flex items-baseline gap-1 mt-4">
-              <div className="text-3xl font-bold text-slate-900 dark:text-white">0</div>
-              <div className="text-xl font-bold text-slate-900 dark:text-white">days</div>
-            </div>
-            <p className="text-xs text-slate-500 dark:text-slate-400 mt-1">Keep it going!</p>
-          </div>
-        </div>
       </div>
 
       {/* Middle Stats Cards */}
