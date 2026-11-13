@@ -346,7 +346,7 @@ export function EmailOTPForm({
   const requestRecoveryCode = useCallback(async (event?: React.FormEvent): Promise<boolean> => {
     event?.preventDefault();
     const normalizedEmail = email.trim().toLowerCase();
-    if (!/^[^\\s@]+@[^\\s@]+\\.[^\\s@]+$/.test(normalizedEmail)) {
+    if (!/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(normalizedEmail)) {
       setErrorKey("email_invalid");
       return false;
     }
