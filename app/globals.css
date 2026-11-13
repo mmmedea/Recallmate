@@ -76,3 +76,17 @@ html { scroll-behavior: smooth; }
   overflow-y: hidden;
   max-width: 100%;
 }
+
+
+/* Keep browser autofill visually consistent with the light auth fields. */
+input:-webkit-autofill,
+input:-webkit-autofill:hover,
+input:-webkit-autofill:focus,
+input:-webkit-autofill:active,
+input:autofill {
+  -webkit-text-fill-color: #21152d !important;
+  caret-color: #21152d;
+  -webkit-box-shadow: 0 0 0 1000px #ffffff inset !important;
+  box-shadow: 0 0 0 1000px #ffffff inset !important;
+  transition: background-color 9999s ease-out 0s;
+}
