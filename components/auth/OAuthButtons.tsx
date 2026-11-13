@@ -84,7 +84,7 @@ export function OAuthButtons({ redirectTo = "/dashboard" }: OAuthButtonsProps) {
             <Button
               type="button"
               variant="outline"
-              className="w-full h-11 font-medium border-slate-300 dark:border-slate-700 hover:bg-slate-50 dark:hover:bg-slate-800 gap-3"
+              className="font-quicksand w-full h-12 rounded-xl border-[#a78bfa]/35 bg-[#241a30] font-bold text-[#f5efff] hover:border-[#ff7185]/60 hover:bg-[#30203b] hover:text-white gap-3"
               onClick={() => handleOAuthSignIn(provider.id)}
               disabled={loadingProvider !== null}
               aria-label={provider.label}
@@ -98,7 +98,7 @@ export function OAuthButtons({ redirectTo = "/dashboard" }: OAuthButtonsProps) {
             </Button>
             
             {hasError && (
-              <p className="text-xs text-rose-600 dark:text-rose-400 text-center flex items-center justify-center gap-1.5 animate-in slide-in-from-top-1 duration-200">
+              <p className="text-xs text-[#ff8293] text-center flex items-center justify-center gap-1.5 animate-in slide-in-from-top-1 duration-200">
                 <AlertCircle className="h-3 w-3" />
                 {provider.label.split(" ")[2]} sign-in is temporarily unavailable.
               </p>
