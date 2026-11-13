@@ -18,22 +18,10 @@ export async function middleware(request: NextRequest) {
       message: error instanceof Error ? error.message : "Unknown error",
     });
 
-    // Never let a failed edge refresh become authorization. The server layout
-    // performs its own verified session check before rendering app data.
-    const pathname = request.nextUrl.pathname;
-    const protectedRoutes = ["/dashboard", "/notes", "/quiz", "/upload", "/documents", "/flashcards", "/calendar", "/settings"];
-    const isProtectedRoute = protectedRoutes.some(
-      (route) => pathname === route || pathname.startsWith(`${route}/`)
-    );
-    if (isProtectedRoute) {
-      const url = request.nextUrl.clone();
-      url.pathname = "/login";
-      url.search = "";
-      url.searchParams.set("next", `${pathname}${request.nextUrl.search}`);
-      supabaseResponse = NextResponse.redirect(url);
-    } else {
-      supabaseResponse = NextResponse.next({ request });
-    }
+    // A failed refresh is not proof that a session is invalid. Continue to
+    // the server layout, which independently validates JWT claims before it
+    // renders any protected application data.
+    supabaseResponse = NextResponse.next({ request });
   }
 
   // 2. Rate Limiting for specific API routes
