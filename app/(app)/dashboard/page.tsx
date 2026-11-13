@@ -52,6 +52,27 @@ export default async function DashboardPage() {
 
       <EconomyDashboard />
 
+      <section className="mb-8 rounded-2xl border border-slate-200 bg-white p-5 shadow-sm dark:border-slate-800 dark:bg-slate-900">
+        <div className="mb-3 flex items-center justify-between gap-3">
+          <div>
+            <p className="text-sm font-semibold text-indigo-600 dark:text-indigo-300">Pick up where you left off</p>
+            <h2 className="text-xl font-bold text-slate-900 dark:text-white">Continue studying</h2>
+          </div>
+          <Link href="/upload" className="rounded-xl bg-indigo-600 px-4 py-2 text-sm font-bold text-white hover:bg-indigo-700">Add material</Link>
+        </div>
+        {success && documents && documents.length > 0 ? (
+          <Link href={`/documents/${documents[0].document.id}${documents[0].extraction.status === "completed" ? "" : "/process"}`} className="flex items-center justify-between gap-4 rounded-xl bg-indigo-50 p-4 transition hover:bg-indigo-100 dark:bg-indigo-950/40 dark:hover:bg-indigo-950/70">
+            <div className="min-w-0">
+              <p className="truncate font-semibold text-slate-900 dark:text-white">{documents[0].document.filename}</p>
+              <p className="mt-1 text-xs text-slate-500 dark:text-slate-400">Last added {new Date(documents[0].document.createdAt).toLocaleDateString()}</p>
+            </div>
+            <span className="shrink-0 text-sm font-bold text-indigo-700 dark:text-indigo-300">Continue →</span>
+          </Link>
+        ) : (
+          <p className="rounded-xl bg-slate-50 p-4 text-sm text-slate-600 dark:bg-slate-800 dark:text-slate-300">Upload your first study material and it will appear here.</p>
+        )}
+      </section>
+
       {/* Top Stats Cards */}
       <div className="grid grid-cols-1 gap-4 sm:grid-cols-2 lg:grid-cols-3 mb-6">
         {/* Total Cards */}
@@ -98,6 +119,7 @@ export default async function DashboardPage() {
 
       </div>
 
+      <h2 className="mb-4 text-xl font-bold text-slate-900 dark:text-white">Review due</h2>
       {/* Middle Stats Cards */}
       <div className="grid grid-cols-1 gap-4 sm:grid-cols-3 mb-8">
         <div className="rounded-2xl border border-slate-200 dark:border-slate-800 bg-white dark:bg-slate-900 p-6 shadow-sm flex flex-col justify-between">
@@ -144,7 +166,7 @@ export default async function DashboardPage() {
 
       {/* Recent Documents */}
       <div className="mb-6">
-        <h2 className="text-xl font-bold text-slate-900 dark:text-white mb-4">Your Library</h2>
+        <h2 className="text-xl font-bold text-slate-900 dark:text-white mb-4">Recent materials</h2>
         {(!success || !documents || documents.length === 0) ? (
           <div className="flex flex-col items-center justify-center rounded-2xl border border-dashed border-slate-200 dark:border-slate-800 bg-white dark:bg-slate-900 py-16 text-center shadow-sm">
             <Brain className="mb-4 h-12 w-12 text-slate-300 dark:text-slate-600" />
