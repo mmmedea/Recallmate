@@ -13,7 +13,11 @@ export default async function LoginPage({
   if (
     resolvedSearchParams.next &&
     resolvedSearchParams.next.startsWith("/") &&
-    !resolvedSearchParams.next.startsWith("//")
+    resolvedSearchParams.next !== "/" &&
+    !resolvedSearchParams.next.startsWith("//") &&
+    !resolvedSearchParams.next.startsWith("/login") &&
+    !resolvedSearchParams.next.startsWith("/signup") &&
+    !resolvedSearchParams.next.startsWith("/auth/")
   ) {
     next = resolvedSearchParams.next;
   }
