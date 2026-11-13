@@ -2,7 +2,6 @@
 
 import { useCallback, useEffect, useState } from "react";
 import { Gift, RotateCcw, Sparkles, X, Coins, Heart } from "lucide-react";
-import { createClient } from "@/utils/supabase/client";
 
 type EconomyAccount = {
   coins: number;
@@ -33,20 +32,12 @@ export default function EconomyDashboard() {
   const [message, setMessage] = useState("");
   const [error, setError] = useState("");
 
-  const getToken = useCallback(async () => {
-    const supabase = createClient();
-    const { data, error: sessionError } = await supabase.auth.getSession();
-    if (sessionError || !data.session?.access_token) throw new Error("Please sign in again to load your rewards.");
-    return data.session.access_token;
-  }, []);
-
   const load = useCallback(async () => {
     setLoading(true);
     setError("");
     try {
-      const token = await getToken();
       const response = await fetch("/api/economy/state", {
-        headers: { Authorization: `Bearer ${token}` },
+        credentials: "same-origin",
         cache: "no-store",
       });
       const data = await response.json();
@@ -60,7 +51,7 @@ export default function EconomyDashboard() {
     } finally {
       setLoading(false);
     }
-  }, [getToken]);
+  }, []);
 
   useEffect(() => { void load(); }, [load]);
 
@@ -69,10 +60,10 @@ export default function EconomyDashboard() {
     setError("");
     setMessage("");
     try {
-      const token = await getToken();
       const response = await fetch(path, {
         method: "POST",
-        headers: { "Content-Type": "application/json", Authorization: `Bearer ${token}` },
+        credentials: "same-origin",
+        headers: { "Content-Type": "application/json" },
         body: JSON.stringify({ ...payload, idempotencyKey: crypto.randomUUID() }),
       });
       const data = await response.json();
