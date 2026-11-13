@@ -142,7 +142,7 @@ export function EmailOTPForm({
     if (!normalizedEmail) return;
     if (!privacyAgreed) return setErrorKey("privacy_required");
     if (!/^[A-Za-z0-9_]{3,30}$/.test(username.trim())) return setErrorKey("username_required");
-    if (password.length < 8 || !/[A-Z]/.test(password) || !/[a-z]/.test(password) || !/[^A-Za-z0-9]/.test(password)) return setErrorKey("weak_password");
+    if (password.length < 8 || !/[A-Z]/.test(password) || !/[a-z]/.test(password) || !/[^\\sA-Za-z0-9]/.test(password)) return setErrorKey("weak_password");
     if (password !== confirmPassword) return setErrorKey("password_mismatch");
     if (captchaEnabled && !captchaToken) return setErrorKey("captcha_required");
 
@@ -260,7 +260,7 @@ export function EmailOTPForm({
     { label: "At least 8 characters", met: password.length >= 8 },
     { label: "One uppercase letter", met: /[A-Z]/.test(password) },
     { label: "One lowercase letter", met: /[a-z]/.test(password) },
-    { label: "One special symbol", met: /[^A-Za-z0-9]/.test(password) },
+    { label: "One special symbol", met: /[^\sA-Za-z0-9]/.test(password) },
   ];
   const passwordValid = passwordRules.every((rule) => rule.met);
   const usernameValid = /^[A-Za-z0-9_]{3,30}$/.test(username.trim());
@@ -313,8 +313,8 @@ export function EmailOTPForm({
         No code yet? Check your Spam or Junk folder. If you find it there, mark it as not spam so future RecallMate codes reach your inbox.
       </p>
     </div>
-    <div className="space-y-3"><OTPInput length={AUTH_OTP_LENGTH} value={otpValue} onChange={value => { setOtpValue(value); if (value.length === AUTH_OTP_LENGTH) void verifyCode(value); }} disabled={isLoading} hasError={Boolean(currentError)} aria-describedby={currentError ? errorId : undefined} />{currentError && <p id={errorId} role="alert" aria-live="assertive" className="text-center text-sm text-rose-600 dark:text-rose-400">{currentError}</p>}</div>
-    <Button type="submit" className="h-11 w-full bg-indigo-600 font-semibold hover:bg-indigo-700" disabled={isLoading || otpValue.length !== AUTH_OTP_LENGTH}>{isLoading ? <Loader2 className="h-4 w-4 animate-spin" /> : "Verify code & continue"}</Button>
+    <div className="space-y-3"><OTPInput length={AUTH_OTP_LENGTH} value={otpValue} onChange={value => { setOtpValue(value); if (value.length === AUTH_OTP_LENGTH) void verifyCode(value); }} disabled={isLoading} hasError={Boolean(currentError)} aria-describedby={currentError ? errorId : undefined} />{currentError && <p id={errorId} role="alert" aria-live="assertive" className="text-center text-sm text-[#bd4668]">{currentError}</p>}</div>
+    <Button type="submit" className="font-fredoka h-12 w-full rounded-xl border border-[#b69ae8] bg-gradient-to-r from-[#a78bfa] via-[#c4a7ff] to-[#ff7185] font-bold text-[#1b1025] shadow-[0_8px_24px_rgba(167,139,250,.24)] transition-all hover:-translate-y-0.5 hover:brightness-105 disabled:opacity-40" disabled={isLoading || otpValue.length !== AUTH_OTP_LENGTH}>{isLoading ? <Loader2 className="h-4 w-4 animate-spin" /> : "Verify code & continue"}</Button>
     <div className="flex items-center justify-between text-sm"><ResendButton onResend={handleResend} disabled={isLoading} /><button type="button" onClick={changeEmail} className="rounded text-[#bdb3cc] transition-colors hover:text-[#ff7185]">Change email</button></div>
   </form>;
 }
