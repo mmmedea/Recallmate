@@ -2,7 +2,7 @@
 
 import { useEffect, useState } from "react";
 import { useRouter } from "next/navigation";
-import { Loader2, ArrowLeft, AlertCircle, Layers3, Printer, Sparkles, UploadCloud } from "lucide-react";
+import { Loader2, ArrowLeft, AlertCircle, Layers3, Printer, UploadCloud } from "lucide-react";
 import Link from "next/link";
 import FileUploader from "@/components/FileUploader";
 import { createClient } from "@/utils/supabase/client";
