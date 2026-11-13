@@ -16,7 +16,7 @@ export function Sidebar() {
   return (
     <aside className={cn(
       "hidden md:flex h-full shrink-0 flex-col border-r border-[#c4b5fd]/10 bg-[#15111f]/95 shadow-[12px_0_48px_rgba(8,5,18,.16)] backdrop-blur-2xl transition-[width] duration-300",
-      isSidebarOpen ? "w-64" : "w-[5.25rem]"
+      isSidebarOpen ? "w-64" : "w-[5.75rem]"
     )}>
       <div className={cn("flex h-[4.5rem] shrink-0 items-center border-b border-white/[0.07] px-2", isSidebarOpen ? "gap-2" : "gap-1")}>
         <Link href="/dashboard" aria-label="RecallMate dashboard" className="flex min-w-0 items-center gap-2.5">
