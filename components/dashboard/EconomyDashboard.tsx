@@ -28,6 +28,7 @@ export default function EconomyDashboard() {
   const [loading, setLoading] = useState(true);
   const [busy, setBusy] = useState(false);
   const [open, setOpen] = useState(false);
+  const [welcomeOpen, setWelcomeOpen] = useState(false);
   const [message, setMessage] = useState("");
   const [error, setError] = useState("");
 
@@ -39,6 +40,15 @@ export default function EconomyDashboard() {
       const data = await response.json();
       if (!response.ok) throw new Error(data.error || "Unable to load your study streak.");
       setAccount(data.account);
+      try {
+        const welcomeKey = `recallmate:streak-welcome:${data.account.study_day || "today"}`;
+        if (!window.sessionStorage.getItem(welcomeKey)) {
+          window.sessionStorage.setItem(welcomeKey, "shown");
+          setWelcomeOpen(true);
+        }
+      } catch {
+        setWelcomeOpen(true);
+      }
     } catch (err) {
       setError(err instanceof Error ? err.message : "Unable to load your study streak.");
     } finally {
@@ -91,17 +101,43 @@ export default function EconomyDashboard() {
   const nextReward = rewards.find((reward) => reward.day === nextRewardDay)?.reward;
 
   return (
-    <div className="flex flex-wrap items-center justify-between gap-3">
+    <div className="relative flex flex-wrap items-center justify-between gap-3">
       <div className="flex items-center gap-3">
-        <span className="streak-fire inline-flex h-10 w-10 items-center justify-center rounded-2xl border border-orange-400/25 bg-gradient-to-br from-orange-400/20 to-red-500/10 text-2xl" aria-hidden="true">🔥</span>
+        <span className="streak-fire inline-flex h-12 w-12 items-center justify-center rounded-2xl border border-[#fb923c]/35 bg-gradient-to-br from-[#fb923c]/25 via-[#f97316]/15 to-[#f43f5e]/15 text-3xl shadow-[0_0_28px_rgba(251,146,60,.13)]" aria-hidden="true">🔥</span>
         <div>
-          <p className="font-fredoka text-sm font-semibold text-white">{loading ? "Checking your streak…" : `${account?.current_streak ?? 0} day study streak`}</p>
-          <p className="font-quicksand text-xs text-white/45">{loading ? "Your study momentum" : `Next reward: Day ${nextRewardDay} · ${nextReward}`}</p>
+          <p className="font-fredoka text-lg font-semibold text-white">{loading ? "Checking your streak…" : <><span className="mr-1 text-[#ffb16b]">{account?.current_streak ?? 0}</span> day study streak</>}</p>
+          <p className="font-quicksand text-xs text-white/55">{loading ? "Your study momentum" : `Best: ${account?.longest_streak ?? 0} days  ·  Next: Day ${nextRewardDay} · ${nextReward}`}</p>
         </div>
       </div>
-      <button type="button" disabled={loading} onClick={() => setOpen(true)} className="rounded-xl border border-orange-400/25 bg-orange-400/10 px-4 py-2.5 font-nunito text-xs font-extrabold text-orange-200 transition hover:border-orange-300/60 hover:bg-orange-400/20 disabled:opacity-50">
+      <button type="button" disabled={loading} onClick={() => setOpen(true)} className="rounded-xl border border-[#fb923c]/30 bg-gradient-to-r from-[#fb923c]/15 to-[#f43f5e]/10 px-4 py-2.5 font-nunito text-xs font-extrabold text-[#ffc28b] shadow-[0_8px_25px_rgba(244,63,94,.08)] transition hover:-translate-y-0.5 hover:border-[#fb923c]/60 hover:from-[#fb923c]/25 hover:to-[#f43f5e]/20 disabled:opacity-50">
         View streak awards →
       </button>
+
+      {welcomeOpen && account && (
+        <div className="streak-welcome-backdrop fixed inset-0 z-[120] flex items-center justify-center bg-[#090711]/80 p-4 backdrop-blur-xl" role="presentation" onMouseDown={(event) => { if (event.target === event.currentTarget) setWelcomeOpen(false); }}>
+          <section role="dialog" aria-modal="true" aria-labelledby="streak-welcome-title" className="streak-welcome-card relative w-full max-w-md overflow-hidden rounded-[2rem] border border-[#fb923c]/35 bg-[linear-gradient(145deg,#251a2d_0%,#1b1728_54%,#2b1824_100%)] p-6 text-center shadow-[0_30px_110px_rgba(8,5,18,.65)] sm:p-8">
+            <div aria-hidden="true" className="streak-welcome-glow pointer-events-none absolute -right-16 -top-20 h-64 w-64 rounded-full bg-[#fb923c]/20 blur-3xl" />
+            <div aria-hidden="true" className="pointer-events-none absolute -bottom-24 -left-16 h-56 w-56 rounded-full bg-[#a78bfa]/20 blur-3xl" />
+            <div className="relative">
+              <p className="font-pixelify text-[10px] uppercase tracking-[0.24em] text-[#ffb16b]">YOUR MOMENTUM IS GROWING</p>
+              <div className="streak-welcome-flame mx-auto mt-5 grid h-24 w-24 place-items-center rounded-[2rem] border border-[#fb923c]/35 bg-gradient-to-br from-[#fb923c]/25 via-[#f97316]/15 to-[#f43f5e]/20 text-6xl shadow-[0_0_55px_rgba(251,146,60,.2)]" aria-hidden="true">🔥</div>
+              <p className="mt-5 font-quicksand text-sm font-semibold text-white/65">YOU'RE BUILDING A HABIT</p>
+              <h2 id="streak-welcome-title" className="mt-1 font-fredoka text-3xl font-semibold text-white">Your study streak</h2>
+              <div className="streak-number-pop mt-4 flex items-baseline justify-center gap-2">
+                <span className="font-fredoka text-7xl font-bold leading-none text-transparent bg-gradient-to-b from-[#ffd3a1] via-[#fb923c] to-[#f43f5e] bg-clip-text tabular-nums">{account.current_streak}</span>
+                <span className="font-fredoka text-xl font-semibold text-white/80">days</span>
+              </div>
+              <p className="mt-3 font-quicksand text-sm leading-6 text-white/60">{account.current_streak > 0 ? "Every focused session adds fuel to your momentum. Keep your fire alive today." : "Your next study session can start a brand-new streak. Every day is a fresh chance."}</p>
+              <div className="mt-5 grid grid-cols-2 gap-3">
+                <div className="rounded-2xl border border-white/10 bg-white/[0.045] p-3"><p className="font-pixelify text-[9px] tracking-widest text-white/40">PERSONAL BEST</p><p className="mt-1 font-fredoka text-2xl text-white">{account.longest_streak}<span className="ml-1 text-xs text-white/45">days</span></p></div>
+                <div className="rounded-2xl border border-[#fb923c]/20 bg-[#fb923c]/[0.07] p-3"><p className="font-pixelify text-[9px] tracking-widest text-[#ffbd83]/65">NEXT REWARD</p><p className="mt-1 font-fredoka text-2xl text-[#ffd0a5]">DAY {nextRewardDay}</p></div>
+              </div>
+              <button type="button" onClick={() => setWelcomeOpen(false)} className="mt-6 min-h-12 w-full rounded-2xl bg-gradient-to-r from-[#fb923c] via-[#f97316] to-[#f43f5e] px-5 py-3 font-nunito text-sm font-black text-[#1c1020] shadow-lg shadow-[#f97316]/20 transition hover:-translate-y-0.5 hover:shadow-xl hover:shadow-[#f97316]/30">Let's keep the fire going</button>
+              <button type="button" onClick={() => { setWelcomeOpen(false); setOpen(true); }} className="mt-3 min-h-10 w-full rounded-xl font-nunito text-xs font-bold text-[#d8c9ff] transition hover:bg-white/[0.05]">View streak rewards</button>
+            </div>
+          </section>
+        </div>
+      )}
 
       {message && <p role="status" className="w-full rounded-xl border border-emerald-400/20 bg-emerald-400/10 px-4 py-3 font-nunito text-sm text-emerald-200">{message}</p>}
       {error && <p role="alert" className="w-full rounded-xl border border-rose-400/20 bg-rose-400/10 px-4 py-3 font-nunito text-sm text-rose-200">{error}</p>}
