@@ -20,10 +20,10 @@ export default async function LoginPage({
 
   return (
     <AuthCard>
-      <div className="space-y-5"><nav aria-label="Account access" className="mx-auto grid w-full max-w-[260px] grid-cols-2 rounded-full bg-[#eee8f6] p-1"><Link href="/login" aria-current="page" className="rounded-full bg-white px-4 py-2 text-center font-fredoka text-sm font-semibold text-[#24152f] shadow-sm">Sign in</Link><Link href="/signup" className="rounded-full px-4 py-2 text-center font-fredoka text-sm font-semibold text-[#756b80] hover:text-[#a34c75]">Sign up</Link></nav>
+      <div className="space-y-5"><nav aria-label="Account access" className="mx-auto grid w-full max-w-[280px] grid-cols-2 rounded-full border border-[#e5d9f4] bg-[#eee8f7] p-1.5 shadow-inner"><Link href="/login" aria-current="page" className="rounded-full bg-gradient-to-r from-white to-[#fff4f6] px-4 py-2.5 text-center font-fredoka text-sm font-semibold text-[#21152d] shadow-[0_3px_12px_rgba(34,18,48,.12)] ring-1 ring-white">Sign in</Link><Link href="/signup" className="rounded-full px-4 py-2.5 text-center font-fredoka text-sm font-semibold text-[#766b84] transition-all duration-200 hover:bg-white/70 hover:text-[#21152d]">Sign up</Link></nav>
         {/* Heading */}
         <div className="space-y-1 text-center">
-          <h1 className="font-fredoka text-3xl font-semibold tracking-tight text-[#21152d]">
+          <h1 className="font-fredoka text-3xl font-semibold tracking-tight text-[#21152d] sm:text-4xl">
             Welcome back
           </h1>
           <p className="font-quicksand text-sm font-semibold text-[#746a80]">
