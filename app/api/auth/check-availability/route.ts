@@ -17,6 +17,18 @@ export async function POST(request: NextRequest) {
     || "unknown";
 
   try {
+    // Validate server-only credentials before touching the rate-limit RPC.
+    // Both the rate limiter and availability lookup require this privileged
+    // key; fail with a configuration error instead of a misleading outage.
+    const serviceKey = process.env.SUPABASE_SECRET_KEY || process.env.SUPABASE_SERVICE_ROLE_KEY;
+    const url = process.env.NEXT_PUBLIC_SUPABASE_URL;
+    if (!serviceKey || !url) {
+      return NextResponse.json(
+        { code: "service_configuration", error: "Account availability checking is not configured. Add SUPABASE_SECRET_KEY to the Vercel server environment." },
+        { status: 503, headers: { "Cache-Control": "no-store" } }
+      );
+    }
+
     await checkRateLimit(`signup-availability:${ip}`, { limit: 12, windowSeconds: 60 });
 
     const rawBody = await request.json().catch(() => null);
@@ -26,12 +38,6 @@ export async function POST(request: NextRequest) {
     }
     const email = parsed.data.email.toLowerCase();
     const username = parsed.data.username;
-
-    const serviceKey = process.env.SUPABASE_SECRET_KEY || process.env.SUPABASE_SERVICE_ROLE_KEY;
-    const url = process.env.NEXT_PUBLIC_SUPABASE_URL;
-    if (!serviceKey || !url) {
-      return NextResponse.json({ code: "service_configuration", error: "Account availability checking is not configured." }, { status: 503 });
-    }
 
     const sessionClient = await createClient();
     const { data: { user } } = await sessionClient.auth.getUser();
