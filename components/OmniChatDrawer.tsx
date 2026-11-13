@@ -3,7 +3,6 @@
 import { useState, useEffect, useRef } from "react";
 import { createPortal } from "react-dom";
 import {
-  Sparkles,
   X,
   Send,
   Bot,
@@ -302,7 +301,7 @@ export default function OmniChatDrawer() {
         className="fixed bottom-24 right-4 sm:bottom-6 sm:right-6 z-[999] flex items-center gap-2.5 px-4 py-3 bg-gradient-to-r from-indigo-600 to-purple-600 hover:from-indigo-500 hover:to-purple-500 text-white font-bold rounded-full shadow-2xl transition-all duration-300 hover:scale-105 active:scale-95 group border border-white/20"
       >
         <div className="relative">
-          <Sparkles className="w-5 h-5 animate-pulse" />
+          <span aria-hidden="true" className="font-fredoka text-2xl leading-none">✦</span>
           <span className="absolute -top-1 -right-1 w-2.5 h-2.5 bg-emerald-400 rounded-full border border-indigo-700" />
         </div>
         <span className="text-sm tracking-wide">Medea AI</span>
