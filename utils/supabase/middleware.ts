@@ -50,7 +50,7 @@ export async function updateSession(request: NextRequest) {
     (route) => pathname === route || pathname.startsWith(`${route}/`)
   )
   const isAuthOrHomeRoute =
-    pathname === '/' || pathname === '/login' || pathname === '/signup'
+    pathname === '/' || pathname === '/login' || pathname === '/signup' || pathname === '/onboarding'
 
   const redirectWithRefreshedCookies = (url: URL) => {
     const response = NextResponse.redirect(url)
@@ -70,17 +70,11 @@ export async function updateSession(request: NextRequest) {
   }
 
   if (isAuthOrHomeRoute && user) {
-    const username = user.user_metadata?.username
-    const accountCompleted = user.user_metadata?.recallmate_account_completed === true
+    // Authenticated users always enter the current RecallMate dashboard.
+    // The legacy onboarding/account-creation screen is retired.
     const url = request.nextUrl.clone()
-    url.pathname =
-      typeof username === 'string' && username.trim().length >= 3 && accountCompleted
-        ? '/dashboard'
-        : '/onboarding'
+    url.pathname = '/dashboard'
     url.search = ''
-    if (url.pathname === '/onboarding') {
-      url.searchParams.set('next', '/dashboard')
-    }
     return redirectWithRefreshedCookies(url)
   }
 
