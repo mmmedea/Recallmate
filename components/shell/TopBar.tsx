@@ -9,7 +9,6 @@ import { Button } from "@/components/ui/button";
 import { useAppStore } from "@/lib/store";
 import { navigationConfig } from "@/lib/navigation";
 import type { AuthenticatedUser } from "@/lib/types/auth";
-import EconomyWallet from "@/components/shell/EconomyWallet";
 
 interface TopBarProps {
   user: AuthenticatedUser;
@@ -42,7 +41,6 @@ export function TopBar({ user }: TopBarProps) {
       </div>
 
       <div className="flex items-center gap-2">
-        <EconomyWallet />
         <NotificationBell />
         <ThemeToggle />
         <AccountMenu user={user} />
