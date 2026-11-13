@@ -38,9 +38,17 @@ export default async function DashboardPage() {
   ]);
 
   const recent = success && documents ? documents : [];
-  const latest = recent[0];
+  const latest = [...recent].sort((a, b) => {
+    const aLastActive = new Date(a.chat.lastDiscussedAt || a.document.createdAt).getTime();
+    const bLastActive = new Date(b.chat.lastDiscussedAt || b.document.createdAt).getTime();
+    return bLastActive - aLastActive;
+  })[0];
   const continueHref = latest
-    ? `/documents/${latest.document.id}${latest.extraction.status === "completed" ? "" : "/process"}`
+    ? latest.quiz.status === "ready"
+      ? `/quiz/${latest.document.id}`
+      : latest.notes.status === "ready"
+        ? `/notes/${latest.document.id}`
+        : `/documents/${latest.document.id}${latest.extraction.status === "completed" ? "" : "/process"}`
     : "/upload";
 
   return (
