@@ -13,13 +13,12 @@ export async function POST(request: Request) {
     const body = schema.safeParse(await request.json().catch(() => null));
     if (!body.success) return NextResponse.json({ error: "Invalid streak restore request." }, { status: 400 });
 
-    const { data, error } = await economyRpc(context.admin, "service_restore_streak", {
+    const result = await economyRpc(context.admin, "service_restore_streak", {
       p_user_id: context.user.id,
       p_idempotency_key: body.data.idempotencyKey,
     });
-    if (error) throw error;
     const account = await readEconomyAccount(context.admin, context.user.id);
-    return NextResponse.json({ result: data, account });
+    return NextResponse.json({ result, account });
   } catch (error) {
     console.error("[economy/restore-streak]", error);
     return NextResponse.json({ error: "Unable to restore your streak." }, { status: 400 });
