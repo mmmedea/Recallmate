@@ -1,3 +1,4 @@
+import { createClient as createServerSupabaseClient } from "@/utils/supabase/server";
 import { createClient as createSupabaseClient, type SupabaseClient, type User } from "@supabase/supabase-js";
 
 export type EconomyContext = {
@@ -5,12 +6,15 @@ export type EconomyContext = {
   user: User;
 };
 
-export async function getEconomyContext(request: Request): Promise<EconomyContext | null> {
-  const authorization = request.headers.get("authorization");
-  if (!authorization?.startsWith("Bearer ") || authorization.length > 8192) return null;
-
-  const token = authorization.slice(7).trim();
-  if (!token || token.includes(" ")) return null;
+/**
+ * Authenticate economy requests with the same HttpOnly Supabase session cookies
+ * used by the rest of the App Router. This avoids relying on a client-side
+ * getSession() token being manually copied into an Authorization header.
+ */
+export async function getEconomyContext(_request: Request): Promise<EconomyContext | null> {
+  const supabase = await createServerSupabaseClient();
+  const { data, error } = await supabase.auth.getUser();
+  if (error || !data.user) return null;
 
   const url = process.env.NEXT_PUBLIC_SUPABASE_URL;
   const serviceRoleKey = process.env.SUPABASE_SERVICE_ROLE_KEY;
@@ -19,8 +23,6 @@ export async function getEconomyContext(request: Request): Promise<EconomyContex
   const admin = createSupabaseClient(url, serviceRoleKey, {
     auth: { autoRefreshToken: false, persistSession: false },
   });
-  const { data, error } = await admin.auth.getUser(token);
-  if (error || !data.user) return null;
 
   return { admin, user: data.user };
 }
