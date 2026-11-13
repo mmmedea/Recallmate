@@ -12,7 +12,13 @@ export default function AuthError({
   reset: () => void;
 }) {
   useEffect(() => {
-    console.error("Auth boundary error:", error);
+    console.error("Auth boundary error:", { name: error.name, message: error.message, digest: error.digest, stack: error.stack });
+    void fetch("/api/auth/client-error", {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ name: error.name, message: error.message, digest: error.digest, stack: error.stack }),
+      keepalive: true,
+    }).catch(() => undefined);
   }, [error]);
 
   return (
