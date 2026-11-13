@@ -73,6 +73,7 @@ export function EmailOTPForm({
   confirmPassword = "",
   onConfirmPasswordChange,
   privacyControl,
+  passwordReset = false,
 }: EmailOTPFormProps) {
   const router = useRouter();
   const supabase = useMemo(() => createClient(), []);
