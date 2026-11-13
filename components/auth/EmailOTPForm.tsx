@@ -142,7 +142,7 @@ export function EmailOTPForm({
     if (!normalizedEmail) return;
     if (!privacyAgreed) return setErrorKey("privacy_required");
     if (!/^[A-Za-z0-9_]{3,30}$/.test(username.trim())) return setErrorKey("username_required");
-    if (password.length < 8 || !/[A-Z]/.test(password) || !/[a-z]/.test(password) || !/[^\\sA-Za-z0-9]/.test(password)) return setErrorKey("weak_password");
+    if (password.length < 8 || !/[A-Z]/.test(password) || !/[a-z]/.test(password) || !/[\sA-Za-z0-9]/.test(password)) return setErrorKey("weak_password");
     if (password !== confirmPassword) return setErrorKey("password_mismatch");
     if (captchaEnabled && !captchaToken) return setErrorKey("captcha_required");
 
