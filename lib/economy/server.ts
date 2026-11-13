@@ -20,7 +20,7 @@ export async function getEconomyContext(_request: Request): Promise<EconomyConte
 }
 
 async function serviceRequest<T>(admin: EconomyAdmin, path: string, init: RequestInit = {}): Promise<T> {
-  const response = await fetch(\`\${admin.url}/rest/v1/\${path}\`, {
+  const response = await fetch(`${admin.url}/rest/v1/${path}`, {
     ...init,
     cache: "no-store",
     headers: {
@@ -31,7 +31,7 @@ async function serviceRequest<T>(admin: EconomyAdmin, path: string, init: Reques
   });
   const text = await response.text();
   if (!response.ok) {
-    throw new Error(\`Economy database request failed (\${response.status}): \${text.slice(0, 500)}\`);
+    throw new Error(`Economy database request failed (${response.status}): ${text.slice(0, 500)}`);
   }
   return (text ? JSON.parse(text) : null) as T;
 }
@@ -48,7 +48,7 @@ export async function economyRpc<T = unknown>(
     "service_purchase_hearts",
   ]);
   if (!allowed.has(functionName)) throw new Error("Unsupported economy operation.");
-  return serviceRequest<T>(admin, \`rpc/\${functionName}\`, {
+  return serviceRequest<T>(admin, `rpc/${functionName}`, {
     method: "POST",
     body: JSON.stringify(args),
   });
@@ -70,7 +70,7 @@ export async function readEconomyAccount(admin: EconomyAdmin, userId: string) {
     restore_available_for: string | null;
   }>>(
     admin,
-    \`economy_accounts?select=coins,hearts,heart_cap,current_streak,longest_streak,last_claimed_day,restore_available_for&user_id=eq.\${encodeURIComponent(userId)}\`,
+    `economy_accounts?select=coins,hearts,heart_cap,current_streak,longest_streak,last_claimed_day,restore_available_for&user_id=eq.${encodeURIComponent(userId)}`,
   );
   const account = rows[0];
   if (!account) throw new Error("Economy account was not found for the signed-in user.");
