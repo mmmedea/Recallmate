@@ -14,7 +14,7 @@ export function Sidebar() {
     <aside className={cn("hidden md:flex flex-col border-r border-white/10 bg-[#0b0a11] transition-all duration-300", isSidebarOpen ? "w-64" : "w-20")}>
       <div className="flex h-16 items-center border-b border-white/10 px-4">
         <Link href="/dashboard" aria-label="RecallMate dashboard" className={cn("flex items-center gap-3", !isSidebarOpen && "mx-auto")}>
-          <span className="flex h-9 w-9 items-center justify-center rounded-xl border border-[#b79aff]/30 bg-gradient-to-br from-[#a78bfa]/25 to-[#f43f5e]/15 font-pixelify text-xs font-bold text-[#e1d5ff]">RM</span>
+          <img src="https://lh3.googleusercontent.com/d/1VBjuDg72zKakz032deRqbBJp0SYUFDuu=w1200" alt="RecallMate logo" width="40" height="40" loading="eager" className="h-10 w-10 shrink-0 rounded-xl object-contain" />
           {isSidebarOpen && <span className="font-fredoka text-xl font-semibold tracking-tight text-white">Recall<span className="text-[#c4b5fd]">Mate</span></span>}
         </Link>
       </div>
