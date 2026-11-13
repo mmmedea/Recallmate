@@ -4,11 +4,11 @@
 
 @layer base {
   :root {
-    --background: 270 18% 5%;
+    --background: 270 18% 8%;
     --foreground: 270 20% 98%;
-    --card: 270 18% 10%;
+    --card: 270 20% 12%;
     --card-foreground: 270 20% 98%;
-    --popover: 270 18% 10%;
+    --popover: 270 20% 12%;
     --popover-foreground: 270 20% 98%;
     --primary: 263 89% 76%;
     --primary-foreground: 270 30% 8%;
@@ -151,7 +151,7 @@ input:autofill {
   background:
     radial-gradient(ellipse at 16% 8%, rgba(139, 92, 246, .13), transparent 34%),
     radial-gradient(ellipse at 88% 22%, rgba(244, 63, 94, .09), transparent 30%),
-    #08070d;
+    #100d18;
 }
 .recallmate-main {
   isolation: isolate;
@@ -240,4 +240,117 @@ input:autofill {
 }
 .schedule-canvas [class*="bg-indigo-600"] {
   background: linear-gradient(115deg, #a78bfa, #f43f5e) !important;
+}
+
+
+/* A softer plum-charcoal canvas keeps the product dark without making it pitch black. */
+.recallmate-shell {
+  background:
+    radial-gradient(ellipse at 12% 0%, rgba(167,139,250,.17), transparent 36%),
+    radial-gradient(ellipse at 92% 18%, rgba(244,63,94,.11), transparent 32%),
+    #100d18;
+}
+.recallmate-main {
+  background-color: #100d18;
+  background-image:
+    radial-gradient(ellipse at 12% 2%, rgba(167,139,250,.10), transparent 38%),
+    radial-gradient(ellipse at 94% 35%, rgba(244,63,94,.065), transparent 34%),
+    linear-gradient(145deg, #100d18 0%, #15111f 52%, #120e1a 100%);
+}
+.recallmate-main [class*="bg-white"],
+.recallmate-main [class*="bg-slate-50"],
+.recallmate-main [class*="bg-slate-100"],
+.recallmate-main [class*="bg-slate-900"] {
+  background-color: #1b1726 !important;
+}
+.recallmate-main [class*="text-slate-950"],
+.recallmate-main [class*="text-slate-900"],
+.recallmate-main [class*="text-slate-800"] {
+  color: #f4efff !important;
+}
+.recallmate-main [class*="text-slate-700"],
+.recallmate-main [class*="text-slate-600"],
+.recallmate-main [class*="text-slate-500"] {
+  color: rgba(235,226,255,.66) !important;
+}
+.recallmate-main [class*="border-slate-"] {
+  border-color: rgba(196,181,253,.17) !important;
+}
+.recallmate-main [class*="bg-indigo-600"],
+.recallmate-main [class*="bg-violet-600"] {
+  background: linear-gradient(115deg, #a78bfa, #e879a8 58%, #f43f5e) !important;
+}
+.recallmate-main [class*="font-black"],
+.recallmate-main [class*="font-extrabold"] {
+  letter-spacing: -.015em;
+}
+.create-workspace-canvas,
+.schedule-canvas {
+  color: #f5f0ff;
+  font-family: var(--font-nunito), sans-serif;
+}
+.create-workspace-canvas [class*="bg-white"],
+.create-workspace-canvas [class*="bg-slate-50"],
+.create-workspace-canvas [class*="bg-slate-100"] {
+  background-color: #1b1726 !important;
+}
+.create-workspace-canvas [class*="text-slate-950"],
+.create-workspace-canvas [class*="text-slate-900"],
+.create-workspace-canvas [class*="text-slate-800"] {
+  color: #f4efff !important;
+}
+.create-workspace-canvas [class*="border-slate-"] {
+  border-color: rgba(196,181,253,.18) !important;
+}
+.create-workspace-canvas [class*="bg-indigo-600"],
+.create-workspace-canvas [class*="bg-violet-600"] {
+  background: linear-gradient(115deg, #a78bfa, #e879a8 58%, #f43f5e) !important;
+}
+.schedule-canvas section,
+.schedule-canvas article,
+.schedule-canvas [role="dialog"] > div {
+  border-color: rgba(196,181,253,.18);
+}
+.schedule-canvas [class*="bg-white"],
+.schedule-canvas [class*="bg-slate-50"],
+.schedule-canvas [class*="bg-slate-100"],
+.schedule-canvas [class*="bg-slate-900"] {
+  background-color: #1b1726 !important;
+}
+.schedule-canvas [class*="text-slate-950"],
+.schedule-canvas [class*="text-slate-900"],
+.schedule-canvas [class*="text-slate-800"] {
+  color: #f4efff !important;
+}
+.schedule-canvas [class*="text-slate-700"],
+.schedule-canvas [class*="text-slate-600"],
+.schedule-canvas [class*="text-slate-500"] {
+  color: rgba(235,226,255,.66) !important;
+}
+.schedule-canvas [class*="border-slate-"] {
+  border-color: rgba(196,181,253,.17) !important;
+}
+.schedule-canvas [class*="bg-indigo-600"],
+.schedule-canvas [class*="bg-violet-600"] {
+  background: linear-gradient(115deg, #a78bfa, #e879a8 58%, #f43f5e) !important;
+}
+.schedule-canvas [class*="hover:bg-indigo-50"]:hover {
+  background-color: rgba(167,139,250,.12) !important;
+}
+.medea-panel {
+  background-color: #15111f;
+  background-image:
+    radial-gradient(ellipse at 90% 0%, rgba(167,139,250,.17), transparent 40%),
+    radial-gradient(ellipse at 4% 72%, rgba(244,63,94,.09), transparent 34%);
+}
+.medea-panel [class*="bg-indigo-600"] {
+  background: linear-gradient(115deg, #a78bfa, #e879a8 58%, #f43f5e) !important;
+}
+.medea-panel [class*="bg-slate-100"],
+.medea-panel [class*="bg-slate-800"],
+.medea-panel [class*="bg-slate-900"] {
+  background-color: #211b2c !important;
+}
+.medea-panel [class*="border-slate-"] {
+  border-color: rgba(196,181,253,.18) !important;
 }
