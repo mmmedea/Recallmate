@@ -20,9 +20,21 @@ export default async function DashboardPage() {
     || session.user.email?.split("@")[0]
     || "Student";
 
-  const [{ data: documents, success }, { count: materialCount }] = await Promise.all([
+  const now = new Date();
+  const manilaNow = new Date(now.getTime() + 8 * 60 * 60 * 1000);
+  const dayStart = new Date(Date.UTC(manilaNow.getUTCFullYear(), manilaNow.getUTCMonth(), manilaNow.getUTCDate()) - 8 * 60 * 60 * 1000);
+  const nextDay = new Date(dayStart.getTime() + 24 * 60 * 60 * 1000);
+
+  const [
+    { data: documents, success },
+    { count: materialCount, error: materialCountError },
+    { count: dueTodayCount, error: dueTodayError },
+    { count: upcomingCount, error: upcomingError },
+  ] = await Promise.all([
     getRecentDocuments(),
     supabase.from("documents").select("id", { count: "exact", head: true }).eq("user_id", session.user.id),
+    supabase.from("learning_items").select("id", { count: "exact", head: true }).eq("user_id", session.user.id).gte("due_at", dayStart.toISOString()).lt("due_at", nextDay.toISOString()),
+    supabase.from("learning_items").select("id", { count: "exact", head: true }).eq("user_id", session.user.id).gte("due_at", nextDay.toISOString()),
   ]);
 
   const recent = success && documents ? documents : [];
@@ -85,9 +97,9 @@ export default async function DashboardPage() {
           <Link href="/progress" className="font-nunito text-xs font-bold text-[#c4b5fd] transition hover:text-white">View progress →</Link>
         </div>
         <div className="grid gap-3 sm:grid-cols-3">
-          <MetricCard label="Due today" value="—" note="Review schedule not available yet" tone="red" />
-          <MetricCard label="Upcoming reviews" value="—" note="Your future review queue" tone="purple" />
-          <MetricCard label="Total materials" value={String(materialCount ?? 0)} note="Uploaded study files" tone="light" />
+          <MetricCard label="Due today" value={dueTodayError ? "—" : String(dueTodayCount ?? 0)} note="Scheduled for today" tone="red" />
+          <MetricCard label="Upcoming reviews" value={upcomingError ? "—" : String(upcomingCount ?? 0)} note="Scheduled after today" tone="purple" />
+          <MetricCard label="Total materials" value={materialCountError ? "—" : String(materialCount ?? 0)} note="Uploaded study files" tone="light" />
         </div>
       </section>
 
