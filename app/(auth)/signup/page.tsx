@@ -60,8 +60,10 @@ function SignupPageContent() {
                       </button>
                     </DialogTrigger>
                     <DialogContent className="group relative flex max-h-[min(86vh,820px)] max-w-3xl flex-col overflow-hidden rounded-[1.75rem] border border-[#5c456f] bg-[#100b16] p-0 text-[#f8f2ff] shadow-[0_35px_110px_rgba(0,0,0,.72),0_0_55px_rgba(167,139,250,.12)] sm:max-w-3xl" onClick={(e) => e.stopPropagation()}>
-                      <DialogHeader>
-                        <DialogTitle>Privacy Policy</DialogTitle>
+                      <DialogHeader className="relative border-b border-[#6a527b]/40 bg-[radial-gradient(ellipse_at_top_left,rgba(167,139,250,.22),transparent_55%),linear-gradient(110deg,#181020,#1c101b)] px-6 pb-5 pt-6 text-left sm:px-8">
+                        <p className="font-pixelify text-[10px] tracking-[.24em] text-[#c4a7ff]">RECALLMATE · YOUR DATA</p>
+                        <DialogTitle className="font-fredoka text-2xl font-semibold tracking-tight text-white sm:text-3xl">Privacy Policy</DialogTitle>
+                        <p className="font-quicksand text-sm text-[#b8a9c8]">Understand how your information is handled.</p>
                       </DialogHeader>
                       <div className="min-h-0 flex-1 overflow-y-auto px-6 py-5 pr-4 [scrollbar-color:#8b6aa8_#211829] [scrollbar-width:thin] sm:px-8 sm:py-6">
                         <PrivacyContent />
@@ -84,8 +86,10 @@ function SignupPageContent() {
                       </button>
                     </DialogTrigger>
                     <DialogContent className="max-w-2xl max-h-[85vh] flex flex-col" onClick={(e) => e.stopPropagation()}>
-                      <DialogHeader>
-                        <DialogTitle>Terms of Service</DialogTitle>
+                      <DialogHeader className="relative border-b border-[#6a527b]/40 bg-[radial-gradient(ellipse_at_top_left,rgba(167,139,250,.22),transparent_55%),linear-gradient(110deg,#181020,#1c101b)] px-6 pb-5 pt-6 text-left sm:px-8">
+                        <p className="font-pixelify text-[10px] tracking-[.24em] text-[#ff7185]">RECALLMATE · THE AGREEMENT</p>
+                        <DialogTitle className="font-fredoka text-2xl font-semibold tracking-tight text-white sm:text-3xl">Terms of Service</DialogTitle>
+                        <p className="font-quicksand text-sm text-[#b8a9c8]">The guidelines for using RecallMate.</p>
                       </DialogHeader>
                       <div className="flex-1 overflow-y-auto pr-2 min-h-0">
                         <TermsContent />
