@@ -78,15 +78,28 @@ html { scroll-behavior: smooth; }
 }
 
 
-/* Keep browser autofill visually consistent with the light auth fields. */
-input:-webkit-autofill,
-input:-webkit-autofill:hover,
-input:-webkit-autofill:focus,
-input:-webkit-autofill:active,
-input:autofill {
+/* Keep browser autofill readable in both themes. WebKit autofill can override
+   Tailwind text/background utilities, so explicitly set both colors per theme. */
+:root:not(.dark) input:-webkit-autofill,
+:root:not(.dark) input:-webkit-autofill:hover,
+:root:not(.dark) input:-webkit-autofill:focus,
+:root:not(.dark) input:-webkit-autofill:active,
+:root:not(.dark) input:autofill {
   -webkit-text-fill-color: #21152d !important;
-  caret-color: #21152d;
+  caret-color: #21152d !important;
   -webkit-box-shadow: 0 0 0 1000px #ffffff inset !important;
   box-shadow: 0 0 0 1000px #ffffff inset !important;
+  transition: background-color 9999s ease-out 0s;
+}
+
+.dark input:-webkit-autofill,
+.dark input:-webkit-autofill:hover,
+.dark input:-webkit-autofill:focus,
+.dark input:-webkit-autofill:active,
+.dark input:autofill {
+  -webkit-text-fill-color: #ffffff !important;
+  caret-color: #ffffff !important;
+  -webkit-box-shadow: 0 0 0 1000px #020617 inset !important;
+  box-shadow: 0 0 0 1000px #020617 inset !important;
   transition: background-color 9999s ease-out 0s;
 }
