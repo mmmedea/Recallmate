@@ -91,7 +91,7 @@ export default function UploadPage() {
 
       <div className="space-y-6">
         <div className="relative isolate overflow-hidden rounded-[2rem] border border-[#a78bfa]/25 bg-[radial-gradient(ellipse_at_85%_10%,rgba(244,63,94,.20),transparent_38%),linear-gradient(130deg,#1a1224,#100d18_58%,#160d18)] p-7 shadow-[0_24px_80px_rgba(0,0,0,.28)] sm:p-10">
-          <p className="font-pixelify text-[10px] uppercase tracking-[0.24em] text-[#ff8799]">YOUR CREATION STUDIO</p>
+          <div className="mb-4 flex items-center gap-3"><img src="https://lh3.googleusercontent.com/d/1VBjuDg72zKakz032deRqbBJp0SYUFDuu=w1200" alt="RecallMate logo" className="h-12 w-12 rounded-2xl object-contain ring-1 ring-[#c4b5fd]/25" /><p className="font-pixelify text-[10px] uppercase tracking-[0.24em] text-[#ff8799]">YOUR CREATION STUDIO</p></div>
           <h1 className="mt-3 font-fredoka text-3xl font-semibold text-white sm:text-4xl">Create your next study tool.</h1>
           <p className="mt-3 max-w-2xl font-quicksand text-sm leading-6 text-white/60 sm:text-base">
             Use one workspace to turn a file into AI notes and quizzes, or create your own tap-to-flip flashcard deck.
