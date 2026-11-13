@@ -316,9 +316,7 @@ export default function OmniChatDrawer() {
             {/* Header */}
             <div className="flex items-center justify-between border-b border-white/10 bg-[radial-gradient(ellipse_at_85%_0%,rgba(244,63,94,.14),transparent_48%),#111019] p-4 backdrop-blur-md">
               <div className="flex items-center gap-3">
-                <div className="w-10 h-10 rounded-2xl bg-indigo-600 text-white flex items-center justify-center shadow-md">
-                  <Bot className="w-5 h-5" />
-                </div>
+                <img src="https://lh3.googleusercontent.com/d/1VBjuDg72zKakz032deRqbBJp0SYUFDuu=w1200" alt="RecallMate" className="h-11 w-11 rounded-xl object-contain ring-1 ring-[#c4b5fd]/20" />
                 <div>
                   <h2 className="flex items-center gap-1.5 font-fredoka text-base font-semibold text-white">
                     Medea AI
@@ -374,9 +372,7 @@ export default function OmniChatDrawer() {
                   }`}
                 >
                   {msg.role === "assistant" && (
-                    <div className="w-8 h-8 rounded-xl bg-indigo-100 dark:bg-indigo-950 text-indigo-600 dark:text-indigo-400 flex items-center justify-center flex-shrink-0 mt-1">
-                      <Bot className="w-4 h-4" />
-                    </div>
+                    <img src="https://lh3.googleusercontent.com/d/1VBjuDg72zKakz032deRqbBJp0SYUFDuu=w1200" alt="RecallMate" className="mt-1 h-8 w-8 shrink-0 rounded-lg object-contain ring-1 ring-[#c4b5fd]/15" />
                   )}
 
                   <div
@@ -406,9 +402,7 @@ export default function OmniChatDrawer() {
 
               {(loading || uploading) && (
                 <div className="flex gap-3 justify-start animate-pulse">
-                  <div className="w-8 h-8 rounded-xl bg-indigo-100 dark:bg-indigo-950 text-indigo-600 dark:text-indigo-400 flex items-center justify-center">
-                    <Bot className="w-4 h-4" />
-                  </div>
+                  <img src="https://lh3.googleusercontent.com/d/1VBjuDg72zKakz032deRqbBJp0SYUFDuu=w1200" alt="RecallMate" className="h-8 w-8 shrink-0 rounded-lg object-contain ring-1 ring-[#c4b5fd]/15" />
                   <div className="bg-slate-100 dark:bg-slate-800 rounded-2xl p-4 text-xs font-semibold text-slate-500 dark:text-slate-400 flex items-center gap-2">
                     <RefreshCw className="w-3.5 h-3.5 animate-spin" />
                     {uploading ? "Ingesting document & extracting text..." : "Medea is synthesizing an easy-to-understand response..."}
