@@ -82,6 +82,7 @@ export function EmailOTPForm({
   const [recoveryPassword, setRecoveryPassword] = useState("");
   const [recoveryPasswordConfirm, setRecoveryPasswordConfirm] = useState("");
   const [recoveryNotice, setRecoveryNotice] = useState(false);
+  const [availability, setAvailability] = useState<{ email: "available" | "taken" | null; username: "available" | "taken" | null }>({ email: null, username: null });
   const [otpValue, setOtpValue] = useState("");
   const [isLoading, setIsLoading] = useState(false);
   const [errorKey, setErrorKey] = useState<string | null>(null);
@@ -114,6 +115,31 @@ export function EmailOTPForm({
     if (!user || !domain) return address;
     return `${user[0]}${"•".repeat(Math.max(1, user.length - 1))}@${domain}`;
   };
+
+  const checkIdentityAvailability = useCallback(async () => {
+    const normalizedEmail = email.trim().toLowerCase();
+    const normalizedUsername = username.trim();
+    if (!/^[^\\s@]+@[^\\s@]+\\.[^\\s@]+$/.test(normalizedEmail) || !/^[A-Za-z0-9_]{3,30}$/.test(normalizedUsername)) return;
+    try {
+      const response = await fetch("/api/auth/check-availability", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ email: normalizedEmail, username: normalizedUsername }),
+      });
+      if (!response.ok) return;
+      const result = await response.json() as { emailExists?: boolean; usernameExists?: boolean };
+      setAvailability({
+        email: result.emailExists ? "taken" : "available",
+        username: result.usernameExists ? "taken" : "available",
+      });
+      if (result.emailExists) setErrorKey("account_exists");
+      else if (errorKey === "account_exists") setErrorKey(null);
+      if (result.usernameExists) setErrorKey("username_exists");
+      else if (errorKey === "username_exists") setErrorKey(null);
+    } catch {
+      // Availability hints are best-effort; the server rechecks before signup.
+    }
+  }, [email, errorKey, username]);
 
   const handlePasswordSignIn = useCallback(async (event?: React.FormEvent) => {
     event?.preventDefault();
@@ -369,7 +395,7 @@ export function EmailOTPForm({
   const emailValid = /^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(email.trim());
   const confirmValid = password.length > 0 && password === confirmPassword;
   const signupReady = usernameValid && emailValid && passwordValid && confirmValid && privacyAgreed && (!captchaEnabled || Boolean(captchaToken));
-  const emailAlreadyRegistered = intent === "signup" && errorKey === "account_exists";
+  const emailAlreadyRegistered = intent === "signup" && (errorKey === "account_exists" || availability.email === "taken");
   const emailFieldClass = emailAlreadyRegistered
     ? "border-[#e5485f] bg-white text-[#21152d] ring-2 ring-[#ff6478]/15 focus-visible:border-[#e5485f] focus-visible:ring-[#ff6478]/30"
     : "border-[#ded0ef] bg-white text-[#21152d] shadow-[0_2px_8px_rgba(40,20,55,.035)] transition-all duration-200 placeholder:text-[#a49aaa] hover:border-[#c5a9e8] focus-visible:border-[#a879e8] focus-visible:ring-2 focus-visible:ring-[#c4a7ff]/50 focus-visible:ring-offset-2 focus-visible:ring-offset-[#fffaff]";
@@ -428,8 +454,8 @@ export function EmailOTPForm({
 
   if (stage === "credentials") {
     return <form onSubmit={handleSendOTP} className="space-y-4" noValidate>
-      <div className="space-y-1.5"><Label htmlFor="username-input" className="font-quicksand font-bold text-[#43364f]">Username</Label><Input id="username-input" value={username} onChange={event => { onUsernameChange?.(event.target.value); if (errorKey === "username_exists") setErrorKey(null); }} placeholder="e.g., your_username" className={errorKey === "username_exists" ? "border-[#e5485f] bg-white text-[#21152d] ring-2 ring-[#ff6478]/15" : "border-[#ded0ef] bg-white/90 text-[#21152d] shadow-[0_2px_8px_rgba(40,20,55,.035)] transition-all duration-200 placeholder:text-[#a49aaa] hover:border-[#c5a9e8] focus-visible:border-[#a879e8] focus-visible:ring-2 focus-visible:ring-[#c4a7ff]/50 focus-visible:ring-offset-2 focus-visible:ring-offset-[#fffaff]"} autoComplete="username" disabled={isLoading} required aria-invalid={errorKey === "username_exists"} />{errorKey === "username_exists" && <p role="alert" className="text-xs font-bold text-[#d93650]">This username is already being used. Please choose another one.</p>}</div>
-      <div className="space-y-1.5"><Label htmlFor="signup-email" className="font-quicksand font-bold text-[#43364f]">Email</Label><Input id="signup-email" type="email" value={email} onChange={event => { setEmail(event.target.value); if (errorKey === "account_exists" || errorKey === "email_invalid") setErrorKey(null); }} placeholder="you@email.com" className={emailFieldClass} autoComplete="email" disabled={isLoading} required aria-invalid={emailAlreadyRegistered} aria-describedby={emailAlreadyRegistered ? "signup-email-error" : undefined} />{emailAlreadyRegistered ? <p id="signup-email-error" role="alert" className="mt-1 flex flex-wrap items-center gap-x-1 text-xs font-bold text-[#d93650]"><span>This email is already registered.</span><Link href="/login" className="underline decoration-[#d93650]/50 underline-offset-2 transition-colors hover:text-[#9b315e]">Sign in instead</Link></p> : <p className="font-quicksand text-xs font-medium text-[#81758c]">Use your preferred email address. Gmail and other trusted email providers work.</p>}</div>
+      <div className="space-y-1.5"><Label htmlFor="username-input" className="font-quicksand font-bold text-[#43364f]">Username</Label><Input id="username-input" value={username} onChange={event => { onUsernameChange?.(event.target.value); setAvailability(current => ({ ...current, username: null })); if (errorKey === "username_exists") setErrorKey(null); }} onBlur={() => void checkIdentityAvailability()} placeholder="e.g., your_username" className={errorKey === "username_exists" ? "border-[#e5485f] bg-white text-[#21152d] ring-2 ring-[#ff6478]/15" : "border-[#ded0ef] bg-white/90 text-[#21152d] shadow-[0_2px_8px_rgba(40,20,55,.035)] transition-all duration-200 placeholder:text-[#a49aaa] hover:border-[#c5a9e8] focus-visible:border-[#a879e8] focus-visible:ring-2 focus-visible:ring-[#c4a7ff]/50 focus-visible:ring-offset-2 focus-visible:ring-offset-[#fffaff]"} autoComplete="username" disabled={isLoading} required aria-invalid={errorKey === "username_exists"} />{(errorKey === "username_exists" || availability.username === "taken") ? <p role="alert" className="text-xs font-bold text-[#d93650]">This username is already being used. Please choose another one.</p> : availability.username === "available" ? <p role="status" className="text-xs font-bold text-emerald-700">Username is available.</p> : null}</div>
+      <div className="space-y-1.5"><Label htmlFor="signup-email" className="font-quicksand font-bold text-[#43364f]">Email</Label><Input id="signup-email" type="email" value={email} onChange={event => { setEmail(event.target.value); setAvailability(current => ({ ...current, email: null })); if (errorKey === "account_exists" || errorKey === "email_invalid") setErrorKey(null); }} onBlur={() => void checkIdentityAvailability()} placeholder="you@email.com" className={emailFieldClass} autoComplete="email" disabled={isLoading} required aria-invalid={emailAlreadyRegistered} aria-describedby={emailAlreadyRegistered ? "signup-email-error" : undefined} />{emailAlreadyRegistered ? <p id="signup-email-error" role="alert" className="mt-1 flex flex-wrap items-center gap-x-1 text-xs font-bold text-[#d93650]"><span>This email is already registered.</span><Link href="/login" className="underline decoration-[#d93650]/50 underline-offset-2 transition-colors hover:text-[#9b315e]">Sign in instead</Link></p> : availability.email === "available" ? <p role="status" className="font-quicksand text-xs font-bold text-emerald-700">Email address is available.</p> : <p className="font-quicksand text-xs font-medium text-[#81758c]">Use your preferred email address. Gmail and other trusted email providers work.</p>}</div>
       <div className="space-y-1.5"><Label htmlFor="password-input" className="font-quicksand font-bold text-[#43364f]">Password</Label><PasswordInput id="password-input" value={password} onChange={event => onPasswordChange?.(event.target.value)} placeholder="Create a strong password" className="border-[#ded0ef] bg-white/90 text-[#21152d] shadow-[0_2px_8px_rgba(40,20,55,.035)] transition-all duration-200 placeholder:text-[#a49aaa] hover:border-[#c5a9e8] focus-visible:border-[#a879e8] focus-visible:ring-2 focus-visible:ring-[#c4a7ff]/50 focus-visible:ring-offset-2 focus-visible:ring-offset-[#fffaff]" autoComplete="new-password" disabled={isLoading} required /></div>
       <ul aria-label="Password requirements" className="grid grid-cols-2 gap-x-3 gap-y-2.5 rounded-2xl border border-[#dfd0f3] bg-[linear-gradient(115deg,#f1eaff_0%,#faf5ff_58%,#fff0f3_100%)] p-4 shadow-[inset_0_1px_0_rgba(255,255,255,.9)]">
         {passwordRules.map((rule) => (
