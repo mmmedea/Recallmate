@@ -27,7 +27,7 @@ export async function POST(request: NextRequest) {
     const email = parsed.data.email.toLowerCase();
     const username = parsed.data.username;
 
-    const serviceKey = process.env.SUPABASE_SERVICE_ROLE_KEY;
+    const serviceKey = process.env.SUPABASE_SECRET_KEY || process.env.SUPABASE_SERVICE_ROLE_KEY;
     const url = process.env.NEXT_PUBLIC_SUPABASE_URL;
     if (!serviceKey || !url) {
       return NextResponse.json({ error: "Account availability checking is temporarily unavailable." }, { status: 503 });
