@@ -2,6 +2,7 @@
 
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { useRouter } from "next/navigation";
+import Link from "next/link";
 import { Loader2, LockKeyhole, Mail, Check, Circle } from "lucide-react";
 import { v4 as uuidv4 } from "uuid";
 import { createClient } from "@/utils/supabase/client";
@@ -267,6 +268,10 @@ export function EmailOTPForm({
   const emailValid = /^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(email.trim());
   const confirmValid = password.length > 0 && password === confirmPassword;
   const signupReady = usernameValid && emailValid && passwordValid && confirmValid && privacyAgreed && (!captchaEnabled || Boolean(captchaToken));
+  const emailAlreadyRegistered = intent === "signup" && errorKey === "account_exists";
+  const emailFieldClass = emailAlreadyRegistered
+    ? "border-[#e5485f] bg-white text-[#21152d] ring-2 ring-[#ff6478]/15 focus-visible:border-[#e5485f] focus-visible:ring-[#ff6478]/30"
+    : "border-[#ded0ef] bg-white text-[#21152d] shadow-[0_2px_8px_rgba(40,20,55,.035)] transition-all duration-200 placeholder:text-[#a49aaa] hover:border-[#c5a9e8] focus-visible:border-[#a879e8] focus-visible:ring-2 focus-visible:ring-[#c4a7ff]/50 focus-visible:ring-offset-2 focus-visible:ring-offset-[#fffaff]";
 
   if (intent === "signin") {
     return <form onSubmit={handlePasswordSignIn} className="space-y-4" noValidate>
@@ -280,7 +285,7 @@ export function EmailOTPForm({
   if (stage === "credentials") {
     return <form onSubmit={handleSendOTP} className="space-y-4" noValidate>
       <div className="space-y-1.5"><Label htmlFor="username-input" className="font-quicksand font-bold text-[#43364f]">Username</Label><Input id="username-input" value={username} onChange={event => onUsernameChange?.(event.target.value)} placeholder="e.g., your_username" className="border-[#ded0ef] bg-white/90 text-[#21152d] shadow-[0_2px_8px_rgba(40,20,55,.035)] transition-all duration-200 placeholder:text-[#a49aaa] hover:border-[#c5a9e8] focus-visible:border-[#a879e8] focus-visible:ring-2 focus-visible:ring-[#c4a7ff]/50 focus-visible:ring-offset-2 focus-visible:ring-offset-[#fffaff]" autoComplete="username" disabled={isLoading} required /></div>
-      <div className="space-y-1.5"><Label htmlFor="signup-email" className="font-quicksand font-bold text-[#43364f]">Email</Label><Input id="signup-email" type="email" value={email} onChange={event => setEmail(event.target.value)} placeholder="you@email.com" className="border-[#ded0ef] bg-white/90 text-[#21152d] shadow-[0_2px_8px_rgba(40,20,55,.035)] transition-all duration-200 placeholder:text-[#a49aaa] hover:border-[#c5a9e8] focus-visible:border-[#a879e8] focus-visible:ring-2 focus-visible:ring-[#c4a7ff]/50 focus-visible:ring-offset-2 focus-visible:ring-offset-[#fffaff]" autoComplete="email" disabled={isLoading} required /><p className="font-quicksand text-xs font-medium text-[#81758c]">Use your preferred email address. Gmail and other trusted email providers work.</p></div>
+      <div className="space-y-1.5"><Label htmlFor="signup-email" className="font-quicksand font-bold text-[#43364f]">Email</Label><Input id="signup-email" type="email" value={email} onChange={event => { setEmail(event.target.value); if (errorKey === "account_exists" || errorKey === "email_invalid") setErrorKey(null); }} placeholder="you@email.com" className={emailFieldClass} autoComplete="email" disabled={isLoading} required aria-invalid={emailAlreadyRegistered} aria-describedby={emailAlreadyRegistered ? "signup-email-error" : undefined} />{emailAlreadyRegistered ? <p id="signup-email-error" role="alert" className="mt-1 flex flex-wrap items-center gap-x-1 text-xs font-bold text-[#d93650]"><span>This email is already registered.</span><Link href="/login" className="underline decoration-[#d93650]/50 underline-offset-2 transition-colors hover:text-[#9b315e]">Sign in instead</Link></p> : <p className="font-quicksand text-xs font-medium text-[#81758c]">Use your preferred email address. Gmail and other trusted email providers work.</p>}</div>
       <div className="space-y-1.5"><Label htmlFor="password-input" className="font-quicksand font-bold text-[#43364f]">Password</Label><PasswordInput id="password-input" value={password} onChange={event => onPasswordChange?.(event.target.value)} placeholder="Create a strong password" className="border-[#ded0ef] bg-white/90 text-[#21152d] shadow-[0_2px_8px_rgba(40,20,55,.035)] transition-all duration-200 placeholder:text-[#a49aaa] hover:border-[#c5a9e8] focus-visible:border-[#a879e8] focus-visible:ring-2 focus-visible:ring-[#c4a7ff]/50 focus-visible:ring-offset-2 focus-visible:ring-offset-[#fffaff]" autoComplete="new-password" disabled={isLoading} required /></div>
       <ul aria-label="Password requirements" className="grid grid-cols-2 gap-x-3 gap-y-2.5 rounded-2xl border border-[#dfd0f3] bg-[linear-gradient(115deg,#f1eaff_0%,#faf5ff_58%,#fff0f3_100%)] p-4 shadow-[inset_0_1px_0_rgba(255,255,255,.9)]">
         {passwordRules.map((rule) => (
