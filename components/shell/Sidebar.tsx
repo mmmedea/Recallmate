@@ -18,13 +18,13 @@ export function Sidebar() {
       "hidden md:flex h-full shrink-0 flex-col border-r border-[#c4b5fd]/10 bg-[#15111f]/95 shadow-[12px_0_48px_rgba(8,5,18,.16)] backdrop-blur-2xl transition-[width] duration-300",
       isSidebarOpen ? "w-64" : "w-[5.25rem]"
     )}>
-      <div className={cn("flex h-[4.5rem] shrink-0 items-center border-b border-white/[0.07] px-3", isSidebarOpen ? "gap-2" : "justify-center")}>
+      <div className={cn("flex h-[4.5rem] shrink-0 items-center border-b border-white/[0.07] px-2", isSidebarOpen ? "gap-2" : "gap-1")}>
         <Link href="/dashboard" aria-label="RecallMate dashboard" className="flex min-w-0 items-center gap-2.5">
-          <img src={LOGO_URL} alt="RecallMate logo" width="38" height="38" loading="eager" className="h-[38px] w-[38px] shrink-0 rounded-xl object-contain" />
+          <img src={LOGO_URL} alt="RecallMate logo" width="38" height="38" loading="eager" className="h-9 w-9 shrink-0 rounded-xl object-contain" />
           {isSidebarOpen && <span className="truncate font-fredoka text-[1.35rem] font-semibold tracking-tight text-white">Recall<span className="text-[#c4b5fd]">Mate</span></span>}
         </Link>
         <button type="button" onClick={toggleSidebar} aria-label={isSidebarOpen ? "Collapse sidebar" : "Expand sidebar"} aria-expanded={isSidebarOpen}
-          className={cn("grid h-9 w-9 shrink-0 place-items-center rounded-xl text-white/55 transition hover:bg-[#a78bfa]/15 hover:text-[#e5d8ff] focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[#c4b5fd]", isSidebarOpen ? "ml-auto" : "absolute right-2 top-[4.9rem] hidden")}>
+          className={cn("grid h-9 w-9 shrink-0 place-items-center rounded-xl text-white/55 transition hover:bg-[#a78bfa]/15 hover:text-[#e5d8ff] focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[#c4b5fd]", isSidebarOpen ? "ml-auto" : "")}>
           <Menu className="h-[19px] w-[19px]" />
         </button>
       </div>
