@@ -160,15 +160,4 @@ export default function SignupPage() {
       <SignupPageContent />
     </Suspense>
   );
-}          <div className="relative">
-            <div className="absolute inset-0 flex items-center">
-              <div className="w-full border-t border-[#a78bfa]/25" />
-            </div>
-            <div className="relative flex justify-center text-xs uppercase">
-              <span className="bg-[#fffaff] px-3 font-pixelify text-xs font-medium tracking-widest text-[#8b779f]">
-                OR CONTINUE WITH
-              </span>
-            </div>
-          </div>
-
-
+}
