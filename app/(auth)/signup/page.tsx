@@ -37,20 +37,20 @@ function SignupPageContent() {
 
   return (
     <AuthCard>
-      <div className="space-y-6">
+      <div className="space-y-5"><nav aria-label="Account access" className="mx-auto grid w-full max-w-[260px] grid-cols-2 rounded-full bg-[#eee8f6] p-1"><Link href="/login" className="rounded-full px-4 py-2 text-center font-fredoka text-sm font-semibold text-[#756b80] hover:text-[#a34c75]">Sign in</Link><Link href="/signup" aria-current="page" className="rounded-full bg-white px-4 py-2 text-center font-fredoka text-sm font-semibold text-[#24152f] shadow-sm">Sign up</Link></nav>
         {/* Heading */}
         <div className="space-y-1 text-center">
-          <h1 className="font-fredoka text-3xl font-semibold tracking-tight text-[#fffaff]">
+          <h1 className="font-fredoka text-3xl font-semibold tracking-tight text-[#21152d]">
             Create your account
           </h1>
-          <p className="font-quicksand text-sm font-semibold text-[#c9c2d5]">
+          <p className="font-quicksand text-sm font-semibold text-[#746a80]">
             Start learning smarter with RecallMate
           </p>
         </div>
 
         <div className="space-y-6">
           {/* Google OAuth */}
-          <OAuthButtons redirectTo={next} />
+          
 
           {/* Divider */}
           <div className="relative">
@@ -58,14 +58,15 @@ function SignupPageContent() {
               <div className="w-full border-t border-[#a78bfa]/25" />
             </div>
             <div className="relative flex justify-center text-xs uppercase">
-              <span className="bg-[#17111f] px-3 font-pixelify text-[#c4a7ff] font-medium tracking-widest">
-                or
+              <span className="bg-[#fffaff] px-3 font-pixelify text-xs font-medium tracking-widest text-[#8b779f]">
+                OR CONTINUE WITH
               </span>
             </div>
           </div>
 
           {/* Email OTP */}
           <EmailOTPForm intent="signup" privacyAgreed={privacyAgreed} redirectTo={next} username={username} onUsernameChange={setUsername} password={password} onPasswordChange={setPassword} confirmPassword={confirmPassword} onConfirmPasswordChange={setConfirmPassword} />
+          <OAuthButtons redirectTo={next} intent="signup" />
         </div>
 
         {/* Privacy acknowledgement */}
@@ -76,7 +77,7 @@ function SignupPageContent() {
               type="checkbox"
               checked={privacyAgreed}
               onChange={(e) => setPrivacyAgreed(e.target.checked)}
-              className="mt-1 h-4 w-4 rounded border-slate-300 dark:border-slate-700 text-indigo-600 focus:ring-indigo-500 focus:ring-offset-0 cursor-pointer shrink-0"
+              className="mt-1 h-4 w-4 rounded border-slate-300 dark:border-slate-700 text-[#a78bfa] focus:ring-[#a78bfa] focus:ring-offset-0 cursor-pointer shrink-0"
               aria-required="true"
             />
             <div className="text-sm text-[#c9c2d5] leading-relaxed select-none">
@@ -111,7 +112,7 @@ function SignupPageContent() {
                 <DialogTrigger asChild>
                   <button
                     type="button"
-                    className="font-medium text-indigo-600 dark:text-indigo-400 hover:underline"
+                    className="font-medium text-[#a34c75] hover:underline"
                   >
                     Terms of Service
                   </button>
@@ -140,7 +141,7 @@ function SignupPageContent() {
           Already have an account?{" "}
           <Link
             href="/login"
-            className="font-semibold text-indigo-600 dark:text-indigo-400 hover:underline focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring rounded"
+            className="font-semibold text-[#bd4668] hover:underline focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring rounded"
           >
             Sign in
           </Link>
@@ -155,7 +156,7 @@ export default function SignupPage() {
     <Suspense
       fallback={
         <AuthCard>
-          <p role="status" className="py-8 text-center text-sm text-slate-500">
+          <p role="status" className="py-8 text-center text-sm text-[#746a80]">
             Loading sign-up form…
           </p>
         </AuthCard>
