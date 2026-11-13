@@ -30,7 +30,7 @@ export async function POST(request: NextRequest) {
     const serviceKey = process.env.SUPABASE_SECRET_KEY || process.env.SUPABASE_SERVICE_ROLE_KEY;
     const url = process.env.NEXT_PUBLIC_SUPABASE_URL;
     if (!serviceKey || !url) {
-      return NextResponse.json({ error: "Account availability checking is temporarily unavailable." }, { status: 503 });
+      return NextResponse.json({ code: "service_configuration", error: "Account availability checking is not configured." }, { status: 503 });
     }
 
     const sessionClient = await createClient();
@@ -53,8 +53,10 @@ export async function POST(request: NextRequest) {
   } catch (error: any) {
     const status = Number.isInteger(error?.status) ? error.status : error?.message === "Rate limit exceeded" ? 429 : 503;
     if (status >= 500) console.error("Signup availability check failed:", error instanceof Error ? error.message : "Unknown error");
+    const invalidApiKey = error instanceof Error && /invalid api key/i.test(error.message);
     return NextResponse.json({
-      error: status === 429 ? "Too many availability checks. Please wait a minute." : "Account availability checking is temporarily unavailable.",
+      code: invalidApiKey ? "service_configuration" : status === 429 ? "rate_limited" : "service_unavailable",
+      error: invalidApiKey ? "The server authentication key is invalid." : status === 429 ? "Too many availability checks. Please wait a minute." : "Account availability checking is temporarily unavailable.",
     }, { status });
   }
 }
