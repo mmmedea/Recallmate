@@ -121,7 +121,7 @@ export function EmailOTPForm({
   const checkIdentityAvailability = useCallback(async () => {
     const normalizedEmail = email.trim().toLowerCase();
     const normalizedUsername = username.trim();
-    if (!/^[^\\s@]+@[^\\s@]+\\.[^\\s@]+$/.test(normalizedEmail) || !/^[A-Za-z0-9_]{3,30}$/.test(normalizedUsername)) return;
+    if (!/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(normalizedEmail) || !/^[A-Za-z0-9_]{3,30}$/.test(normalizedUsername)) return;
     try {
       const response = await fetch("/api/auth/check-availability", {
         method: "POST",
@@ -300,7 +300,7 @@ export function EmailOTPForm({
   const requestRecoveryCode = useCallback(async (event?: React.FormEvent) => {
     event?.preventDefault();
     const normalizedEmail = email.trim().toLowerCase();
-    if (!/^[^\\s@]+@[^\\s@]+\\.[^\\s@]+$/.test(normalizedEmail)) {
+    if (!/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(normalizedEmail)) {
       setErrorKey("email_invalid");
       return;
     }
@@ -330,7 +330,7 @@ export function EmailOTPForm({
   const verifyRecoveryCode = useCallback(async (event?: React.FormEvent) => {
     event?.preventDefault();
     const normalizedEmail = email.trim().toLowerCase();
-    const code = otpValue.replace(/\\D/g, "").slice(0, AUTH_OTP_LENGTH);
+    const code = otpValue.replace(/\D/g, "").slice(0, AUTH_OTP_LENGTH);
     if (code.length !== AUTH_OTP_LENGTH) return;
     try {
       setIsLoading(true);
@@ -352,7 +352,7 @@ export function EmailOTPForm({
 
   const saveRecoveredPassword = useCallback(async (event?: React.FormEvent) => {
     event?.preventDefault();
-    if (recoveryPassword.length < 8 || !/[A-Z]/.test(recoveryPassword) || !/[a-z]/.test(recoveryPassword) || !/[^\\sA-Za-z0-9]/.test(recoveryPassword)) {
+    if (recoveryPassword.length < 8 || !/[A-Z]/.test(recoveryPassword) || !/[a-z]/.test(recoveryPassword) || !/[^\sA-Za-z0-9]/.test(recoveryPassword)) {
       setErrorKey("weak_password");
       return;
     }
@@ -443,7 +443,7 @@ export function EmailOTPForm({
   }
 
   if (stage === "recovery-password") {
-    const rulesMet = recoveryPassword.length >= 8 && /[A-Z]/.test(recoveryPassword) && /[a-z]/.test(recoveryPassword) && /[^\\sA-Za-z0-9]/.test(recoveryPassword);
+    const rulesMet = recoveryPassword.length >= 8 && /[A-Z]/.test(recoveryPassword) && /[a-z]/.test(recoveryPassword) && /[^\sA-Za-z0-9]/.test(recoveryPassword);
     return <form onSubmit={saveRecoveredPassword} className="space-y-4" noValidate>
       <div className="text-center"><h2 className="font-fredoka text-2xl font-semibold text-[#21152d]">Choose a new password</h2><p className="font-quicksand text-sm text-[#746a80]">Your email code is verified. Create a fresh password for RecallMate.</p></div>
       <div className="space-y-1.5"><Label htmlFor="recovery-new-password" className="font-quicksand font-bold text-[#43364f]">New password</Label><PasswordInput id="recovery-new-password" value={recoveryPassword} onChange={event => setRecoveryPassword(event.target.value)} autoComplete="new-password" disabled={isLoading} required /></div>
