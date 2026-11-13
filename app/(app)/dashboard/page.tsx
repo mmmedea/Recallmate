@@ -84,7 +84,7 @@ export default async function DashboardPage() {
           </div>
           <div className="hidden min-w-36 items-center justify-center lg:flex">
             <div className="relative flex h-36 w-36 items-center justify-center rounded-[2rem] border border-[#c4b5fd]/20 bg-gradient-to-br from-[#a78bfa]/20 to-[#f43f5e]/10 shadow-[0_0_70px_rgba(167,139,250,0.16)]">
-              <span className="font-pixelify text-5xl text-[#d9c8ff]">01</span>
+              <img src="https://lh3.googleusercontent.com/d/1VBjuDg72zKakz032deRqbBJp0SYUFDuu=w1200" alt="RecallMate" className="h-20 w-20 rounded-2xl object-contain drop-shadow-[0_0_24px_rgba(167,139,250,.35)]" />
               <span className="absolute -right-3 -top-3 rounded-full border border-[#fb7185]/30 bg-[#f43f5e]/15 px-3 py-1 font-pixelify text-[10px] text-[#ff9aaa]">FOCUS</span>
               <span className="absolute -bottom-3 -left-3 rounded-full border border-[#c4b5fd]/30 bg-[#a78bfa]/15 px-3 py-1 font-pixelify text-[10px] text-[#d9c8ff]">RECALL</span>
             </div>
