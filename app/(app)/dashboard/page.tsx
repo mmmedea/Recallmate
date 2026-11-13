@@ -3,6 +3,7 @@ import Link from "next/link";
 import { createClient } from "@/utils/supabase/server";
 import { getRecentDocuments } from "@/app/actions/document-actions";
 import { DocumentLifecycleSummary } from "@/app/actions/document-lifecycle";
+import EconomyDashboard from "@/components/dashboard/EconomyDashboard";
 
 export const metadata = {
   title: "Dashboard | RecallMate",
@@ -64,6 +65,10 @@ export default async function DashboardPage() {
           + Add material
         </Link>
       </header>
+
+      <section aria-label="Study streak and rewards" className="rounded-[1.75rem] border border-[#fb923c]/20 bg-gradient-to-r from-[#211827] via-[#1b1727] to-[#281722] p-4 shadow-[0_16px_50px_rgba(12,8,20,.2)] sm:p-5">
+        <EconomyDashboard />
+      </section>
 
       <section className="relative isolate overflow-hidden rounded-[2rem] border border-white/10 bg-[#111019] p-6 shadow-[0_24px_80px_rgba(0,0,0,0.28)] sm:p-9">
         <div aria-hidden="true" className="pointer-events-none absolute -right-16 -top-24 -z-10 h-72 w-72 rounded-full bg-[#8b5cf6]/20 blur-3xl" />
