@@ -36,7 +36,8 @@ type FormStage = "credentials" | "otp" | "recovery-email" | "recovery-code" | "r
 const AUTH_ERRORS: Record<string, string> = {
   invalid: "That code isn't valid or is no longer the newest code. Check it, or request a new verification code.",
   expired: "Your code has expired. Request a new verification code.",
-  rate_limited: "Too many attempts. Please wait before trying again.",
+  rate_limited: "Too many authentication requests came from this network. Please wait a few minutes before trying again.",
+  email_rate_limited: "RecallMate's email provider has reached its hourly sending limit. This affects all users, so please try again later. For reliable recovery emails, the project needs a custom email provider.",
   captcha_required: "Please complete the security check to continue.",
   captcha_failed: "Security verification failed. Please try again.",
   email_delivery: "We couldn't send the email. Check the address and try again.",
@@ -345,8 +346,9 @@ export function EmailOTPForm({
 
   const requestRecoveryCode = useCallback(async (event?: React.FormEvent): Promise<boolean> => {
     event?.preventDefault();
-    const normalizedEmail = email.trim().toLowerCase();
-    if (!/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(normalizedEmail)) {
+    // Strip invisible formatting characters introduced by copy/paste or password managers.
+    const normalizedEmail = email.normalize("NFKC").replace(/[\u200B-\u200D\uFEFF]/g, "").trim().toLowerCase();
+    if (!/^[^\s@<>]+@[^\s@<>]+\.[^\s@<>]{2,}$/.test(normalizedEmail)) {
       setErrorKey("email_invalid");
       return false;
     }
@@ -359,7 +361,26 @@ export function EmailOTPForm({
       });
       if (error) {
         const message = error.message.toLowerCase();
-        setErrorKey(message.includes("rate") ? "rate_limited" : message.includes("invalid api key") ? "service_configuration" : "email_delivery");
+        const code = "code" in error && typeof error.code === "string" ? error.code.toLowerCase() : "";
+        const status = Number(error.status);
+        const key =
+          code === "over_email_send_rate_limit" || message.includes("email rate limit")
+            ? "email_rate_limited"
+            : code === "over_request_rate_limit" || status === 429
+              ? "rate_limited"
+              : code === "email_address_not_authorized"
+                ? "email_delivery"
+                : message.includes("invalid api key")
+                  ? "service_configuration"
+                  : message.includes("invalid") && message.includes("email")
+                    ? "email_invalid"
+                    : "email_delivery";
+        console.error("[auth] password recovery request rejected", {
+          status: Number.isFinite(status) ? status : "unknown",
+          code: code || "unknown",
+          category: key,
+        });
+        setErrorKey(key);
         return false;
       }
       setRecoveryNotice(true);
@@ -442,7 +463,8 @@ export function EmailOTPForm({
   ];
   const passwordValid = passwordRules.every((rule) => rule.met);
   const usernameValid = /^[A-Za-z0-9_]{3,30}$/.test(username.trim());
-  const emailValid = /^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(email.trim());
+  const normalizedEmailForValidation = email.normalize("NFKC").replace(/[\u200B-\u200D\uFEFF]/g, "").trim();
+  const emailValid = /^[^\s@<>]+@[^\s@<>]+\.[^\s@<>]{2,}$/.test(normalizedEmailForValidation);
   const confirmValid = password.length > 0 && password === confirmPassword;
   const signupReady = usernameValid && emailValid && passwordValid && confirmValid && privacyAgreed && (!captchaEnabled || Boolean(captchaToken));
   const emailAlreadyRegistered = intent === "signup" && (errorKey === "account_exists" || availability.email === "taken");
