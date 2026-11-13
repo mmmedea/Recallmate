@@ -36,17 +36,17 @@ function SignupPageContent() {
   }
 
   const privacyControl = (
-            <div className="flex flex-col items-center gap-3 mt-4">
-              <div className="flex items-start gap-3 bg-[#f5f0fa] p-4 rounded-2xl border border-[#e7def0] w-full">
+            <div className="mt-4 flex flex-col items-center gap-3">
+              <div className="flex w-full items-start gap-3 rounded-2xl border border-[#dfd0f3] bg-[linear-gradient(120deg,#f3edff,#fff0f3)] p-4 shadow-[0_5px_18px_rgba(45,25,60,.05)]">
                 <input
                   id="privacy-checkbox"
                   type="checkbox"
                   checked={privacyAgreed}
                   onChange={(e) => setPrivacyAgreed(e.target.checked)}
-                  className="mt-1 h-4 w-4 rounded border-slate-300 dark:border-slate-700 text-[#a78bfa] focus:ring-[#a78bfa] focus:ring-offset-0 cursor-pointer shrink-0"
+                  className="mt-1 h-4 w-4 shrink-0 cursor-pointer rounded border-[#bba8d1] text-[#a04ee8] accent-[#a04ee8] focus:ring-2 focus:ring-[#c4a7ff] focus:ring-offset-2 focus:ring-offset-[#f8f2ff]"
                   aria-required="true"
                 />
-                <div className="text-sm text-[#5f536b] leading-relaxed select-none">
+                <div className="select-none text-sm leading-relaxed text-[#4c4059]">
                   <label htmlFor="privacy-checkbox" className="cursor-pointer">
                     I have read and agree to the{" "}
                   </label>
@@ -54,21 +54,21 @@ function SignupPageContent() {
                     <DialogTrigger asChild>
                       <button
                         type="button"
-                        className="font-medium text-[#bd4668] hover:underline"
+                        className="font-bold text-[#d43d5b] underline-offset-4 transition-colors hover:text-[#8c55cf] hover:underline"
                       >
                         Privacy Policy
                       </button>
                     </DialogTrigger>
-                    <DialogContent className="max-w-2xl max-h-[85vh] flex flex-col" onClick={(e) => e.stopPropagation()}>
+                    <DialogContent className="group relative flex max-h-[min(86vh,820px)] max-w-3xl flex-col overflow-hidden rounded-[1.75rem] border border-[#5c456f] bg-[#100b16] p-0 text-[#f8f2ff] shadow-[0_35px_110px_rgba(0,0,0,.72),0_0_55px_rgba(167,139,250,.12)] sm:max-w-3xl" onClick={(e) => e.stopPropagation()}>
                       <DialogHeader>
                         <DialogTitle>Privacy Policy</DialogTitle>
                       </DialogHeader>
-                      <div className="flex-1 overflow-y-auto pr-2 min-h-0">
+                      <div className="min-h-0 flex-1 overflow-y-auto px-6 py-5 pr-4 [scrollbar-color:#8b6aa8_#211829] [scrollbar-width:thin] sm:px-8 sm:py-6">
                         <PrivacyContent />
                       </div>
-                      <div className="flex justify-end pt-4 border-t mt-auto">
+                      <div className="mt-auto flex justify-end border-t border-[#6a527b]/40 bg-[#120d18] px-6 py-4 sm:px-8">
                         <DialogClose asChild>
-                          <Button variant="outline">Close</Button>
+                          <Button variant="outline" className="h-10 rounded-xl border-[#80618e] bg-[#211729] px-6 font-fredoka text-sm text-[#f8f2ff] transition-all hover:border-[#ff7185] hover:bg-[#34203a] hover:text-white">Close</Button>
                         </DialogClose>
                       </div>
                     </DialogContent>
@@ -78,7 +78,7 @@ function SignupPageContent() {
                     <DialogTrigger asChild>
                       <button
                         type="button"
-                        className="font-medium text-[#a34c75] hover:underline"
+                        className="font-bold text-[#d43d5b] underline-offset-4 transition-colors hover:text-[#8c55cf] hover:underline"
                       >
                         Terms of Service
                       </button>
@@ -105,13 +105,13 @@ function SignupPageContent() {
 
   return (
     <AuthCard>
-      <div className="space-y-5"><nav aria-label="Account access" className="mx-auto grid w-full max-w-[260px] grid-cols-2 rounded-full bg-[#eee8f6] p-1"><Link href="/login" className="rounded-full px-4 py-2 text-center font-fredoka text-sm font-semibold text-[#756b80] hover:text-[#a34c75]">Sign in</Link><Link href="/signup" aria-current="page" className="rounded-full bg-white px-4 py-2 text-center font-fredoka text-sm font-semibold text-[#24152f] shadow-sm">Sign up</Link></nav>
+      <div className="space-y-5"><nav aria-label="Account access" className="mx-auto grid w-full max-w-[280px] grid-cols-2 rounded-full border border-[#e5d9f4] bg-[#eee8f7] p-1.5 shadow-inner"><Link href="/login" className="rounded-full px-4 py-2.5 text-center font-fredoka text-sm font-semibold text-[#766b84] transition-all duration-200 hover:bg-white/70 hover:text-[#21152d]">Sign in</Link><Link href="/signup" aria-current="page" className="rounded-full bg-gradient-to-r from-white to-[#fff4f6] px-4 py-2.5 text-center font-fredoka text-sm font-semibold text-[#21152d] shadow-[0_3px_12px_rgba(34,18,48,.12)] ring-1 ring-white">Sign up</Link></nav>
         {/* Heading */}
         <div className="space-y-1 text-center">
-          <h1 className="font-fredoka text-3xl font-semibold tracking-tight text-[#21152d]">
+          <h1 className="font-fredoka text-3xl font-semibold tracking-tight text-[#21152d] sm:text-4xl">
             Create your account
           </h1>
-          <p className="font-quicksand text-sm font-semibold text-[#746a80]">
+          <p className="font-quicksand text-sm font-semibold text-[#746a80] sm:text-base">
             Start learning smarter with RecallMate
           </p>
         </div>
