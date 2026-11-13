@@ -22,11 +22,11 @@ export type ReviewerTheme = {
 };
 
 export const REVIEWER_THEMES: ReviewerTheme[] = [
+  { name: "RecallMate Lavender", accent: "A78BFA", tint: "F1EAFF" },
+  { name: "RecallMate Rose", accent: "F43F5E", tint: "FFE7EC" },
+  { name: "Deep Violet", accent: "7C3AED", tint: "EDE9FE" },
   { name: "Slate", accent: "475569", tint: "E2E8F0" },
   { name: "Blue", accent: "2563EB", tint: "DBEAFE" },
-  { name: "Emerald", accent: "059669", tint: "D1FAE5" },
-  { name: "Violet", accent: "7C3AED", tint: "EDE9FE" },
-  { name: "Rose", accent: "E11D48", tint: "FFE4E6" },
 ];
 
 const DEFAULT_REVIEWER_THEME = REVIEWER_THEMES[0];
@@ -295,8 +295,8 @@ export async function buildReviewerPdfBlob(file: File, sections: ReviewerSection
         if (isNoteLine(paragraph)) {
           const boxHeight = Math.max(10, lines.length * 3.15 + 6.5);
           ensure(boxHeight + 2);
-          pdf.setFillColor(255, 246, 204);
-          pdf.setDrawColor(211, 151, 31);
+          pdf.setFillColor(241, 234, 255);
+          pdf.setDrawColor(167, 139, 250);
           pdf.rect(x(), y - 2.5, columnWidth, boxHeight, "FD");
           pdf.setFont("helvetica", "bold");
           pdf.setFontSize(7.2);
@@ -413,10 +413,10 @@ export async function buildReviewerDocxBlob(file: File, sections: ReviewerSectio
         children.push(new Table({
           width: { size: 100, type: WidthType.PERCENTAGE },
           rows: [new TableRow({ children: [new TableCell({
-            shading: { fill: "FFF6CC", type: ShadingType.CLEAR },
+            shading: { fill: "F1EAFF", type: ShadingType.CLEAR },
             margins: { top: 100, bottom: 100, left: 120, right: 120 },
             borders: {
-              top: { style: BorderStyle.SINGLE, size: 6, color: "D3971F" },
+              top: { style: BorderStyle.SINGLE, size: 6, color: "A78BFA" },
               bottom: { style: BorderStyle.SINGLE, size: 6, color: "D3971F" },
               left: { style: BorderStyle.SINGLE, size: 6, color: "D3971F" },
               right: { style: BorderStyle.SINGLE, size: 6, color: "D3971F" },
