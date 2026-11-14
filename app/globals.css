@@ -470,3 +470,40 @@ button:disabled {
 @media (prefers-reduced-motion: reduce) {
   button, a, [role="button"] { transition: none !important; }
 }
+
+
+/* Dashboard shares the landing page's plum canvas, lavender glow and rose accent. */
+.dashboard-canvas {
+  width: 100%;
+  color: #fffaff;
+}
+.dashboard-heading h1 {
+  max-width: 18ch;
+  text-wrap: balance;
+}
+.dashboard-streak {
+  background-image:
+    radial-gradient(ellipse at 4% 0%, rgba(196,167,255,.14), transparent 45%),
+    radial-gradient(ellipse at 96% 100%, rgba(255,82,107,.13), transparent 48%),
+    linear-gradient(110deg, #21172a, #1b1425 58%, #301522);
+}
+.dashboard-continue {
+  background-image:
+    radial-gradient(ellipse at 12% 12%, rgba(196,167,255,.20), transparent 44%),
+    radial-gradient(ellipse at 94% 88%, rgba(255,82,107,.22), transparent 46%),
+    linear-gradient(120deg, #251632, #21142a 55%, #351625);
+}
+.dashboard-canvas article,
+.dashboard-canvas section {
+  scroll-margin-top: 6rem;
+}
+.dashboard-canvas .rm-number { font-variant-numeric: tabular-nums; }
+.dashboard-canvas a:focus-visible,
+.dashboard-canvas button:focus-visible {
+  outline: 2px solid #c4a7ff;
+  outline-offset: 4px;
+}
+@media (max-width: 640px) {
+  .dashboard-canvas { padding-top: 1.25rem; }
+  .dashboard-continue { border-radius: 1.5rem; }
+}
