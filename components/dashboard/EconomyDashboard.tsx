@@ -199,3 +199,33 @@ function WalletTile({ label, value, tone }: { label: string; value: string; tone
   };
   return <div className={`rounded-xl border p-3 text-center ${tones[tone]}`}><p className="font-fredoka text-xl font-semibold text-white">{value}</p><p className="font-nunito text-[10px] font-bold">{label}</p></div>;
 }
+
+
+export function StreakDayMarker() {
+  const [day, setDay] = useState<number | null>(null);
+  const [failed, setFailed] = useState(false);
+
+  useEffect(() => {
+    let active = true;
+    fetch("/api/economy/state", { credentials: "same-origin", cache: "no-store" })
+      .then(async (response) => {
+        const data = await response.json();
+        if (!response.ok) throw new Error(data.error || "Unable to load streak");
+        if (active) setDay(Number(data.account?.current_streak ?? 0));
+      })
+      .catch(() => { if (active) setFailed(true); });
+    return () => { active = false; };
+  }, []);
+
+  return (
+    <div className="flex h-36 w-36 flex-col items-center justify-center rounded-[1.65rem] border border-[#fb923c]/25 bg-[linear-gradient(145deg,rgba(251,146,60,.14),rgba(167,139,250,.12))] shadow-[0_0_55px_rgba(251,146,60,.10)]" aria-label={failed ? "Streak unavailable" : day === null ? "Loading study streak" : `Day ${day} study streak`}>
+      <span className="font-nunito text-[10px] font-extrabold uppercase tracking-[0.2em] text-[#ffbd83]">STREAK DAY</span>
+      {day === null && !failed ? (
+        <span className="mt-2 h-12 w-16 animate-pulse rounded-xl bg-white/10" aria-label="Loading" />
+      ) : (
+        <span className="mt-1 font-fredoka text-6xl font-bold leading-none tabular-nums text-white">{failed ? "—" : day}</span>
+      )}
+      <span className="mt-2 font-nunito text-xs font-bold text-white/55">{day === 1 ? "day in a row" : "days in a row"}</span>
+    </div>
+  );
+}
