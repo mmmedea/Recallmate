@@ -27,7 +27,6 @@ export function TopBar({ user }: TopBarProps) {
           <Menu className="h-5 w-5" />
         </Button>
         <div className="min-w-0">
-          <p className="hidden font-pixelify text-[9px] uppercase tracking-[0.2em] text-[#ff8799]/80 sm:block">YOUR STUDY SPACE</p>
           <h1 className="truncate font-fredoka text-base font-semibold tracking-tight text-white sm:text-lg">{pageTitle}</h1>
         </div>
       </div>
