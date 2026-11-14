@@ -387,3 +387,86 @@ input:autofill {
   .streak-welcome-backdrop, .streak-welcome-card, .streak-number-pop,
   .streak-welcome-flame, .streak-welcome-glow { animation: none !important; }
 }
+
+
+/* RecallMate UI system: consistent surfaces, type, spacing, focus and feedback. */
+:root {
+  --rm-canvas: #100d18;
+  --rm-surface: #1b1726;
+  --rm-surface-raised: #241d31;
+  --rm-border: rgba(196, 181, 253, .18);
+  --rm-text: #f7f2ff;
+  --rm-muted: #b9b0c8;
+  --rm-lavender: #c4b5fd;
+  --rm-rose: #fb7185;
+  --rm-radius-card: 1.5rem;
+  --rm-radius-control: .85rem;
+  --rm-space-section: 2rem;
+}
+
+body {
+  color: var(--rm-text);
+  font-variant-numeric: lining-nums;
+}
+
+button, a, [role="button"] {
+  -webkit-tap-highlight-color: transparent;
+}
+
+button:focus-visible, a:focus-visible, [role="button"]:focus-visible,
+input:focus-visible, textarea:focus-visible, select:focus-visible {
+  outline: 2px solid var(--rm-lavender);
+  outline-offset: 3px;
+}
+
+button:not(:disabled), a, [role="button"] {
+  transition-property: color, background-color, border-color, box-shadow, transform, opacity;
+  transition-duration: 160ms;
+  transition-timing-function: ease-out;
+}
+
+button:disabled {
+  cursor: not-allowed;
+}
+
+.rm-card {
+  border: 1px solid var(--rm-border);
+  border-radius: var(--rm-radius-card);
+  background: var(--rm-surface);
+}
+
+.rm-muted {
+  color: var(--rm-muted);
+}
+
+.rm-number {
+  font-variant-numeric: tabular-nums;
+  font-feature-settings: "tnum" 1;
+}
+
+.rm-eyebrow {
+  color: var(--rm-lavender);
+  font-family: var(--font-nunito), sans-serif;
+  font-size: .6875rem;
+  font-weight: 800;
+  letter-spacing: .12em;
+  line-height: 1.4;
+  text-transform: uppercase;
+}
+
+.rm-primary-action {
+  border-radius: var(--rm-radius-control);
+  background: linear-gradient(110deg, #b49aff, #e879a8 62%, #fb7185);
+  color: #160f20;
+  font-weight: 900;
+  box-shadow: 0 8px 24px rgba(167, 139, 250, .16);
+}
+
+.rm-primary-action:hover:not(:disabled) {
+  filter: brightness(1.08);
+  transform: translateY(-1px);
+}
+
+@media (prefers-reduced-motion: reduce) {
+  button, a, [role="button"] { transition: none !important; }
+}
