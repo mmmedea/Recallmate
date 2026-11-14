@@ -52,35 +52,35 @@ export default async function DashboardPage() {
     : "/upload";
 
   return (
-    <div className="dashboard-canvas mx-auto max-w-7xl space-y-8 px-4 py-7 sm:px-6 lg:px-8">
-      <header className="flex flex-col gap-4 sm:flex-row sm:items-end sm:justify-between">
+    <div className="dashboard-canvas mx-auto w-full max-w-7xl space-y-10 px-4 py-7 sm:px-6 lg:px-8">
+      <header className="dashboard-heading flex flex-col gap-5 sm:flex-row sm:items-end sm:justify-between">
         <div className="space-y-2">
           <h1 className="font-fredoka text-3xl font-semibold tracking-tight text-white sm:text-4xl">
             Welcome back, <span className="bg-gradient-to-r from-[#c6a8ff] via-[#e7d8ff] to-[#ff657e] bg-clip-text text-transparent">{name}</span>
           </h1>
           <p className="font-quicksand text-sm text-white/60 sm:text-base">A little progress today makes a big difference tomorrow.</p>
         </div>
-        <Link href="/upload" className="inline-flex min-h-11 items-center justify-center rounded-2xl border border-[#a78bfa]/40 bg-[#a78bfa]/10 px-5 py-3 font-nunito text-sm font-extrabold text-[#d9c8ff] transition hover:-translate-y-0.5 hover:border-[#c4b5fd] hover:bg-[#a78bfa]/20 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[#c4b5fd]">
+        <Link href="/upload" className="rm-primary-action inline-flex min-h-12 items-center justify-center px-6 py-3 font-fredoka text-base transition focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[#c4b5fd]">
           + Add material
         </Link>
       </header>
 
-      <section aria-label="Study streak and rewards" className="rounded-[1.75rem] border border-[#fb923c]/20 bg-gradient-to-r from-[#211827] via-[#1b1727] to-[#281722] p-4 shadow-[0_16px_50px_rgba(12,8,20,.2)] sm:p-5">
+      <section aria-label="Study streak and rewards" className="dashboard-streak rounded-[1.75rem] border border-[#a78bfa]/25 bg-gradient-to-r from-[#21172a] via-[#1b1727] to-[#301522] p-4 shadow-[0_18px_55px_rgba(8,5,18,.28)] sm:p-5">
         <EconomyDashboard />
       </section>
 
-      <section className="relative isolate overflow-hidden rounded-[2rem] border border-white/10 bg-[#111019] p-6 shadow-[0_24px_80px_rgba(0,0,0,0.28)] sm:p-9">
+      <section className="dashboard-continue relative isolate overflow-hidden rounded-[2rem] border border-[#c4a7ff]/25 bg-[linear-gradient(125deg,#24172f_0%,#1b1425_52%,#351724_100%)] p-7 shadow-[0_24px_80px_rgba(0,0,0,0.32)] sm:p-10 lg:p-12">
         <div aria-hidden="true" className="pointer-events-none absolute -right-16 -top-24 -z-10 h-72 w-72 rounded-full bg-[#8b5cf6]/20 blur-3xl" />
         <div aria-hidden="true" className="pointer-events-none absolute -bottom-28 left-1/3 -z-10 h-64 w-64 rounded-full bg-[#f43f5e]/10 blur-3xl" />
         <div className="grid gap-7 lg:grid-cols-[1fr_auto] lg:items-center">
           <div className="max-w-2xl">
-            <span className="inline-flex items-center rounded-full border border-[#b79aff]/25 bg-[#a78bfa]/10 px-3 py-1 font-pixelify text-[11px] uppercase tracking-[0.16em] text-[#cbb8ff]">PICK UP WHERE YOU LEFT OFF</span>
-            <h2 className="mt-4 font-fredoka text-3xl font-semibold leading-tight text-white sm:text-4xl">Continue studying.</h2>
-            <p className="mt-3 max-w-xl font-quicksand text-sm leading-6 text-white/60 sm:text-base">
+            
+            <h2 className="mt-1 max-w-xl font-fredoka text-4xl font-semibold leading-[1.08] tracking-tight text-white sm:text-5xl lg:text-6xl">Your next study session starts here.</h2>
+            <p className="mt-4 max-w-xl font-quicksand text-base leading-7 text-[#d4c9df] sm:text-lg">
               {latest ? "Jump straight back into your most recent study material. Your next focused session starts here." : "Upload your first material and turn it into a focused study session with notes and practice questions."}
             </p>
             <div className="mt-6 flex flex-wrap items-center gap-3">
-              <Link href={continueHref} className="inline-flex min-h-12 items-center justify-center rounded-2xl bg-gradient-to-r from-[#a78bfa] to-[#8b5cf6] px-6 py-3 font-nunito text-sm font-extrabold text-[#100b1b] shadow-lg shadow-[#8b5cf6]/20 transition hover:-translate-y-0.5 hover:shadow-xl hover:shadow-[#8b5cf6]/30">
+              <Link href={continueHref} className="rm-primary-action inline-flex min-h-14 items-center justify-center rounded-2xl px-7 py-4 font-fredoka text-base shadow-lg transition hover:-translate-y-1 hover:shadow-xl sm:text-lg">
                 {latest ? "Resume studying  →" : "Create your first workspace  →"}
               </Link>
               {latest && <span className="max-w-[240px] truncate font-nunito text-xs text-white/50">{latest.document.filename}</span>}
@@ -95,7 +95,7 @@ export default async function DashboardPage() {
       <section aria-label="Study overview">
         <div className="mb-4 flex items-end justify-between gap-3">
           <div>
-            <p className="font-pixelify text-[10px] uppercase tracking-[0.2em] text-[#a78bfa]">AT A GLANCE</p>
+            
             <h2 className="mt-1 font-fredoka text-2xl font-semibold text-white">Your study overview</h2>
           </div>
           <Link href="/progress" className="font-nunito text-xs font-bold text-[#c4b5fd] transition hover:text-white">View progress →</Link>
@@ -110,7 +110,7 @@ export default async function DashboardPage() {
       <section aria-label="Recent materials">
         <div className="mb-4 flex items-end justify-between gap-3">
           <div>
-            <p className="font-pixelify text-[10px] uppercase tracking-[0.2em] text-[#a78bfa]">RECENT ACTIVITY</p>
+            
             <h2 className="mt-1 font-fredoka text-2xl font-semibold text-white">Recent materials</h2>
             <p className="mt-1 font-quicksand text-sm text-white/50">Your latest uploads, ready when you are.</p>
           </div>
@@ -158,7 +158,7 @@ function DocumentCard({ doc }: { doc: DocumentLifecycleSummary }) {
   return (
     <Link href={`/documents/${document.id}${isReady ? "" : "/process"}`} className="group rounded-2xl border border-white/10 bg-[#111019] p-5 transition duration-300 hover:-translate-y-1 hover:border-[#a78bfa]/40 hover:shadow-xl hover:shadow-[#8b5cf6]/10">
       <div className="flex items-center justify-between gap-3">
-        <span className="font-pixelify text-[10px] uppercase tracking-[0.16em] text-white/35">STUDY MATERIAL</span>
+        
         <span className={`rounded-full border px-2.5 py-1 font-nunito text-[10px] font-extrabold ${statusTone}`}>{status}</span>
       </div>
       <h3 className="mt-5 truncate font-fredoka text-lg font-semibold text-white transition group-hover:text-[#d6c4ff]" title={document.filename}>{document.filename}</h3>
