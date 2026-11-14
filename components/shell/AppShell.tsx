@@ -21,7 +21,7 @@ export function AppShell({
 
         {/* Main Content Area */}
         <main className="recallmate-main relative flex-1 overflow-y-auto pb-16 md:pb-0">
-          <div className="mx-auto max-w-6xl px-4 py-6 md:p-8">
+          <div className="mx-auto w-full max-w-[1600px] px-4 py-6 md:px-8 md:py-8">
             {children}
           </div>
         </main>
