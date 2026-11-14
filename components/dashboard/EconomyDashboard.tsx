@@ -114,7 +114,7 @@ export default function EconomyDashboard() {
       </button>
 
       {welcomeOpen && account && (
-        <div className="streak-welcome-backdrop fixed inset-0 z-[120] flex items-center justify-center bg-[#090711]/80 p-4 backdrop-blur-xl" role="presentation" onMouseDown={(event) => { if (event.target === event.currentTarget) setWelcomeOpen(false); }}>
+        <div className="streak-welcome-backdrop fixed inset-0 z-[9999] flex items-center justify-center bg-[#090711] p-4" role="presentation" onMouseDown={(event) => { if (event.target === event.currentTarget) setWelcomeOpen(false); }}>
           <section role="dialog" aria-modal="true" aria-labelledby="streak-welcome-title" className="streak-welcome-card relative w-full max-w-md overflow-hidden rounded-[2rem] border border-[#fb923c]/35 bg-[linear-gradient(145deg,#251a2d_0%,#1b1728_54%,#2b1824_100%)] p-6 text-center shadow-[0_30px_110px_rgba(8,5,18,.65)] sm:p-8">
             <div aria-hidden="true" className="streak-welcome-glow pointer-events-none absolute -right-16 -top-20 h-64 w-64 rounded-full bg-[#fb923c]/20 blur-3xl" />
             <div aria-hidden="true" className="pointer-events-none absolute -bottom-24 -left-16 h-56 w-56 rounded-full bg-[#a78bfa]/20 blur-3xl" />
