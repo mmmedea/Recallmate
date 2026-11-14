@@ -88,6 +88,7 @@ ${contextResult.content}`;
       { userId: document.user_id, documentId: document.id, operation: 'generate_notes' },
       job.id,
       ModelRegistry.generate_notes.model,
+      ModelRegistry.generate_notes.provider,
       reservationAmount,
       providerUsage
     );
@@ -121,6 +122,7 @@ ${contextResult.content}`;
           { userId: job.user_id, documentId: job.document_id, operation: 'generate_notes' },
           job.id,
           ModelRegistry.generate_notes.model,
+          ModelRegistry.generate_notes.provider,
           reservationAmount,
           providerUsage
         );

@@ -2,117 +2,56 @@
 
 import Link from "next/link";
 import { usePathname } from "next/navigation";
-import { Sparkles, PanelLeftClose, PanelLeftOpen, MessageCircle } from "lucide-react";
 import { navigationConfig } from "@/lib/navigation";
 import { useAppStore } from "@/lib/store";
+import { Menu } from "lucide-react";
 import { cn } from "@/lib/utils";
+
+const LOGO_URL = "https://lh3.googleusercontent.com/d/1VBjuDg72zKakz032deRqbBJp0SYUFDuu=w1200";
 
 export function Sidebar() {
   const pathname = usePathname();
-  const { isSidebarOpen, toggleSidebar, setChatDrawerOpen } = useAppStore();
+  const { isSidebarOpen, toggleSidebar } = useAppStore();
 
   return (
-    <aside
-      className={cn(
-        "hidden md:flex flex-col border-r border-slate-200 dark:border-slate-800 bg-slate-50/50 dark:bg-slate-900/50 transition-all duration-300 relative",
-        isSidebarOpen ? "w-64" : "w-20"
-      )}
-    >
-      <div className="flex h-14 items-center border-b border-slate-200 dark:border-slate-800 px-4 justify-between">
-        <Link 
-          href="/" 
-          className={cn("flex items-center gap-2 font-extrabold text-slate-900 dark:text-white transition-opacity", !isSidebarOpen && "opacity-0 hidden")}
-        >
-          <div className="flex h-8 w-8 items-center justify-center rounded-xl bg-gradient-to-br from-indigo-500 to-violet-600 shrink-0">
-            <Sparkles className="h-4 w-4 text-white" />
-          </div>
-          RecallMate
-        </Link>
-        {!isSidebarOpen && (
-          <Link href="/" className="mx-auto flex h-8 w-8 items-center justify-center rounded-xl bg-gradient-to-br from-indigo-500 to-violet-600 shrink-0">
-            <Sparkles className="h-4 w-4 text-white" />
-          </Link>
-        )}
+    <aside className={cn(
+      "hidden md:flex h-full shrink-0 flex-col border-r border-[#c4b5fd]/10 bg-[#15111f]/95 shadow-[12px_0_48px_rgba(8,5,18,.16)] backdrop-blur-2xl transition-[width] duration-300",
+      isSidebarOpen ? "w-64" : "w-[4.25rem]"
+    )}>
+      <div className={cn("flex h-[4.5rem] shrink-0 items-center border-b border-white/[0.07] px-2", isSidebarOpen ? "justify-between gap-2" : "justify-center")}>
+        {isSidebarOpen && <Link href="/dashboard" aria-label="RecallMate dashboard" className="flex min-w-0 items-center gap-2.5 overflow-hidden">
+          <img src={LOGO_URL} alt="RecallMate logo" width="38" height="38" loading="eager" className="h-9 w-9 shrink-0 rounded-xl object-contain" />
+          <span className="truncate font-fredoka text-[1.35rem] font-semibold tracking-tight text-white">Recall<span className="text-[#c4b5fd]">Mate</span></span>
+        </Link>}
+        <button type="button" onClick={toggleSidebar} aria-label={isSidebarOpen ? "Collapse sidebar" : "Expand sidebar"} aria-expanded={isSidebarOpen}
+          className={cn("grid h-9 w-9 shrink-0 place-items-center rounded-xl text-white/55 transition hover:bg-[#a78bfa]/15 hover:text-[#e5d8ff] focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[#c4b5fd]", isSidebarOpen ? "ml-auto" : "")}>
+          <Menu className="h-[19px] w-[19px]" />
+        </button>
       </div>
 
-      <nav className="flex-1 overflow-y-auto py-4 px-3 flex flex-col gap-1">
+      <nav className="flex flex-1 flex-col gap-1 overflow-y-auto px-3 py-5">
+        <p className={cn("mb-2 px-3 font-pixelify text-[9px] uppercase tracking-[0.22em] text-white/30", !isSidebarOpen && "text-center")}>{isSidebarOpen ? "WORKSPACE" : "MENU"}</p>
         {navigationConfig.main.map((item) => {
-          const isActive = pathname === item.href;
-          const Icon = item.icon;
-
+          const active = pathname === item.href || (item.href !== "/dashboard" && pathname.startsWith(item.href));
           return (
-            <Link
-              key={item.href}
-              href={item.href}
-              aria-current={isActive ? "page" : undefined}
-              className={cn(
-                "flex items-center gap-3 rounded-lg px-3 py-2.5 text-sm font-medium transition-colors focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring",
-                isActive 
-                  ? "bg-indigo-100 text-indigo-700 dark:bg-indigo-900/40 dark:text-indigo-300" 
-                  : "text-slate-600 hover:bg-slate-100 hover:text-slate-900 dark:text-slate-400 dark:hover:bg-slate-800/50 dark:hover:text-slate-50",
-                !isSidebarOpen && "justify-center px-0"
-              )}
-              title={!isSidebarOpen ? item.label : undefined}
-            >
-              <Icon className="h-5 w-5 shrink-0" />
+            <Link key={item.href} href={item.href} aria-current={active ? "page" : undefined} title={!isSidebarOpen ? item.label : undefined}
+              className={cn("group flex items-center gap-3 rounded-xl px-3 py-3 font-nunito text-sm font-bold transition-all focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[#c4b5fd]", active ? "border border-[#a78bfa]/25 bg-gradient-to-r from-[#a78bfa]/15 to-[#f43f5e]/[0.07] text-[#e8dcff] shadow-[inset_2px_0_0_#c4b5fd]" : "border border-transparent text-white/55 hover:bg-white/[0.05] hover:text-white", !isSidebarOpen && "justify-center px-2")}>
+              <span className={cn("flex h-7 w-7 shrink-0 items-center justify-center rounded-lg font-pixelify text-[10px]", active ? "bg-[#a78bfa]/20 text-[#e5d8ff]" : "bg-white/[0.05] text-white/35 group-hover:text-white/70")}>{item.symbol}</span>
               {isSidebarOpen && <span>{item.label}</span>}
             </Link>
           );
         })}
-
-        <div className="mt-auto flex flex-col gap-1 pt-4">
-          <button
-            onClick={() => setChatDrawerOpen(true)}
-            className={cn(
-              "flex items-center gap-3 rounded-lg px-3 py-2.5 text-sm font-medium text-indigo-600 hover:bg-indigo-50 dark:text-indigo-300 dark:hover:bg-indigo-950/40",
-              !isSidebarOpen && "justify-center px-0"
-            )}
-            title={!isSidebarOpen ? "Ask Medea" : undefined}
-          >
-            <MessageCircle className="h-5 w-5 shrink-0" />
-            {isSidebarOpen && <span>Ask Medea</span>}
-          </button>
+        <div className="mt-auto flex flex-col gap-1 pt-6">
           {navigationConfig.footer.map((item) => {
-            const isActive = pathname === item.href;
-            const Icon = item.icon;
-
-            return (
-              <Link
-                key={item.href}
-                href={item.href}
-                aria-current={isActive ? "page" : undefined}
-                className={cn(
-                  "flex items-center gap-3 rounded-lg px-3 py-2.5 text-sm font-medium transition-colors focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring",
-                  isActive 
-                    ? "bg-slate-100 text-slate-900 dark:bg-slate-800 dark:text-slate-50" 
-                    : "text-slate-600 hover:bg-slate-100 hover:text-slate-900 dark:text-slate-400 dark:hover:bg-slate-800/50 dark:hover:text-slate-50",
-                  !isSidebarOpen && "justify-center px-0"
-                )}
-                title={!isSidebarOpen ? item.label : undefined}
-              >
-                <Icon className="h-5 w-5 shrink-0" />
-                {isSidebarOpen && <span>{item.label}</span>}
-              </Link>
-            );
+            const active = pathname === item.href || pathname.startsWith(item.href + "/");
+            return <Link key={item.href} href={item.href} aria-current={active ? "page" : undefined} title={!isSidebarOpen ? item.label : undefined}
+              className={cn("flex items-center gap-3 rounded-xl px-3 py-3 font-nunito text-sm font-bold transition", active ? "bg-white/[0.08] text-white" : "text-white/45 hover:bg-white/[0.05] hover:text-white", !isSidebarOpen && "justify-center px-2")}>
+              <span className="flex h-7 w-7 items-center justify-center rounded-lg bg-white/[0.05] font-pixelify text-[10px] text-white/45">{item.symbol}</span>
+              {isSidebarOpen && <span>{item.label}</span>}
+            </Link>;
           })}
         </div>
       </nav>
-
-      {/* Collapse Toggle */}
-      <div className="p-3 border-t border-slate-200 dark:border-slate-800 flex justify-end">
-        <button
-          onClick={toggleSidebar}
-          className="flex h-8 w-8 items-center justify-center rounded-lg text-slate-500 hover:bg-slate-200 hover:text-slate-900 dark:text-slate-400 dark:hover:bg-slate-800 dark:hover:text-slate-50 transition-colors focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring"
-          aria-label={isSidebarOpen ? "Collapse sidebar" : "Expand sidebar"}
-          aria-expanded={isSidebarOpen}
-        >
-          {isSidebarOpen ? (
-            <PanelLeftClose className="h-4 w-4" />
-          ) : (
-            <PanelLeftOpen className="h-4 w-4" />
-          )}
-        </button>
-      </div>
     </aside>
   );
 }

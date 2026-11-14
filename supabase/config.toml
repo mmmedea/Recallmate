@@ -233,6 +233,11 @@ otp_length = 6
 # Number of seconds before the email OTP expires (defaults to 1 hour).
 otp_expiry = 3600
 
+# Password recovery emails must send a one-time code, not a clickable confirmation link.
+[auth.email.template.recovery]
+subject = "Your RecallMate password reset code"
+content_path = "./supabase/templates/recovery.html"
+
 # Use a production-ready SMTP server
 # [auth.email.smtp]
 # enabled = true

@@ -99,6 +99,7 @@ ${contextResult.content}`;
       { userId: document.user_id, documentId: document.id, operation: 'generate_quiz' },
       job.id,
       ModelRegistry.generate_quiz.model,
+      ModelRegistry.generate_quiz.provider,
       reservationAmount,
       providerUsage
     );
@@ -132,6 +133,7 @@ ${contextResult.content}`;
           { userId: job.user_id, documentId: job.document_id, operation: 'generate_quiz' },
           job.id,
           ModelRegistry.generate_quiz.model,
+          ModelRegistry.generate_quiz.provider,
           reservationAmount,
           providerUsage
         );

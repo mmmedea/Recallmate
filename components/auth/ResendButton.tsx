@@ -5,7 +5,7 @@ import { Loader2 } from "lucide-react";
 import { Button } from "@/components/ui/button";
 
 interface ResendButtonProps {
-  onResend: () => Promise<void>;
+  onResend: () => Promise<void | boolean>;
   cooldownSeconds?: number;
   disabled?: boolean;
 }
@@ -33,8 +33,8 @@ export function ResendButton({
   const handleResend = useCallback(async () => {
     try {
       setIsSending(true);
-      await onResend();
-      setSecondsLeft(cooldownSeconds);
+      const sent = await onResend();
+      if (sent !== false) setSecondsLeft(cooldownSeconds);
     } finally {
       setIsSending(false);
     }

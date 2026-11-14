@@ -1,256 +1,175 @@
 import { redirect } from "next/navigation";
+import Link from "next/link";
 import { createClient } from "@/utils/supabase/server";
 import { getRecentDocuments } from "@/app/actions/document-actions";
 import { DocumentLifecycleSummary } from "@/app/actions/document-lifecycle";
-import { 
-  FileText, BrainCircuit, HelpCircle, ArrowRight, Clock, AlertCircle, 
-  CheckCircle2, FileSearch, UploadCloud, Brain, Target, Flame 
-} from "lucide-react";
-import Link from "next/link";
-import { Button } from "@/components/ui/button";
-import ThemeToggle from "@/components/ThemeToggle";
-import MedeaWelcomeCard from "@/components/dashboard/MedeaWelcomeCard";
+import EconomyDashboard, { StreakDayMarker } from "@/components/dashboard/EconomyDashboard";
 
 export const metadata = {
   title: "Dashboard | RecallMate",
-  description: "View your study materials and generated content.",
+  description: "Your focused workspace for study materials and active recall.",
 };
 
 export default async function DashboardPage() {
   const supabase = await createClient();
   const { data: { session } } = await supabase.auth.getSession();
+  if (!session) redirect("/login");
 
-  if (!session) {
-    redirect("/login");
-  }
+  const name = session.user.user_metadata?.username
+    || session.user.user_metadata?.full_name
+    || session.user.email?.split("@")[0]
+    || "Student";
 
-  const name = session.user.user_metadata?.username || session.user.user_metadata?.full_name || session.user.email?.split('@')[0] || 'Student';
-  const { data: documents, success, error } = await getRecentDocuments();
+  const now = new Date();
+  const manilaNow = new Date(now.getTime() + 8 * 60 * 60 * 1000);
+  const dayStart = new Date(Date.UTC(manilaNow.getUTCFullYear(), manilaNow.getUTCMonth(), manilaNow.getUTCDate()) - 8 * 60 * 60 * 1000);
+  const nextDay = new Date(dayStart.getTime() + 24 * 60 * 60 * 1000);
+
+  const [
+    { data: documents, success },
+    { count: materialCount, error: materialCountError },
+    { count: dueTodayCount, error: dueTodayError },
+    { count: upcomingCount, error: upcomingError },
+  ] = await Promise.all([
+    getRecentDocuments(),
+    supabase.from("documents").select("id", { count: "exact", head: true }).eq("user_id", session.user.id),
+    supabase.from("learning_items").select("id", { count: "exact", head: true }).eq("user_id", session.user.id).gte("due_at", dayStart.toISOString()).lt("due_at", nextDay.toISOString()),
+    supabase.from("learning_items").select("id", { count: "exact", head: true }).eq("user_id", session.user.id).gte("due_at", nextDay.toISOString()),
+  ]);
+
+  const recent = success && documents ? documents : [];
+  const latest = [...recent].sort((a, b) => {
+    const aLastActive = new Date(a.chat.lastDiscussedAt || a.document.createdAt).getTime();
+    const bLastActive = new Date(b.chat.lastDiscussedAt || b.document.createdAt).getTime();
+    return bLastActive - aLastActive;
+  })[0];
+  const continueHref = latest
+    ? latest.quiz.status === "ready"
+      ? `/quiz/${latest.document.id}`
+      : latest.notes.status === "ready"
+        ? `/notes/${latest.document.id}`
+        : `/documents/${latest.document.id}${latest.extraction.status === "completed" ? "" : "/process"}`
+    : "/upload";
 
   return (
-    <div className="mx-auto max-w-6xl py-8 px-4 sm:px-6">
-      <div className="mb-8 flex flex-col gap-4 sm:flex-row sm:items-center sm:justify-between">
-        <div>
-          <h1 className="text-3xl font-bold text-slate-900 dark:text-white motion-safe:animate-in motion-safe:fade-in motion-safe:slide-in-from-left-4 duration-500">
-            Welcome back, <span className="bg-gradient-to-r from-indigo-600 to-violet-500 bg-clip-text text-transparent">{name}</span>!
+    <div className="dashboard-canvas mx-auto w-full max-w-7xl space-y-10 px-4 py-7 sm:px-6 lg:px-8">
+      <header className="dashboard-heading flex flex-col gap-5 sm:flex-row sm:items-end sm:justify-between">
+        <div className="space-y-2">
+          <h1 className="font-fredoka text-3xl font-semibold tracking-tight text-white sm:text-4xl">
+            Welcome back, <span className="bg-gradient-to-r from-[#c6a8ff] via-[#e7d8ff] to-[#ff657e] bg-clip-text text-transparent">{name}</span>
           </h1>
-          <p className="mt-2 text-slate-600 dark:text-slate-400">
-            Here's your study overview for today
-          </p>
+          <p className="font-quicksand text-sm text-white/60 sm:text-base">A little progress today makes a big difference tomorrow.</p>
         </div>
-        <div className="flex items-center gap-3">
-          <ThemeToggle />
-          <Link href="/upload">
-            <Button className="bg-indigo-600 hover:bg-indigo-700 text-white shadow-sm transition-all">
-              <UploadCloud className="mr-2 h-4 w-4" />
-              Add Material
-            </Button>
-          </Link>
-        </div>
-      </div>
+        <Link href="/upload" className="rm-primary-action inline-flex min-h-12 items-center justify-center px-6 py-3 font-fredoka text-base transition focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[#c4b5fd]">
+          + Add material
+        </Link>
+      </header>
 
-      {/* Top Stats Cards */}
-      <div className="grid grid-cols-1 gap-4 sm:grid-cols-2 lg:grid-cols-4 mb-6">
-        {/* Total Cards */}
-        <div className="rounded-2xl border border-slate-200 dark:border-slate-800 bg-white dark:bg-slate-900 p-6 shadow-sm flex flex-col justify-between">
-          <div className="flex justify-between items-start">
-            <span className="text-sm font-medium text-slate-500 dark:text-slate-400">Total Cards</span>
-            <div className="p-2 rounded-lg bg-indigo-50 dark:bg-indigo-500/10 text-indigo-600 dark:text-indigo-400">
-              <Brain className="h-5 w-5" />
-            </div>
-          </div>
-          <div>
-            <div className="text-3xl font-bold text-slate-900 dark:text-white mt-4">0</div>
-            <p className="text-xs text-slate-500 dark:text-slate-400 mt-1">In your collection</p>
-          </div>
-        </div>
+      <section aria-label="Study streak and rewards" className="dashboard-streak rounded-[1.75rem] border border-[#a78bfa]/25 bg-gradient-to-r from-[#21172a] via-[#1b1727] to-[#301522] p-4 shadow-[0_18px_55px_rgba(8,5,18,.28)] sm:p-5">
+        <EconomyDashboard />
+      </section>
 
-        {/* Cards Mastered */}
-        <div className="rounded-2xl border border-slate-200 dark:border-slate-800 bg-white dark:bg-slate-900 p-6 shadow-sm flex flex-col justify-between">
-          <div className="flex justify-between items-start">
-            <span className="text-sm font-medium text-slate-500 dark:text-slate-400">Cards Mastered</span>
-            <div className="p-2 rounded-lg bg-blue-50 dark:bg-blue-500/10 text-blue-600 dark:text-blue-400">
-              <Target className="h-5 w-5" />
-            </div>
-          </div>
-          <div>
-            <div className="text-3xl font-bold text-slate-900 dark:text-white mt-4">0</div>
-            <p className="text-xs text-slate-500 dark:text-slate-400 mt-1">0% of total</p>
-          </div>
-        </div>
-
-        {/* Reviews Pending */}
-        <div className="rounded-2xl border border-slate-200 dark:border-slate-800 bg-white dark:bg-slate-900 p-6 shadow-sm flex flex-col justify-between">
-          <div className="flex justify-between items-start">
-            <span className="text-sm font-medium text-slate-500 dark:text-slate-400">Reviews Pending</span>
-            <div className="p-2 rounded-lg bg-amber-50 dark:bg-amber-500/10 text-amber-600 dark:text-amber-400">
-              <Clock className="h-5 w-5" />
-            </div>
-          </div>
-          <div>
-            <div className="text-3xl font-bold text-slate-900 dark:text-white mt-4">0</div>
-            <p className="text-xs text-slate-500 dark:text-slate-400 mt-1">Due today or overdue</p>
-          </div>
-        </div>
-
-        {/* Study Streak */}
-        <div className="rounded-2xl border border-slate-200 dark:border-slate-800 bg-white dark:bg-slate-900 p-6 shadow-sm flex flex-col justify-between">
-          <div className="flex justify-between items-start">
-            <span className="text-sm font-medium text-slate-500 dark:text-slate-400">Study Streak</span>
-            <div className="p-2 rounded-lg bg-orange-50 dark:bg-orange-500/10 text-orange-500 dark:text-orange-400">
-              <Flame className="h-5 w-5" />
-            </div>
-          </div>
-          <div>
-            <div className="flex items-baseline gap-1 mt-4">
-              <div className="text-3xl font-bold text-slate-900 dark:text-white">0</div>
-              <div className="text-xl font-bold text-slate-900 dark:text-white">days</div>
-            </div>
-            <p className="text-xs text-slate-500 dark:text-slate-400 mt-1">Keep it going!</p>
-          </div>
-        </div>
-      </div>
-
-      {/* Middle Stats Cards */}
-      <div className="grid grid-cols-1 gap-4 sm:grid-cols-3 mb-8">
-        <div className="rounded-2xl border border-slate-200 dark:border-slate-800 bg-white dark:bg-slate-900 p-6 shadow-sm flex flex-col justify-between">
-          <div className="flex justify-between items-center">
-            <span className="font-semibold text-slate-900 dark:text-white">Overdue</span>
-            <span className="flex h-5 items-center rounded-full bg-red-100 dark:bg-red-900/30 px-2 text-xs font-medium text-red-700 dark:text-red-400">
-              <span className="mr-1 h-1.5 w-1.5 rounded-full bg-red-500"></span> 0
-            </span>
-          </div>
-          <div className="mt-6">
-            <div className="text-3xl font-bold text-red-600 dark:text-red-500">0</div>
-            <p className="text-xs text-slate-500 dark:text-slate-400 mt-1">Cards need review</p>
-          </div>
-        </div>
-
-        <div className="rounded-2xl border border-slate-200 dark:border-slate-800 bg-white dark:bg-slate-900 p-6 shadow-sm flex flex-col justify-between">
-          <div className="flex justify-between items-center">
-            <span className="font-semibold text-slate-900 dark:text-white">Due Today</span>
-            <span className="flex h-5 items-center rounded-full bg-amber-100 dark:bg-amber-900/30 px-2 text-xs font-medium text-amber-700 dark:text-amber-400">
-              <span className="mr-1 h-1.5 w-1.5 rounded-full bg-amber-500"></span> 0
-            </span>
-          </div>
-          <div className="mt-6">
-            <div className="text-3xl font-bold text-amber-600 dark:text-amber-500">0</div>
-            <p className="text-xs text-slate-500 dark:text-slate-400 mt-1">Review scheduled</p>
-          </div>
-        </div>
-
-        <div className="rounded-2xl border border-slate-200 dark:border-slate-800 bg-white dark:bg-slate-900 p-6 shadow-sm flex flex-col justify-between">
-          <div className="flex justify-between items-center">
-            <span className="font-semibold text-slate-900 dark:text-white">Upcoming</span>
-            <span className="flex h-5 items-center rounded-full bg-emerald-100 dark:bg-emerald-900/30 px-2 text-xs font-medium text-emerald-700 dark:text-emerald-400">
-              <span className="mr-1 h-1.5 w-1.5 rounded-full bg-emerald-500"></span> 0
-            </span>
-          </div>
-          <div className="mt-6">
-            <div className="text-3xl font-bold text-emerald-600 dark:text-emerald-500">0</div>
-            <p className="text-xs text-slate-500 dark:text-slate-400 mt-1">Future reviews</p>
-          </div>
-        </div>
-      </div>
-
-      <MedeaWelcomeCard />
-
-      {/* Recent Documents */}
-      <div className="mb-6">
-        <h2 className="text-xl font-bold text-slate-900 dark:text-white mb-4">Your Library</h2>
-        {(!success || !documents || documents.length === 0) ? (
-          <div className="flex flex-col items-center justify-center rounded-2xl border border-dashed border-slate-200 dark:border-slate-800 bg-white dark:bg-slate-900 py-16 text-center shadow-sm">
-            <Brain className="mb-4 h-12 w-12 text-slate-300 dark:text-slate-600" />
-            <h3 className="text-lg font-semibold text-slate-900 dark:text-white">No cards due today</h3>
-            <p className="mt-2 text-sm text-slate-500 dark:text-slate-400 max-w-sm">
-              Great job! You're all caught up. Add more material to continue learning.
+      <section className="dashboard-continue relative isolate overflow-hidden rounded-[2rem] border border-[#c4a7ff]/25 bg-[linear-gradient(125deg,#24172f_0%,#1b1425_52%,#351724_100%)] p-7 shadow-[0_24px_80px_rgba(0,0,0,0.32)] sm:p-10 lg:p-12">
+        <div aria-hidden="true" className="pointer-events-none absolute -right-16 -top-24 -z-10 h-72 w-72 rounded-full bg-[#8b5cf6]/20 blur-3xl" />
+        <div aria-hidden="true" className="pointer-events-none absolute -bottom-28 left-1/3 -z-10 h-64 w-64 rounded-full bg-[#f43f5e]/10 blur-3xl" />
+        <div className="grid gap-7 lg:grid-cols-[1fr_auto] lg:items-center">
+          <div className="max-w-2xl">
+            
+            <h2 className="mt-1 max-w-xl font-fredoka text-4xl font-semibold leading-[1.08] tracking-tight text-white sm:text-5xl lg:text-6xl">Your next study session starts here.</h2>
+            <p className="mt-4 max-w-xl font-quicksand text-base leading-7 text-[#d4c9df] sm:text-lg">
+              {latest ? "Jump straight back into your most recent study material. Your next focused session starts here." : "Upload your first material and turn it into a focused study session with notes and practice questions."}
             </p>
-            <Link
-              href="/upload"
-              className="mt-6 rounded-md bg-indigo-50 dark:bg-indigo-500/10 px-4 py-2 text-sm font-medium text-indigo-600 dark:text-indigo-400 hover:bg-indigo-100 dark:hover:bg-indigo-500/20 transition-colors"
-            >
-              Upload a document
-            </Link>
+            <div className="mt-6 flex flex-wrap items-center gap-3">
+              <Link href={continueHref} className="rm-primary-action inline-flex min-h-14 items-center justify-center rounded-2xl px-7 py-4 font-fredoka text-base shadow-lg transition hover:-translate-y-1 hover:shadow-xl sm:text-lg">
+                {latest ? "Resume studying  →" : "Create your first workspace  →"}
+              </Link>
+              {latest && <span className="max-w-[240px] truncate font-nunito text-xs text-white/50">{latest.document.filename}</span>}
+            </div>
+          </div>
+          <div className="hidden min-w-36 items-center justify-center lg:flex">
+            <StreakDayMarker />
+          </div>
+        </div>
+      </section>
+
+      <section aria-label="Study overview">
+        <div className="mb-4 flex items-end justify-between gap-3">
+          <div>
+            
+            <h2 className="mt-1 font-fredoka text-2xl font-semibold text-white">Your study overview</h2>
+          </div>
+          <Link href="/progress" className="font-nunito text-xs font-bold text-[#c4b5fd] transition hover:text-white">View progress →</Link>
+        </div>
+        <div className="grid gap-3 sm:grid-cols-3">
+          <MetricCard label="Due today" value={dueTodayError ? "—" : String(dueTodayCount ?? 0)} note="Scheduled for today" tone="red" />
+          <MetricCard label="Upcoming reviews" value={upcomingError ? "—" : String(upcomingCount ?? 0)} note="Scheduled after today" tone="purple" />
+          <MetricCard label="Total materials" value={materialCountError ? "—" : String(materialCount ?? 0)} note="Uploaded study files" tone="light" />
+        </div>
+      </section>
+
+      <section aria-label="Recent materials">
+        <div className="mb-4 flex items-end justify-between gap-3">
+          <div>
+            
+            <h2 className="mt-1 font-fredoka text-2xl font-semibold text-white">Recent materials</h2>
+            <p className="mt-1 font-quicksand text-sm text-white/50">Your latest uploads, ready when you are.</p>
+          </div>
+          <Link href="/topics" className="font-nunito text-xs font-bold text-[#c4b5fd] transition hover:text-white">Open library →</Link>
+        </div>
+        {recent.length === 0 ? (
+          <div className="rounded-[1.75rem] border border-dashed border-[#a78bfa]/30 bg-[#111019] px-6 py-14 text-center">
+            <p className="font-fredoka text-xl text-white">Your library starts here.</p>
+            <p className="mx-auto mt-2 max-w-md font-quicksand text-sm leading-6 text-white/55">Add a PDF or document and RecallMate will help you turn it into study-ready content.</p>
+            <Link href="/upload" className="mt-5 inline-flex rounded-xl bg-[#a78bfa]/15 px-5 py-2.5 font-nunito text-sm font-extrabold text-[#d9c8ff] transition hover:bg-[#a78bfa]/25">Upload a material</Link>
           </div>
         ) : (
-          <div className="grid grid-cols-1 gap-6 sm:grid-cols-2 lg:grid-cols-3">
-            {documents.map((doc) => (
-              <DocumentCard key={doc.document.id} doc={doc} />
-            ))}
+          <div className="grid gap-4 sm:grid-cols-2 xl:grid-cols-3">
+            {recent.slice(0, 6).map((doc) => <DocumentCard key={doc.document.id} doc={doc} />)}
           </div>
         )}
-      </div>
+      </section>
     </div>
+  );
+}
+
+function MetricCard({ label, value, note, tone }: { label: string; value: string; note: string; tone: "red" | "purple" | "light" }) {
+  const accents = {
+    red: "from-[#fb7185]/15 to-transparent border-[#fb7185]/20 text-[#ff9aaa]",
+    purple: "from-[#a78bfa]/15 to-transparent border-[#a78bfa]/20 text-[#d4c2ff]",
+    light: "from-white/10 to-transparent border-white/10 text-white",
+  };
+  return (
+    <article className={`relative overflow-hidden rounded-2xl border bg-gradient-to-br ${accents[tone]} bg-[#111019] p-5 transition duration-300 hover:-translate-y-1 hover:border-white/20 hover:shadow-xl hover:shadow-black/20`}>
+      <p className="font-nunito text-sm font-bold text-white/65">{label}</p>
+      <p className="mt-4 font-fredoka text-4xl font-semibold text-white">{value}</p>
+      <p className="mt-1 font-quicksand text-xs text-white/40">{note}</p>
+    </article>
   );
 }
 
 function DocumentCard({ doc }: { doc: DocumentLifecycleSummary }) {
   const { document, notes, quiz } = doc;
-  const isFailed = document.extraction?.status === 'failed' || document.extraction?.status === 'cancelled';
-  const isReady = document.extraction?.status === 'completed';
-  const isProcessing = ['uploaded', 'queued', 'extracting', 'analyzing', 'generating'].includes(document.extraction?.status || '');
-  const needsAttention = notes?.status === 'inconsistent' || quiz?.status === 'inconsistent' || notes?.status === 'failed' || quiz?.status === 'failed';
-
-  const notesReady = notes?.status === 'ready';
-  const quizReady = quiz?.status === 'ready';
-
+  const isFailed = doc.extraction.status === "failed" || doc.extraction.status === "cancelled";
+  const isReady = doc.extraction.status === "completed";
+  const isProcessing = ["uploaded", "queued", "extracting", "analyzing", "generating"].includes(doc.extraction.status || "");
+  const needsAttention = notes?.status === "inconsistent" || quiz?.status === "inconsistent" || notes?.status === "failed" || quiz?.status === "failed";
+  const status = isFailed ? "Needs attention" : needsAttention ? "Check outputs" : isProcessing ? "Processing" : isReady ? "Ready to study" : "Uploaded";
+  const statusTone = isFailed || needsAttention ? "text-[#ff899d] bg-[#fb7185]/10 border-[#fb7185]/20" : isProcessing ? "text-[#d7c5ff] bg-[#a78bfa]/10 border-[#a78bfa]/20" : "text-[#b9f5d0] bg-emerald-400/10 border-emerald-300/20";
   return (
-    <Link 
-      href={`/documents/${document.id}${isReady ? '' : '/process'}`}
-      className="group relative flex flex-col justify-between overflow-hidden rounded-2xl border border-slate-200 dark:border-slate-800 bg-white dark:bg-slate-900 p-6 shadow-sm transition-all hover:shadow-md hover:border-indigo-200 dark:hover:border-indigo-800"
-    >
-      <div>
-        <div className="flex items-start justify-between">
-          <div className="flex items-center space-x-3">
-            <div className="flex h-10 w-10 shrink-0 items-center justify-center rounded-xl bg-indigo-50 dark:bg-indigo-500/10">
-              <FileText className="h-5 w-5 text-indigo-600 dark:text-indigo-400" />
-            </div>
-          </div>
-          <StatusBadge isReady={isReady} isProcessing={isProcessing} isFailed={isFailed} needsAttention={needsAttention} />
-        </div>
+    <Link href={`/documents/${document.id}${isReady ? "" : "/process"}`} className="group rounded-2xl border border-white/10 bg-[#111019] p-5 transition duration-300 hover:-translate-y-1 hover:border-[#a78bfa]/40 hover:shadow-xl hover:shadow-[#8b5cf6]/10">
+      <div className="flex items-center justify-between gap-3">
         
-        <h3 className="mt-4 truncate text-base font-semibold text-slate-900 dark:text-white" title={document.filename}>
-          {document.filename}
-        </h3>
-        <p className="mt-1 text-xs text-slate-500 dark:text-slate-400">
-          {new Date(document.createdAt).toLocaleDateString(undefined, { month: 'short', day: 'numeric', year: 'numeric' })}
-        </p>
-
-        {isFailed && document.extraction?.error && (
-          <p className="mt-3 text-sm text-red-600 dark:text-red-400 line-clamp-2">
-            {document.extraction.error}
-          </p>
-        )}
+        <span className={`rounded-full border px-2.5 py-1 font-nunito text-[10px] font-extrabold ${statusTone}`}>{status}</span>
       </div>
-
-      <div className="mt-6 border-t border-slate-100 dark:border-slate-800 pt-4">
-        <div className="flex items-center justify-between">
-          <div className="flex space-x-4 text-xs font-medium">
-            <span className={`flex items-center ${notesReady ? 'text-indigo-600 dark:text-indigo-400' : 'text-slate-400 dark:text-slate-600'}`}>
-              <BrainCircuit className="mr-1.5 h-3.5 w-3.5" />
-              Notes
-            </span>
-            <span className={`flex items-center ${quizReady ? 'text-emerald-600 dark:text-emerald-400' : 'text-slate-400 dark:text-slate-600'}`}>
-              <HelpCircle className="mr-1.5 h-3.5 w-3.5" />
-              Quiz
-            </span>
-          </div>
-          <div className="flex items-center space-x-2">
-            <span className="text-xs font-semibold text-indigo-600 hover:text-indigo-800 bg-indigo-50 px-3 py-1.5 rounded-md">
-              Review Due
-            </span>
-            <ArrowRight className="h-4 w-4 text-slate-400 group-hover:text-indigo-500 transition-colors" />
-          </div>
+      <h3 className="mt-5 truncate font-fredoka text-lg font-semibold text-white transition group-hover:text-[#d6c4ff]" title={document.filename}>{document.filename}</h3>
+      <p className="mt-1 font-quicksand text-xs text-white/40">{new Date(document.createdAt).toLocaleDateString(undefined, { month: "short", day: "numeric", year: "numeric" })}</p>
+      <div className="mt-5 flex items-center justify-between border-t border-white/10 pt-4">
+        <div className="flex gap-2 font-nunito text-[11px] font-bold text-white/45">
+          <span className={notes?.status === "ready" ? "text-[#c4b5fd]" : ""}>Notes {notes?.status === "ready" ? "✓" : "·"}</span>
+          <span className={quiz?.status === "ready" ? "text-[#c4b5fd]" : ""}>Quiz {quiz?.status === "ready" ? "✓" : "·"}</span>
         </div>
+        <span className="font-nunito text-xs font-extrabold text-[#c4b5fd] transition group-hover:translate-x-1">Open →</span>
       </div>
     </Link>
   );
-}
-
-function StatusBadge({ isReady, isProcessing, isFailed, needsAttention }: any) {
-  if (isFailed) return <span className="inline-flex items-center rounded-full bg-red-50 dark:bg-red-500/10 px-2 py-1 text-xs font-medium text-red-700 dark:text-red-400 ring-1 ring-inset ring-red-600/10 dark:ring-red-500/20"><AlertCircle className="mr-1 h-3 w-3" />Failed</span>;
-  if (needsAttention) return <span className="inline-flex items-center rounded-full bg-amber-50 dark:bg-amber-500/10 px-2 py-1 text-xs font-medium text-amber-700 dark:text-amber-400 ring-1 ring-inset ring-amber-600/10 dark:ring-amber-500/20"><AlertCircle className="mr-1 h-3 w-3" />Needs</span>;
-  if (isProcessing) return <span className="inline-flex items-center rounded-full bg-blue-50 dark:bg-blue-500/10 px-2 py-1 text-xs font-medium text-blue-700 dark:text-blue-400 ring-1 ring-inset ring-blue-600/10 dark:ring-blue-500/20"><Clock className="mr-1 h-3 w-3" />Processing</span>;
-  if (isReady) return <span className="inline-flex items-center rounded-full bg-emerald-50 dark:bg-emerald-500/10 px-2 py-1 text-xs font-medium text-emerald-700 dark:text-emerald-400 ring-1 ring-inset ring-emerald-600/10 dark:ring-emerald-500/20"><CheckCircle2 className="mr-1 h-3 w-3" />Ready</span>;
-  return null;
 }

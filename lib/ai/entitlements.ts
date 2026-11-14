@@ -2,18 +2,17 @@ import { createClient } from "@supabase/supabase-js";
 import { Database } from "@/types/supabase";
 import { BillingService } from "./billing";
 import { estimateTokens } from "./provider";
+import type { AIOperation, AIProvider } from "./config";
 
 export type AIEntitlementContext = {
   userId: string;
   documentId: string;
-  operation: string;
+  operation: Exclude<AIOperation, "extract_text">;
 };
 
 /**
- * Validates that the user has enough credits to run the expected job,
- * and records a reservation in the ledger to prevent parallel over-consumption.
- * 
- * Returns the amount reserved.
+ * Reserves credits before generation so concurrent jobs cannot spend the
+ * same balance. The reservation is recorded against the unique job ID.
  */
 export async function authorizeCredits(
   supabase: ReturnType<typeof createClient<Database>>,
@@ -23,61 +22,75 @@ export async function authorizeCredits(
   inputContent: string
 ): Promise<number> {
   const billing = new BillingService(supabase);
-  
-  // 1. Estimate Tokens (cheap local or API call)
-  const estimatedInputTokens = await estimateTokens(model, inputContent);
-  
-  // 2. We assume some output based on operation (e.g. notes = 1000, quiz = 1500)
-  const estimatedOutputTokens = context.operation === 'generate_quiz' ? 1500 : 1000;
-  
-  // 3. Convert tokens to a credit cost (Example formula: 1 credit per 1000 input tokens + 2 credits per 1000 output tokens)
-  const estimatedCost = Math.ceil((estimatedInputTokens / 1000) * 1 + (estimatedOutputTokens / 1000) * 2) || 1;
+  const estimatedInputTokens = await estimateTokens(inputContent, context.operation);
+  const estimatedOutputTokens = context.operation === "generate_quiz" ? 1500 : 1000;
+  const estimatedCost =
+    Math.ceil((estimatedInputTokens / 1000) + (estimatedOutputTokens / 1000) * 2) || 1;
 
-  // 4. Reserve credits. Will throw if insufficient balance.
-  await billing.reserveCredits(context.userId, jobId, estimatedCost, `Reserved for ${context.operation}`);
+  await billing.reserveCredits(
+    context.userId,
+    jobId,
+    estimatedCost,
+    `Reserved for ${context.operation} using ${model}`
+  );
 
   return estimatedCost;
 }
 
 /**
- * Reconciles the actual usage after execution.
- * Records the exact consumed amount to the usage ledger and updates billing.
+ * Settles the reservation and records provider usage using the columns that
+ * actually exist in ai_usage_logs. Token details belong in usage_metadata;
+ * request_id links the telemetry row to its originating AI job.
  */
 export async function reconcileCredits(
   supabase: ReturnType<typeof createClient<Database>>,
   context: AIEntitlementContext,
   jobId: string,
   model: string,
+  provider: AIProvider,
   reservationAmount: number,
-  actualUsage: { inputTokens: number; outputTokens: number; cachedTokens: number; thoughtsTokens: number }
+  actualUsage: {
+    inputTokens: number;
+    outputTokens: number;
+    cachedTokens: number;
+    thoughtsTokens: number;
+  }
 ): Promise<void> {
-  const billing = new BillingService(supabase);
+  const actualCost =
+    Math.ceil(
+      actualUsage.inputTokens / 1000 +
+      (actualUsage.outputTokens / 1000) * 2 +
+      (actualUsage.thoughtsTokens / 1000) * 2
+    ) || 1;
 
-  // 1. Calculate actual cost
-  // E.g. cached tokens cost less, thoughts cost output token rates.
-  const actualCost = Math.ceil(
-    (actualUsage.inputTokens / 1000) * 1 + 
-    (actualUsage.outputTokens / 1000) * 2 +
-    (actualUsage.thoughtsTokens / 1000) * 2 // Thoughts treated as output
-  ) || 1;
+  await new BillingService(supabase).finalizeCharge(
+    context.userId,
+    jobId,
+    reservationAmount,
+    actualCost,
+    `Completed ${context.operation}`
+  );
 
-  // 2. Finalize charge (refunds reservation, charges actual)
-  await billing.finalizeCharge(context.userId, jobId, reservationAmount, actualCost, `Completed ${context.operation}`);
-
-  // 3. Log to immutable usage ledger
-  // Note: the original billing.ts has `logUsage` which wrote to ai_usage_logs, but we updated the schema.
-  await supabase.from('ai_usage_logs').insert({
+  const { error } = await supabase.from("ai_usage_logs").insert({
     user_id: context.userId,
-    job_id: jobId,
     operation: context.operation,
-    provider: 'google',
+    provider,
     model,
-    input_tokens: actualUsage.inputTokens,
-    output_tokens: actualUsage.outputTokens,
-    thoughts_tokens: actualUsage.thoughtsTokens,
-    cached_tokens: actualUsage.cachedTokens,
-    credits_consumed: actualCost,
-    status: 'completed',
-    created_at: new Date().toISOString()
+    request_id: jobId,
+    status: "completed",
+    completed_at: new Date().toISOString(),
+    usage_metadata: {
+      input_tokens: actualUsage.inputTokens,
+      output_tokens: actualUsage.outputTokens,
+      cached_tokens: actualUsage.cachedTokens,
+      thoughts_tokens: actualUsage.thoughtsTokens,
+      credits_consumed: actualCost,
+    },
   });
+
+  if (error) {
+    // Billing has already been settled. Telemetry failure must not trigger a
+    // second settlement attempt or mark a successfully generated job failed.
+    console.error("[AI usage] Failed to persist usage telemetry:", error);
+  }
 }

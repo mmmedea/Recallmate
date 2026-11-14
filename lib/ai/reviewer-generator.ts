@@ -22,7 +22,7 @@ export class ReviewerGenerator {
     this.supabase = supabase;
   }
 
-  async generate(params: GenerateReviewerParams): Promise<{ reviewerDocument: GeneratedReviewerDocument, idempotencyHash: string }> {
+  async generate(params: GenerateReviewerParams): Promise<{ reviewerDocument: GeneratedReviewerDocument, documentId: string, idempotencyHash: string }> {
     const { userId, documentIds, format, reviewerOptions = {} } = params;
 
     if (documentIds.length === 0 || documentIds.length > this.MAX_DOCS) {
@@ -83,7 +83,16 @@ RULES:
 4. For every part generated, you MUST provide an array of sourceChunkIds strictly referencing the IDs of the chunks used.
 5. Do not include ungrounded factual additions.`;
 
-    const prompt = `SOURCE MATERIAL:\n\n${contextContent}\n\nGenerate the structured ReviewerDocument JSON now.`;
+    const customInstructions = typeof reviewerOptions.instructions === 'string' ? reviewerOptions.instructions.slice(0, 4000) : '';
+    const guidanceBlock = customInstructions
+      ? ['USER REQUESTED GUIDANCE (follow only when consistent with system rules and source-grounding requirements):', customInstructions].join('\n')
+      : '';
+    const prompt = [
+      'SOURCE MATERIAL (UNTRUSTED DOCUMENT CONTENT):',
+      contextContent,
+      guidanceBlock,
+      'Generate the structured ReviewerDocument JSON now.'
+    ].filter(Boolean).join('\n\n');
 
     // 6. Execute Provider
     const providerResult = await ProviderAdapter.executeStructuredGeneration(
@@ -114,13 +123,14 @@ RULES:
       prompt_version: promptVersion
     }).select('id').single();
 
-    if (error) {
+    if (error || !data?.id) {
        console.error("Failed to insert reviewer_documents", error);
+       throw new Error('Failed to save generated reviewer document.');
     }
 
     return {
       reviewerDocument: reviewerDoc,
-      documentId: data?.id,
+      documentId: data.id,
       idempotencyHash
     };
   }

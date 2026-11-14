@@ -7,17 +7,18 @@ interface AuthCardProps {
 
 export function AuthCard({ children, className }: AuthCardProps) {
   return (
-    <div
+    <section
       className={cn(
-        "w-full max-w-md",
-        "bg-white/90 dark:bg-slate-900/90 backdrop-blur-sm",
-        "border border-slate-200/80 dark:border-slate-800/80",
-        "rounded-2xl shadow-xl shadow-slate-200/60 dark:shadow-slate-950/60",
-        "px-8 py-10",
+        "relative isolate w-full max-w-xl overflow-hidden font-nunito",
+        "rounded-[2rem] border border-[#d9c5ff] bg-[linear-gradient(145deg,#fffaff_0%,#faf5ff_58%,#fff2f4_100%)] text-[#21152d]",
+        "shadow-[0_34px_100px_rgba(8,5,15,.58),0_0_0_1px_rgba(196,167,255,.18)] ring-1 ring-white/80",
+        "px-5 py-7 sm:px-10 sm:py-10",
         className
       )}
     >
+      <div className="pointer-events-none absolute -right-20 -top-24 -z-10 h-48 w-48 rounded-full bg-[#c4a7ff]/20 blur-3xl" />
+      <div className="pointer-events-none absolute -bottom-24 -left-20 -z-10 h-48 w-48 rounded-full bg-[#ff7185]/10 blur-3xl" />
       {children}
-    </div>
+    </section>
   );
 }

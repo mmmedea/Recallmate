@@ -3,14 +3,10 @@ import { createClient } from "@/utils/supabase/server";
 import { createClient as createServiceClient } from "@supabase/supabase-js";
 import { syncEventsToGoogle, type GoogleSyncEvent } from "@/lib/integrations/google-calendar";
 
-function safeInternalPath(value: string | null) {
-  return value?.startsWith("/") && !value.startsWith("//") ? value : "/dashboard";
-}
-
 export async function GET(request: Request) {
   const url = new URL(request.url);
   const code = url.searchParams.get("code");
-  const destination = safeInternalPath(url.searchParams.get("next"));
+  const destination = "/dashboard";
 
   if (!code) {
     return NextResponse.redirect(new URL("/auth/auth-code-error", url.origin));
@@ -25,16 +21,6 @@ export async function GET(request: Request) {
   const {
     data: { user },
   } = await supabase.auth.getUser();
-  const username = user?.user_metadata?.username;
-  const accountCompleted = user?.user_metadata?.recallmate_account_completed === true;
-
-  // Google can authenticate an identity, but it cannot bypass creation of the
-  // student's RecallMate profile. New social users must finish onboarding.
-  if (!username || typeof username !== "string" || username.trim().length < 3 || !accountCompleted) {
-    const onboarding = new URL("/onboarding", url.origin);
-    onboarding.searchParams.set("next", destination);
-    return NextResponse.redirect(onboarding);
-  }
 
   if (url.searchParams.get("integration") === "google-calendar") {
     const resultUrl = new URL("/calendar", url.origin);

@@ -1,10 +1,36 @@
-"use client"
+import { redirect } from "next/navigation";
+import { createClient } from "@/utils/supabase/server";
+import { computeDocumentLifecycleSummary } from "@/app/actions/document-lifecycle";
+import LibrarySearch from "@/components/library/LibrarySearch";
 
-import Link from 'next/link'
-import { BookOpen, Upload, Sparkles } from 'lucide-react'
-import { useAppStore } from '@/lib/store'
+export const dynamic = "force-dynamic";
 
-export default function TopicsPage() {
-  const openMedea = useAppStore(state => state.setChatDrawerOpen)
-  return <div className="motion-safe:animate-in motion-safe:fade-in duration-500"><div className="mb-8 flex flex-col gap-4 sm:flex-row sm:items-end sm:justify-between"><div><p className="text-sm font-semibold text-indigo-600">Learn your way</p><h1 className="text-3xl font-bold dark:text-white">Topics & flashcards</h1><p className="mt-2 text-slate-500">Create cards yourself or let Medea turn uploaded material into a quiz.</p></div><Link href="/upload" className="inline-flex items-center gap-2 rounded-xl bg-indigo-600 px-4 py-2.5 font-semibold text-white hover:bg-indigo-700"><Upload className="h-4 w-4" />Upload material</Link></div><div className="grid gap-5 md:grid-cols-3"><Link href="/upload?mode=flashcards" className="rounded-2xl border border-indigo-200 bg-indigo-50 p-6 transition hover:-translate-y-1 hover:shadow-lg dark:border-indigo-900 dark:bg-indigo-950/30"><BookOpen className="mb-4 h-8 w-8 text-indigo-600" /><h2 className="font-bold dark:text-white">Create flashcards</h2><p className="mt-2 text-sm text-slate-500">Write the prompt and answer you want to remember.</p></Link><Link href="/upload" className="rounded-2xl border border-violet-200 bg-violet-50 p-6 transition hover:-translate-y-1 hover:shadow-lg dark:border-violet-900 dark:bg-violet-950/30"><Upload className="mb-4 h-8 w-8 text-violet-600" /><h2 className="font-bold dark:text-white">Upload & AI quiz</h2><p className="mt-2 text-sm text-slate-500">Upload once to generate notes and practice questions.</p></Link><button type="button" onClick={() => openMedea(true)} className="rounded-2xl border border-rose-200 bg-rose-50 p-6 text-left transition hover:-translate-y-1 hover:shadow-lg dark:border-rose-900 dark:bg-rose-950/30"><Sparkles className="mb-4 h-8 w-8 text-rose-600" /><h2 className="font-bold dark:text-white">Ask Medea</h2><p className="mt-2 text-sm text-slate-500">Open Medea AI here and ask any simple or complex question.</p></button></div></div>
+export default async function TopicsPage() {
+  const supabase = await createClient();
+  const { data: { user } } = await supabase.auth.getUser();
+  if (!user) redirect("/login");
+
+  const { data: documents, error } = await supabase
+    .from("documents")
+    .select(`
+      id, filename, created_at, status, error_message,
+      ai_jobs ( id, operation, status, error_message ),
+      notes ( id ),
+      questions ( id ),
+      conversations ( updated_at )
+    `)
+    .eq("user_id", user.id)
+    .order("created_at", { ascending: false });
+
+  const items = (documents || []).map((doc: any) =>
+    computeDocumentLifecycleSummary(
+      doc,
+      doc.ai_jobs || [],
+      (doc.notes as any[])?.[0]?.id || null,
+      (doc.questions as any[])?.[0]?.id || null,
+      (doc.conversations as any[])?.[0]?.updated_at || null
+    )
+  );
+
+  return <LibrarySearch items={items} loadError={error ? "Your library could not be loaded right now. Refresh the page to try again." : null} />;
 }

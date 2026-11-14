@@ -17,6 +17,7 @@ import { OAUTH_PROVIDERS } from '@/lib/config/auth';
 import { useOTPStore } from '@/lib/store';
 
 const authMocks = vi.hoisted(() => ({
+  searchParams: '',
   signInWithOAuth: vi.fn().mockResolvedValue({ data: {}, error: null }),
   signInWithOtp: vi.fn().mockResolvedValue({ data: {}, error: null }),
   signInWithPassword: vi.fn().mockResolvedValue({ data: {}, error: null }),
@@ -29,6 +30,7 @@ const availabilityFetch = vi.fn();
 beforeEach(() => {
   vi.clearAllMocks();
   useOTPStore.setState({ otpState: 'idle', otpFlowContext: null });
+  authMocks.searchParams = '';
   availabilityFetch.mockReset();
   availabilityFetch.mockResolvedValue({
     ok: true,
@@ -45,7 +47,7 @@ vi.mock('next/navigation', () => ({
     replace: vi.fn(),
     refresh: vi.fn(),
   }),
-  useSearchParams: () => new URLSearchParams(),
+  useSearchParams: () => new URLSearchParams(authMocks.searchParams),
 }));
 
 // Mock Supabase Client
@@ -89,32 +91,46 @@ describe('OAuthButtons Component', () => {
 
 describe('Signup Page Component', () => {
   it('initializes privacy state to false (unchecked)', () => {
-    render(<SignupPage searchParams={{}} />);
+    render(<SignupPage />);
     const checkbox = screen.getByRole('checkbox', { name: /I have read and agree to the/i }) as HTMLInputElement;
     expect(checkbox.checked).toBe(false);
   });
 
   it('allows details first, then requires legal consent on submit', async () => {
     authMocks.signInWithOtp.mockClear();
-    render(<SignupPage searchParams={{}} />);
+    render(<SignupPage />);
     fireEvent.change(screen.getByLabelText('Username'), { target: { value: 'student_18' } });
     fireEvent.change(screen.getByLabelText('Email'), { target: { value: 'student@gmail.com' } });
     fireEvent.change(screen.getByLabelText(/^Password$/), { target: { value: 'Strong!Pass1' } });
     fireEvent.change(screen.getByLabelText('Confirm password'), { target: { value: 'Strong!Pass1' } });
-    const button = screen.getByRole('button', { name: /Create account & send code/i }) as HTMLButtonElement;
+    const button = screen.getByRole('button', { name: /^Sign up$/i }) as HTMLButtonElement;
+    const checkbox = screen.getByRole('checkbox') as HTMLInputElement;
+
+    // Consent is required before the form can be submitted.
+    expect(checkbox.checked).toBe(false);
+    expect(button.disabled).toBe(true);
+    expect(authMocks.signInWithOtp).not.toHaveBeenCalled();
+
+    fireEvent.click(checkbox);
     expect(button.disabled).toBe(false);
     fireEvent.click(button);
-    expect(await screen.findByText('Please agree to the Privacy Policy and Terms of Service.')).toBeDefined();
-    expect(authMocks.signInWithOtp).not.toHaveBeenCalled();
+
+    await vi.waitFor(() => expect(authMocks.signInWithOtp).toHaveBeenCalledWith(
+      expect.objectContaining({
+        email: 'student@gmail.com',
+        options: expect.objectContaining({ shouldCreateUser: true }),
+      })
+    ));
   });
 
   it('safe next redirect survives OAuth', () => {
-    render(<SignupPage searchParams={{ next: '/notes' }} />);
+    authMocks.searchParams = '?next=%2Fnotes';
+    render(<SignupPage />);
     expect(screen.getByLabelText('Continue with Google')).toBeDefined();
   });
 
   it('Privacy Policy opens modal and does not toggle checkbox', async () => {
-    render(<SignupPage searchParams={{}} />);
+    render(<SignupPage />);
     
     const checkbox = screen.getByRole('checkbox') as HTMLInputElement;
     expect(checkbox.checked).toBe(false);
@@ -139,7 +155,7 @@ describe('Signup Page Component', () => {
   });
 
   it('Terms opens modal and does not toggle checkbox', async () => {
-    render(<SignupPage searchParams={{}} />);
+    render(<SignupPage />);
     
     const checkbox = screen.getByRole('checkbox') as HTMLInputElement;
     expect(checkbox.checked).toBe(false);
@@ -160,9 +176,14 @@ describe('Signup Page Component', () => {
 
 import LoginPage from '@/app/(auth)/login/page';
 
+const renderLoginPage = async (params: { next?: string } = {}) => {
+  const page = await LoginPage({ searchParams: Promise.resolve(params) });
+  return render(page);
+};
+
 describe('Login Page Component', () => {
-  it('Sign-in works without privacy checkbox', () => {
-    render(<LoginPage searchParams={{}} />);
+  it('Sign-in works without privacy checkbox', async () => {
+    await renderLoginPage();
     
     // Ensure Google button exists
     expect(screen.getByLabelText('Continue with Google')).toBeDefined();
@@ -173,7 +194,7 @@ describe('Login Page Component', () => {
   });
 
   it('uses email and password for an existing RecallMate account', async () => {
-    render(<LoginPage searchParams={{}} />);
+    await renderLoginPage();
     fireEvent.change(screen.getByLabelText('Email'), { target: { value: 'student@example.com' } });
     fireEvent.change(screen.getByLabelText('Password'), { target: { value: 'Strong!Pass1' } });
     fireEvent.click(screen.getByRole('button', { name: /^Sign in$/i }));
@@ -197,7 +218,7 @@ describe('Login Page Component', () => {
       />
     );
     fireEvent.change(screen.getByLabelText('Email'), { target: { value: 'student@gmail.com' } });
-    fireEvent.click(screen.getByRole('button', { name: /Create account & send code/i }));
+    fireEvent.click(screen.getByRole('button', { name: /^Sign up$/i }));
 
     await vi.waitFor(() => {
       expect(authMocks.signInWithOtp).toHaveBeenCalledWith(
@@ -222,9 +243,10 @@ describe('Login Page Component', () => {
     });
     render(<EmailOTPForm intent="signup" privacyAgreed username="student_18" password="Strong!Pass1" confirmPassword="Strong!Pass1" />);
     fireEvent.change(screen.getByLabelText('Email'), { target: { value: 'existing@gmail.com' } });
-    fireEvent.click(screen.getByRole('button', { name: /Create account & send code/i }));
+    fireEvent.click(screen.getByRole('button', { name: /^Sign up$/i }));
 
-    expect(await screen.findByText(/account already uses this email.*Sign in instead/i)).toBeDefined();
+    expect(await screen.findByText(/This email is already registered/i)).toBeDefined();
+    expect(screen.getByRole('link', { name: /Sign in instead/i })).toBeDefined();
     expect(authMocks.signInWithOtp).not.toHaveBeenCalled();
   });
 
@@ -236,9 +258,9 @@ describe('Login Page Component', () => {
     });
     render(<EmailOTPForm intent="signup" privacyAgreed username="student_18" password="Strong!Pass1" confirmPassword="Strong!Pass1" />);
     fireEvent.change(screen.getByLabelText('Email'), { target: { value: 'new@gmail.com' } });
-    fireEvent.click(screen.getByRole('button', { name: /Create account & send code/i }));
+    fireEvent.click(screen.getByRole('button', { name: /^Sign up$/i }));
 
-    expect(await screen.findByText(/username is already taken/i)).toBeDefined();
+    expect(await screen.findByText(/This username is already being used/i)).toBeDefined();
     expect(authMocks.signInWithOtp).not.toHaveBeenCalled();
   });
 
@@ -253,7 +275,7 @@ describe('Login Page Component', () => {
       />
     );
     fireEvent.change(screen.getByLabelText('Email'), { target: { value: 'student@gmail.com' } });
-    fireEvent.click(screen.getByRole('button', { name: /Create account & send code/i }));
+    fireEvent.click(screen.getByRole('button', { name: /^Sign up$/i }));
 
     const firstDigit = await screen.findByLabelText('Digit 1 of 6');
     fireEvent.paste(firstDigit, {
@@ -295,7 +317,7 @@ describe('Legal Pages', () => {
   it('/terms renders without crashing (returns 200 equivalent)', () => {
     const { container } = render(<TermsPage />);
     expect(container).toBeDefined();
-    expect(screen.getByText('Terms of Service')).toBeDefined();
+    expect(screen.getByRole('heading', { name: /Terms & Conditions/i })).toBeDefined();
   });
 });
 

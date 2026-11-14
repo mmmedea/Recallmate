@@ -1,54 +1,17 @@
+import Link from "next/link";
+
 export function TermsContent() {
   return (
-    <div className="prose prose-slate dark:prose-invert max-w-none text-sm">
-      <p className="text-sm text-slate-500 dark:text-slate-400 mb-6">
-        Effective Date: {new Date().toLocaleDateString('en-US', { month: 'long', day: 'numeric', year: 'numeric' })}
-      </p>
-
-      <p>
-        Welcome to RecallMate. By accessing or using our platform, you agree to be bound by these Terms of Service. Please read them carefully.
-      </p>
-
-      <h3 className="text-base font-semibold mt-6 mb-2">1. Account Responsibilities</h3>
-      <p>
-        You are responsible for safeguarding your account credentials and for all activities that occur under your account. You must be at least 13 years of old to use RecallMate, or have verifiable parental consent.
-      </p>
-
-      <h3 className="text-base font-semibold mt-6 mb-2">2. Acceptable Use</h3>
-      <p>
-        RecallMate is an educational tool. You agree not to use the platform to:
-      </p>
-      <ul className="list-disc pl-5 space-y-1 mb-4">
-        <li>Upload copyrighted material for which you do not have the right or permission to use.</li>
-        <li>Generate or distribute harmful, illegal, or abusive content.</li>
-        <li>Attempt to reverse-engineer, disrupt, or compromise the security of our platform.</li>
-        <li>Use the service for academic dishonesty or cheating.</li>
-      </ul>
-
-      <h3 className="text-base font-semibold mt-6 mb-2">3. Uploaded Content</h3>
-      <p>
-        You retain all rights to the documents, notes, and images you upload to RecallMate. By uploading content, you grant us a temporary, limited license solely to process your files in order to generate study materials (quizzes, notes) on your behalf.
-      </p>
-
-      <h3 className="text-base font-semibold mt-6 mb-2">4. AI Limitations</h3>
-      <p>
-        RecallMate utilizes advanced generative AI to create study questions and summaries. While we strive for accuracy, AI can occasionally generate incorrect, incomplete, or misleading information (hallucinations). RecallMate is designed to supplement your learning, but you should always verify critical facts against your source material.
-      </p>
-
-      <h3 className="text-base font-semibold mt-6 mb-2">5. Billing and Credits</h3>
-      <p>
-        Certain features of RecallMate require credits or a premium subscription. All payments are processed securely through our third-party providers. Subscriptions are billed in advance on a recurring basis. You may cancel your subscription at any time, but we do not provide refunds for partial billing periods.
-      </p>
-
-      <h3 className="text-base font-semibold mt-6 mb-2">6. Termination</h3>
-      <p>
-        We reserve the right to suspend or terminate your account at any time, without notice, if we determine that you have violated these Terms of Service.
-      </p>
-
-      <h3 className="text-base font-semibold mt-6 mb-2">7. Contact Information</h3>
-      <p>
-        If you have any questions about these Terms, please contact us at <strong>legal@recallmate.example.com</strong>.
-      </p>
+    <div className="font-nunito space-y-5 leading-7 text-[#d0c8d9]">
+      <p className="text-sm text-[#a99fb6]">Last updated: November 11, 2026</p>
+      <p>By accessing or using RecallMate, you agree to these Terms & Conditions. If you do not agree, do not use the service.</p>
+      <section><h2 className="font-fredoka text-xl text-white">1. Account responsibilities</h2><p>Provide accurate account information, safeguard your credentials, and remain responsible for activity through your account. Use the service only if you meet the minimum age requirements under applicable law and these terms.</p></section>
+      <section><h2 className="font-fredoka text-xl text-white">2. Acceptable use</h2><p>Do not upload content you have no right to use, generate or distribute harmful or illegal content, attempt unauthorized access, disrupt the service, or use RecallMate to violate academic integrity rules or applicable law.</p></section>
+      <section><h2 className="font-fredoka text-xl text-white">3. Uploaded content</h2><p>You retain rights you already hold in documents, notes, and images you upload. You must have permission to submit them. You grant RecallMate a limited permission to process submitted content as needed to provide the features you request, including study materials and AI responses.</p></section>
+      <section><h2 className="font-fredoka text-xl text-white">4. AI limitations</h2><p>AI-generated notes, answers, and quizzes may be inaccurate, incomplete, or misleading. They are study aids, not authoritative academic, legal, medical, or professional advice. Verify important information against original materials and trusted sources.</p></section>
+      <section><h2 className="font-fredoka text-xl text-white">5. Billing and credits</h2><p>Some features may be subject to credits or paid plans. Where payment features are offered, the applicable price, renewal, cancellation, and refund terms should be shown at checkout or in the relevant plan information. Mandatory consumer rights are not excluded.</p></section>
+      <section><h2 className="font-fredoka text-xl text-white">6. Availability and termination</h2><p>Features may change or be interrupted, including where they rely on third-party services. Access may be restricted where reasonably necessary to protect users, the service, or legal rights. You may stop using the service and use available account controls to request deletion.</p></section>
+      <section><h2 className="font-fredoka text-xl text-white">7. Contact and changes</h2><p>Questions about these terms can be sent to <a className="text-[#c4a7ff] underline" href="mailto:recallmate.verify@gmail.com">recallmate.verify@gmail.com</a> or through the <Link className="text-[#c4a7ff] underline" href="/help">RecallMate Help Center</Link>. These terms may be updated as the service changes, subject to applicable law.</p></section>
     </div>
   );
 }

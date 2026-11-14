@@ -1,19 +1,5 @@
 import Navbar from "@/components/Navbar";
+import Footer from "@/components/Footer";
 import { PrivacyContent } from "@/components/legal/PrivacyContent";
-
-export const metadata = {
-  title: "Privacy Policy | RecallMate",
-  description: "Learn how RecallMate collects, uses, and protects your data.",
-};
-
-export default function PrivacyPage() {
-  return (
-    <div className="flex flex-col min-h-screen">
-      <Navbar />
-      <main className="flex-1 max-w-4xl mx-auto px-6 py-12 md:py-20 w-full">
-        <h1 className="text-4xl font-black text-slate-900 dark:text-white mb-8">Privacy Policy</h1>
-        <PrivacyContent />
-      </main>
-    </div>
-  );
-}
+export const metadata = { title: "Privacy Policy | RecallMate", description: "Learn how RecallMate handles account, study, and preference information." };
+export default function PrivacyPage(){return <div className="flex min-h-screen flex-col bg-[#08070d] text-white"><Navbar/><main className="mx-auto w-full max-w-4xl flex-1 px-6 py-12 md:py-20"><h1 className="font-fredoka mb-8 text-4xl">Privacy Policy</h1><div className="rounded-3xl border border-[#a78bfa]/20 bg-[#14101d] p-7 sm:p-10"><PrivacyContent/></div></main><Footer/></div>}

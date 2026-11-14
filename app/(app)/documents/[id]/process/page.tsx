@@ -5,8 +5,9 @@ import { AlertCircle } from "lucide-react";
 
 export const dynamic = "force-dynamic";
 
-export default async function ProcessingWorkspacePage({ params }: { params: { id: string } }) {
-  const { data: summary, success, error, status } = await getDocumentLifecycle(params.id);
+export default async function ProcessingWorkspacePage({ params }: { params: Promise<{ id: string }> }) {
+  const { id } = await params;
+  const { data: summary, success, error, status } = await getDocumentLifecycle(id);
 
   if (!success || !summary) {
     if (status === 404) {

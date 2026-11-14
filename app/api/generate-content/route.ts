@@ -1,43 +1,10 @@
 import { NextRequest, NextResponse } from "next/server";
-import { Redis } from "@upstash/redis";
 import { callGeminiRest, callGroqChat, withFallback } from "@/lib/ai-provider";
 import { buildDocumentNotesFallback } from "@/lib/ai/document-notes-fallback";
 import { requireUser, requireDocumentOwner, requireEntitlement, checkRateLimit, getOrCreateIdempotentJob } from "@/lib/security";
 
 export const runtime = "nodejs";
 export const preferredRegion = "iad1";
-
-// ==========================================
-// RATE LIMITING SETUP (Redis + In-Memory Fallback)
-// ==========================================
-
-const redisUrl = process.env.KV_REST_API_URL || process.env.UPSTASH_REDIS_REST_URL || "";
-const redisToken = process.env.KV_REST_API_TOKEN || process.env.UPSTASH_REDIS_REST_TOKEN || "";
-const hasRedis = Boolean(redisUrl && redisToken);
-
-const redis = hasRedis ? new Redis({ url: redisUrl, token: redisToken }) : null;
-
-// Fallback: Simple in-memory rate limiter for local dev or if Redis is unconfigured
-const rateLimitMap = new Map<string, { count: number; lastReset: number }>();
-const RATE_LIMIT_WINDOW = 60 * 1000; // 1 minute window
-const MAX_REQUESTS_PER_WINDOW = 5;   // Max 5 generations per minute
-
-function isRateLimitedInMemory(ip: string): boolean {
-  const now = Date.now();
-  const userRecord = rateLimitMap.get(ip);
-
-  if (!userRecord || now - userRecord.lastReset > RATE_LIMIT_WINDOW) {
-    rateLimitMap.set(ip, { count: 1, lastReset: now });
-    return false;
-  }
-
-  if (userRecord.count >= MAX_REQUESTS_PER_WINDOW) {
-    return true;
-  }
-
-  userRecord.count += 1;
-  return false;
-}
 
 // ==========================================
 // SECURITY GUARDRAILS & HELPERS
@@ -126,7 +93,7 @@ export async function POST(req: NextRequest) {
     const requestedCount = Math.min(Math.max(Number(count) || 10, 5), maxAllowed);
 
     // 6: Rate Limit
-    await checkRateLimit(user.id);
+    await checkRateLimit(`generate-content:${user.id}`, { limit: 5, windowSeconds: 60 });
 
     // 7: Check Idempotency (if an idempotency key is provided)
     if (idempotencyKey && documentId) {
@@ -273,10 +240,11 @@ Rules:
       );
     }
   } catch (err: any) {
-    console.error("Study content generation failed:", err?.message || "Unknown error");
+    const status = Number.isInteger(err?.status) ? err.status : 500;
+    if (status >= 500) console.error("Study content generation failed:", err?.message || "Unknown error");
     return NextResponse.json(
-      { error: "Failed to generate study content safely." },
-      { status: 500 }
+      { error: status === 429 ? "Rate limit exceeded. Please try again later." : status === 503 ? "Study content generation is temporarily unavailable." : "Failed to generate study content safely." },
+      { status }
     );
   }
 }

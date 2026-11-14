@@ -1,4 +1,5 @@
 import { NextRequest, NextResponse } from 'next/server';
+import { timingSafeEqual } from 'crypto';
 import { createClient } from '@supabase/supabase-js';
 import { handleExtractText } from '@/lib/workers/extract';
 import { handleGenerateNotes } from '@/lib/workers/generateNotes';
@@ -15,11 +16,19 @@ export async function POST(req: NextRequest) {
 async function executeWorker(req: NextRequest) {
   try {
     // 1. Authentication
-    const authHeader = req.headers.get('authorization');
+    const authHeader = req.headers.get('authorization') || '';
     const cronSecret = process.env.CRON_SECRET;
-    
-    if (process.env.NODE_ENV === 'production' && authHeader !== `Bearer ${cronSecret}`) {
-       return NextResponse.json({ error: 'Unauthorized' }, { status: 401 });
+    if (!cronSecret || cronSecret.length < 32) {
+      return NextResponse.json({ error: 'Worker authentication is not configured' }, { status: 503 });
+    }
+    const expected = Buffer.from(`Bearer ${cronSecret}`);
+    const supplied = Buffer.from(authHeader);
+    if (supplied.length !== expected.length || !timingSafeEqual(supplied, expected)) {
+      return NextResponse.json({ error: 'Unauthorized' }, { status: 401 });
+    }
+
+    if (!process.env.NEXT_PUBLIC_SUPABASE_URL || !process.env.SUPABASE_SERVICE_ROLE_KEY) {
+      return NextResponse.json({ error: 'Worker database is not configured' }, { status: 503 });
     }
 
     // 2. Service Role Client
@@ -105,7 +114,7 @@ async function executeWorker(req: NextRequest) {
 
   } catch (err: any) {
     console.error('[WORKER] Error:', err);
-    return NextResponse.json({ error: 'Internal Server Error', details: err.message }, { status: 500 });
+    return NextResponse.json({ error: 'Internal Server Error' }, { status: 500 });
   }
 }
 

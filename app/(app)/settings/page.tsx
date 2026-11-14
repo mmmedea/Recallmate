@@ -2,9 +2,7 @@
 
 import { ChangeEvent, useEffect, useMemo, useState } from "react";
 import { useRouter } from "next/navigation";
-import { AlertCircle, Bell, Camera, CheckCircle2, KeyRound, LogOut, Mail, MapPin, Palette, Plug, ShieldCheck, Trash2, User } from "lucide-react";
 import { createClient } from "@/utils/supabase/client";
-import ThemeToggle from "@/components/ThemeToggle";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { PasswordInput } from "@/components/ui/password-input";
@@ -14,24 +12,28 @@ type Profile = {
   username: string;
   age: string;
   school: string;
-  gender: string;
   interests: string;
   avatarUrl: string;
   notificationsEnabled: boolean;
   notificationEmail: string;
-  secondaryEmail: string;
-  street: string;
-  city: string;
-  region: string;
-  country: string;
-  addressType: "home" | "work";
 };
 
-const EMPTY_PROFILE: Profile = { username: "", age: "", school: "", gender: "", interests: "", avatarUrl: "", notificationsEnabled: true, notificationEmail: "", secondaryEmail: "", street: "", city: "", region: "", country: "", addressType: "home" };
+type SettingsTab = "profile" | "security" | "workspace";
+
+const EMPTY_PROFILE: Profile = {
+  username: "",
+  age: "",
+  school: "",
+  interests: "",
+  avatarUrl: "",
+  notificationsEnabled: true,
+  notificationEmail: "",
+};
 const PASSWORD_RULE = /^(?=.*[^A-Za-z0-9]).{8,}$/;
 
 export default function SettingsPage() {
   const [profile, setProfile] = useState<Profile>(EMPTY_PROFILE);
+  const [activeTab, setActiveTab] = useState<SettingsTab>("profile");
   const [accountEmail, setAccountEmail] = useState("");
   const [newEmail, setNewEmail] = useState("");
   const [newPassword, setNewPassword] = useState("");
@@ -53,17 +55,10 @@ export default function SettingsPage() {
         username: String(metadata.username ?? ""),
         age: String(metadata.age ?? ""),
         school: String(metadata.school ?? ""),
-        gender: String(metadata.gender ?? ""),
         interests: String(metadata.interests ?? ""),
         avatarUrl: String(metadata.avatar_url ?? metadata.picture ?? ""),
         notificationsEnabled: metadata.notifications_enabled !== false,
         notificationEmail: String(metadata.notification_email ?? email),
-        secondaryEmail: String(metadata.secondary_email ?? ""),
-        street: String(metadata.address?.street ?? ""),
-        city: String(metadata.address?.city ?? ""),
-        region: String(metadata.address?.region ?? ""),
-        country: String(metadata.address?.country ?? ""),
-        addressType: metadata.address?.type === "work" ? "work" : "home",
       });
       setLoading(false);
     }
@@ -85,13 +80,10 @@ export default function SettingsPage() {
         username: profile.username.trim(),
         age: numericAge,
         school: profile.school.trim(),
-        gender: profile.gender.trim(),
         interests: profile.interests.trim(),
         avatar_url: profile.avatarUrl,
         notifications_enabled: profile.notificationsEnabled,
         notification_email: profile.notificationEmail.trim() || accountEmail,
-        secondary_email: profile.secondaryEmail.trim(),
-        address: { street: profile.street.trim(), city: profile.city.trim(), region: profile.region.trim(), country: profile.country.trim(), type: profile.addressType },
         recallmate_account_completed: true,
       },
     });
@@ -165,102 +157,124 @@ export default function SettingsPage() {
     else notify("success", "Other RecallMate sessions have been signed out.");
   };
 
+  const tabs: { id: SettingsTab; label: string; description: string }[] = [
+    { id: "profile", label: "Profile & preferences", description: "Personal details and appearance" },
+    { id: "security", label: "Security & authentication", description: "Sign-in, sessions and account safety" },
+    { id: "workspace", label: "Workspace", description: "Calendar and integrations" },
+  ];
+
   return (
-    <div className="mx-auto max-w-4xl space-y-6 px-4 py-8 motion-safe:animate-in motion-safe:fade-in motion-safe:slide-in-from-bottom-3 duration-500">
-      <div>
-        <p className="text-sm font-bold text-indigo-600 dark:text-indigo-400">Your RecallMate account</p>
-        <h1 className="mt-1 flex items-center gap-2 text-3xl font-black text-slate-950 dark:text-white"><User className="h-8 w-8 text-indigo-500" />Profile & settings</h1>
-        <p className="mt-2 text-slate-600 dark:text-slate-400">Personalize your study experience, notifications, sign-in, and security.</p>
+    <div className="mx-auto max-w-5xl space-y-7 px-4 py-8 motion-safe:animate-in motion-safe:fade-in motion-safe:slide-in-from-bottom-3 duration-500 sm:px-6">
+      <header className="space-y-2">
+        <p className="font-pixelify text-[10px] uppercase tracking-[0.24em] text-[#c4a7ff]">YOUR ACCOUNT</p>
+        <h1 className="font-fredoka text-3xl font-semibold tracking-tight text-white sm:text-4xl">Settings & Profile</h1>
+        <p className="max-w-2xl font-quicksand text-sm text-white/55">Manage your learning profile, account security, and workspace preferences in one place.</p>
+      </header>
+
+      <div role="tablist" aria-label="Settings sections" className="grid gap-2 rounded-2xl border border-white/10 bg-[#111019] p-2 sm:grid-cols-3">
+        {tabs.map((tab) => (
+          <button key={tab.id} type="button" role="tab" aria-selected={activeTab === tab.id} onClick={() => { setActiveTab(tab.id); setMessage(null); }}
+            className={`rounded-xl border px-4 py-3 text-left transition ${activeTab === tab.id ? "border-[#a78bfa]/40 bg-[#a78bfa]/15 shadow-[0_0_24px_rgba(167,139,250,.08)]" : "border-transparent hover:bg-white/[0.04]"}`}>
+            <span className={`block font-nunito text-sm font-extrabold ${activeTab === tab.id ? "text-[#e2d5ff]" : "text-white/70"}`}>{tab.label}</span>
+            <span className="mt-1 block font-quicksand text-[11px] text-white/40">{tab.description}</span>
+          </button>
+        ))}
       </div>
 
       {message && (
-        <div role="status" className={`flex items-start gap-2 rounded-xl border p-4 text-sm ${message.kind === "success" ? "border-emerald-200 bg-emerald-50 text-emerald-700 dark:border-emerald-900 dark:bg-emerald-950/30 dark:text-emerald-300" : "border-rose-200 bg-rose-50 text-rose-700 dark:border-rose-900 dark:bg-rose-950/30 dark:text-rose-300"}`}>
-          {message.kind === "success" ? <CheckCircle2 className="mt-0.5 h-4 w-4 shrink-0" /> : <AlertCircle className="mt-0.5 h-4 w-4 shrink-0" />}{message.text}
+        <div role="status" className={`rounded-xl border px-4 py-3 font-nunito text-sm ${message.kind === "success" ? "border-emerald-400/20 bg-emerald-400/10 text-emerald-200" : "border-rose-400/20 bg-rose-400/10 text-rose-200"}`}>
+          {message.text}
         </div>
       )}
 
-      <section className="rounded-3xl border border-slate-200 bg-white p-6 shadow-sm dark:border-slate-800 dark:bg-slate-900">
-        <div className="mb-6 flex flex-col gap-5 sm:flex-row sm:items-center">
-          <div className="relative h-24 w-24 overflow-hidden rounded-3xl bg-gradient-to-br from-indigo-500 to-fuchsia-500 shadow-lg">
-            {profile.avatarUrl ? <img src={profile.avatarUrl} alt="Profile" className="h-full w-full object-cover" /> : <User className="absolute inset-0 m-auto h-11 w-11 text-white" />}
-          </div>
-          <div>
-            <h2 className="text-xl font-bold text-slate-950 dark:text-white">Profile details</h2>
-            <p className="mb-3 text-sm text-slate-500">Shown in your personalized dashboard and study experience.</p>
-            <label className="inline-flex cursor-pointer items-center gap-2 rounded-xl border border-slate-200 px-3 py-2 text-sm font-semibold transition hover:bg-slate-50 dark:border-slate-700 dark:hover:bg-slate-800">
-              <Camera className="h-4 w-4" />Upload photo<input type="file" accept="image/*" onChange={chooseAvatar} className="sr-only" />
-            </label>
-          </div>
-        </div>
-        <div className="grid gap-4 sm:grid-cols-2">
-          <Field label="Username"><Input value={profile.username} onChange={(event) => setProfile({ ...profile, username: event.target.value })} placeholder="alex_studies" disabled={loading} /></Field>
-          <Field label="Age"><Input type="number" min={5} max={120} value={profile.age} onChange={(event) => setProfile({ ...profile, age: event.target.value })} placeholder="20" disabled={loading} /></Field>
-          <Field label="School / university"><Input value={profile.school} onChange={(event) => setProfile({ ...profile, school: event.target.value })} placeholder="Your school" disabled={loading} /></Field>
-          <Field label="Gender"><Input value={profile.gender} onChange={(event) => setProfile({ ...profile, gender: event.target.value })} placeholder="Optional" disabled={loading} /></Field>
-          <div className="sm:col-span-2"><Field label="Study interests"><Input value={profile.interests} onChange={(event) => setProfile({ ...profile, interests: event.target.value })} placeholder="Biology, chemistry, mathematics…" disabled={loading} /></Field></div>
-        </div>
-      </section>
+      {activeTab === "profile" && (
+        <div role="tabpanel" className="space-y-5">
+          <section className="rounded-3xl border border-white/10 bg-[#111019] p-6 shadow-xl shadow-black/10">
+            <div className="mb-6 flex flex-col gap-5 sm:flex-row sm:items-center">
+              <div className="relative h-20 w-20 overflow-hidden rounded-3xl border border-[#a78bfa]/25 bg-gradient-to-br from-[#a78bfa]/30 to-[#f43f5e]/20">
+                {profile.avatarUrl ? <img src={profile.avatarUrl} alt="Profile" className="h-full w-full object-cover" /> : <span className="flex h-full w-full items-center justify-center font-fredoka text-2xl font-bold text-[#e2d5ff]">{profile.username.trim().slice(0, 1).toUpperCase() || "R"}</span>}
+              </div>
+              <div>
+                <h2 className="font-fredoka text-xl font-semibold text-white">Your learning profile</h2>
+                <p className="mb-3 mt-1 font-quicksand text-sm text-white/45">These details help personalize study suggestions and AI-generated materials.</p>
+                <label className="inline-flex cursor-pointer items-center gap-2 rounded-xl border border-[#a78bfa]/25 bg-[#a78bfa]/10 px-3 py-2 font-nunito text-xs font-extrabold text-[#d9c8ff] transition hover:bg-[#a78bfa]/20">
+                  Upload profile photo<input type="file" accept="image/*" onChange={chooseAvatar} className="sr-only" />
+                </label>
+              </div>
+            </div>
+            <div className="grid gap-4 sm:grid-cols-2">
+              <Field label="Username"><Input value={profile.username} onChange={(event) => setProfile({ ...profile, username: event.target.value })} placeholder="alex_studies" disabled={loading} /></Field>
+              <Field label="Age"><Input type="number" min={5} max={120} value={profile.age} onChange={(event) => setProfile({ ...profile, age: event.target.value })} placeholder="20" disabled={loading} /></Field>
+              <div className="sm:col-span-2"><Field label="School / university"><Input value={profile.school} onChange={(event) => setProfile({ ...profile, school: event.target.value })} placeholder="Your school or university" disabled={loading} /></Field></div>
+              <div className="sm:col-span-2"><Field label="Study interests"><Input value={profile.interests} onChange={(event) => setProfile({ ...profile, interests: event.target.value })} placeholder="Biology, programming, mathematics…" disabled={loading} /></Field></div>
+            </div>
+          </section>
 
-      <section className="rounded-3xl border border-slate-200 bg-white p-6 shadow-sm dark:border-slate-800 dark:bg-slate-900">
-        <h2 className="flex items-center gap-2 text-xl font-bold dark:text-white"><MapPin className="h-6 w-6 text-indigo-500" />Account identity & optional address</h2>
-        <p className="mt-1 text-sm text-slate-500">A secondary contact and address are optional. They are stored with your protected account metadata and are never shown publicly.</p>
-        <div className="mt-5 grid gap-4 sm:grid-cols-2">
-          <Field label="Secondary email"><Input type="email" value={profile.secondaryEmail} onChange={(event) => setProfile({ ...profile, secondaryEmail: event.target.value })} placeholder="Optional recovery contact" /></Field>
-          <Field label="Address type"><select value={profile.addressType} onChange={(event) => setProfile({ ...profile, addressType: event.target.value as "home" | "work" })} className="flex h-10 w-full rounded-md border border-input bg-background px-3 py-2 text-sm"><option value="home">Home</option><option value="work">Work</option></select></Field>
-          <Field label="Street number & street"><Input value={profile.street} onChange={(event) => setProfile({ ...profile, street: event.target.value })} placeholder="Optional" /></Field>
-          <Field label="City"><Input value={profile.city} onChange={(event) => setProfile({ ...profile, city: event.target.value })} placeholder="Optional" /></Field>
-          <Field label="County / province"><Input value={profile.region} onChange={(event) => setProfile({ ...profile, region: event.target.value })} placeholder="Optional" /></Field>
-          <Field label="Country"><Input value={profile.country} onChange={(event) => setProfile({ ...profile, country: event.target.value })} placeholder="Optional" /></Field>
+          <section className="grid gap-4">
+            <div className="rounded-3xl border border-white/10 bg-[#111019] p-6">
+              <h2 className="font-fredoka text-lg font-semibold text-white">Notifications</h2>
+              <label className="my-4 flex items-center gap-3 font-nunito text-sm font-bold text-white/80"><Checkbox checked={profile.notificationsEnabled} onCheckedChange={(checked) => setProfile({ ...profile, notificationsEnabled: checked === true })} />Enable study reminders</label>
+              <Field label="Preferred notification email"><Input type="email" value={profile.notificationEmail} onChange={(event) => setProfile({ ...profile, notificationEmail: event.target.value })} disabled={!profile.notificationsEnabled} placeholder={accountEmail} /></Field>
+              <p className="mt-2 font-quicksand text-xs text-white/40">Defaults to your sign-up email. Calendar reminders also appear in the notification bell.</p>
+            </div>
+          </section>
+
+          <div className="flex justify-end"><Button onClick={saveProfile} disabled={loading || busy !== null} className="rounded-xl bg-gradient-to-r from-[#a78bfa] to-[#c4a7ff] px-6 font-nunito font-black text-[#170f23] hover:brightness-110">{busy === "profile" ? "Saving…" : "Save profile & preferences"}</Button></div>
         </div>
-      </section>
+      )}
 
-      <section className="grid gap-6 md:grid-cols-2">
-        <div className="rounded-3xl border border-slate-200 bg-white p-6 shadow-sm dark:border-slate-800 dark:bg-slate-900">
-          <h2 className="flex items-center gap-2 text-lg font-bold dark:text-white"><Palette className="h-5 w-5 text-violet-500" />Appearance</h2>
-          <p className="mb-4 mt-1 text-sm text-slate-500">Switch between RecallMate light and dark mode.</p>
-          <ThemeToggle />
+      {activeTab === "security" && (
+        <div role="tabpanel" className="space-y-5">
+          <section className="rounded-3xl border border-white/10 bg-[#111019] p-6">
+            <div className="mb-5">
+              <p className="font-pixelify text-[10px] uppercase tracking-[0.18em] text-[#c4a7ff]">ACCOUNT ACCESS</p>
+              <h2 className="mt-1 font-fredoka text-2xl font-semibold text-white">Security & Authentication</h2>
+              <p className="mt-1 font-quicksand text-sm text-white/45">Manage your sign-in email, password, and active sessions.</p>
+            </div>
+            <div className="grid gap-6 md:grid-cols-2">
+              <div className="space-y-3 rounded-2xl border border-white/10 bg-white/[0.025] p-4">
+                <h3 className="font-fredoka text-lg font-semibold text-white">Change sign-in email</h3>
+                <p className="font-quicksand text-xs text-white/45">Current email: {accountEmail}</p>
+                <Field label="New sign-in email"><Input type="email" value={newEmail} onChange={(event) => setNewEmail(event.target.value)} placeholder="new@email.com" /></Field>
+                <Button variant="outline" onClick={requestEmailChange} disabled={busy !== null} className="border-[#a78bfa]/30 font-nunito text-[#e2d5ff] hover:bg-[#a78bfa]/10">{busy === "email" ? "Sending…" : "Send verification email"}</Button>
+              </div>
+              <div className="space-y-3 rounded-2xl border border-white/10 bg-white/[0.025] p-4">
+                <h3 className="font-fredoka text-lg font-semibold text-white">Change password</h3>
+                <p className="font-quicksand text-xs text-white/45">Use at least 8 characters and include one special symbol.</p>
+                <PasswordInput aria-label="New password" autoComplete="new-password" value={newPassword} onChange={(event) => setNewPassword(event.target.value)} className="border-white/10 bg-[#0b0a11] text-white placeholder:text-white/30" placeholder="New strong password" />
+                <PasswordInput aria-label="Confirm new password" autoComplete="new-password" value={confirmPassword} onChange={(event) => setConfirmPassword(event.target.value)} className="border-white/10 bg-[#0b0a11] text-white placeholder:text-white/30" placeholder="Confirm password" />
+                <Button variant="outline" onClick={changePassword} disabled={busy !== null} className="border-[#a78bfa]/30 font-nunito text-[#e2d5ff] hover:bg-[#a78bfa]/10">{busy === "password" ? "Changing…" : "Change password"}</Button>
+              </div>
+            </div>
+          </section>
+
+          <section className="rounded-3xl border border-white/10 bg-[#111019] p-6">
+            <h3 className="font-fredoka text-lg font-semibold text-white">Active session safety</h3>
+            <p className="my-2 max-w-2xl font-quicksand text-sm text-white/45">If you used RecallMate on a shared or lost device, revoke every other active session. Your current session stays signed in.</p>
+            <Button variant="outline" onClick={signOutOtherSessions} disabled={busy !== null} className="border-white/15 font-nunito text-white/80 hover:bg-white/[0.05]">{busy === "sessions" ? "Signing out…" : "Sign out of other sessions"}</Button>
+          </section>
+
+          <section className="rounded-3xl border border-rose-500/25 bg-rose-500/[0.06] p-6">
+            <p className="font-pixelify text-[10px] uppercase tracking-[0.18em] text-rose-300">IRREVERSIBLE ACTION</p>
+            <h3 className="mt-1 font-fredoka text-xl font-semibold text-rose-200">Danger zone</h3>
+            <p className="mb-4 mt-2 max-w-2xl font-quicksand text-sm text-rose-200/65">Deleting your account permanently removes your account and all associated RecallMate data.</p>
+            <Button onClick={deleteAccount} disabled={busy !== null} variant="destructive" className="bg-rose-600 font-nunito font-extrabold text-white hover:bg-rose-700">{busy === "delete" ? "Deleting…" : "Delete account"}</Button>
+          </section>
         </div>
-        <div className="rounded-3xl border border-slate-200 bg-white p-6 shadow-sm dark:border-slate-800 dark:bg-slate-900">
-          <h2 className="flex items-center gap-2 text-lg font-bold dark:text-white"><Bell className="h-5 w-5 text-amber-500" />Notifications</h2>
-          <label className="my-4 flex items-center gap-3 text-sm font-semibold"><Checkbox checked={profile.notificationsEnabled} onCheckedChange={(checked) => setProfile({ ...profile, notificationsEnabled: checked === true })} />Enable study reminders</label>
-          <Field label="Preferred notification email"><Input type="email" value={profile.notificationEmail} onChange={(event) => setProfile({ ...profile, notificationEmail: event.target.value })} disabled={!profile.notificationsEnabled} placeholder={accountEmail} /></Field>
-          <p className="mt-2 text-xs text-slate-500">Defaults to your sign-up email. Calendar reminders also appear in the notification bell.</p>
-        </div>
-      </section>
+      )}
 
-      <div className="flex justify-end"><Button onClick={saveProfile} disabled={loading || busy !== null} className="rounded-xl bg-indigo-600 px-6 text-white hover:bg-indigo-700">{busy === "profile" ? "Saving…" : "Save profile & preferences"}</Button></div>
-
-      <section className="rounded-3xl border border-slate-200 bg-white p-6 shadow-sm dark:border-slate-800 dark:bg-slate-900">
-        <h2 className="flex items-center gap-2 text-xl font-bold dark:text-white"><ShieldCheck className="h-6 w-6 text-emerald-500" />Sign-in & security</h2>
-        <div className="mt-5 grid gap-6 md:grid-cols-2">
-          <div className="space-y-3">
-            <h3 className="flex items-center gap-2 font-bold dark:text-white"><Mail className="h-4 w-4" />Change sign-in email</h3>
-            <p className="text-xs text-slate-500">Current email: {accountEmail}</p>
-            <Input type="email" value={newEmail} onChange={(event) => setNewEmail(event.target.value)} placeholder="new@email.com" />
-            <Button variant="outline" onClick={requestEmailChange} disabled={busy !== null}>{busy === "email" ? "Sending…" : "Send verification to new email"}</Button>
-          </div>
-          <div className="space-y-3">
-            <h3 className="flex items-center gap-2 font-bold dark:text-white"><KeyRound className="h-4 w-4" />Change password</h3>
-            <p className="text-xs text-slate-500">Use 8+ characters with at least one special symbol.</p>
-            <PasswordInput aria-label="New password" autoComplete="new-password" value={newPassword} onChange={(event) => setNewPassword(event.target.value)} placeholder="New strong password" />
-            <PasswordInput aria-label="Confirm new password" autoComplete="new-password" value={confirmPassword} onChange={(event) => setConfirmPassword(event.target.value)} placeholder="Confirm password" />
-            <Button variant="outline" onClick={changePassword} disabled={busy !== null}>{busy === "password" ? "Changing…" : "Change password"}</Button>
-          </div>
-        </div>
-        <div className="mt-6 rounded-2xl border border-slate-200 p-4 dark:border-slate-700"><h3 className="flex items-center gap-2 font-bold dark:text-white"><LogOut className="h-4 w-4" />Active session safety</h3><p className="my-2 text-sm text-slate-500">If you used RecallMate on a shared or lost device, immediately revoke every other active session.</p><Button variant="outline" onClick={signOutOtherSessions} disabled={busy !== null}>{busy === "sessions" ? "Signing out…" : "Sign out of other sessions"}</Button></div>
-      </section>
-
-      <section className="rounded-3xl border border-slate-200 bg-white p-6 shadow-sm dark:border-slate-800 dark:bg-slate-900"><h2 className="flex items-center gap-2 text-xl font-bold dark:text-white"><Plug className="h-6 w-6 text-violet-500" />Workspace & integrations</h2><p className="mt-2 text-sm text-slate-500">Calendar connections use explicit consent. Open Schedule to add an event directly to Google Calendar or export your full year as an ICS file.</p><Button variant="outline" className="mt-4" onClick={() => router.push('/calendar')}>Open calendar integrations</Button></section>
-
-      <section className="rounded-3xl border border-red-200 bg-red-50 p-6 dark:border-red-900/60 dark:bg-red-950/20">
-        <h2 className="flex items-center gap-2 text-xl font-bold text-red-700 dark:text-red-400"><AlertCircle className="h-6 w-6" />Danger zone</h2>
-        <p className="mb-4 mt-2 text-sm text-red-600 dark:text-red-300">Deleting your account permanently removes the account and all associated RecallMate data.</p>
-        <Button onClick={deleteAccount} disabled={busy !== null} variant="destructive" className="bg-red-600 text-white hover:bg-red-700"><Trash2 className="mr-2 h-4 w-4" />{busy === "delete" ? "Deleting…" : "Delete account"}</Button>
-      </section>
+      {activeTab === "workspace" && (
+        <section role="tabpanel" className="rounded-3xl border border-white/10 bg-[#111019] p-6">
+          <p className="font-pixelify text-[10px] uppercase tracking-[0.18em] text-[#c4a7ff]">CONNECTED TO YOUR STUDY FLOW</p>
+          <h2 className="mt-1 font-fredoka text-2xl font-semibold text-white">Workspace & integrations</h2>
+          <p className="mt-2 max-w-2xl font-quicksand text-sm leading-6 text-white/50">Calendar connections use explicit consent. Open Schedule to add events to Google Calendar or export your full year as an ICS file.</p>
+          <Button variant="outline" className="mt-5 border-[#a78bfa]/30 font-nunito text-[#e2d5ff] hover:bg-[#a78bfa]/10" onClick={() => router.push("/calendar")}>Open calendar integrations →</Button>
+        </section>
+      )}
     </div>
   );
 }
 
 function Field({ label, children }: { label: string; children: React.ReactNode }) {
-  return <label className="block text-sm font-semibold text-slate-700 dark:text-slate-300"><span className="mb-1.5 block">{label}</span>{children}</label>;
+  return <label className="block font-nunito text-sm font-semibold text-white/75"><span className="mb-1.5 block">{label}</span>{children}</label>;
 }

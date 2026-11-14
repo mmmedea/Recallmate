@@ -10,12 +10,31 @@ const routerMocks = vi.hoisted(() => ({
   push: vi.fn(),
 }));
 
+const topicsMocks = vi.hoisted(() => ({
+  getUser: vi.fn(),
+  order: vi.fn(),
+}));
+
 vi.mock("@/app/actions/calendar-actions", () => ({
   getCalendarEvents: calendarMocks.getCalendarEvents,
 }));
 
+vi.mock("@/utils/supabase/server", () => ({
+  createClient: vi.fn(async () => ({
+    auth: { getUser: topicsMocks.getUser },
+    from: vi.fn(() => ({
+      select: vi.fn(() => ({
+        eq: vi.fn(() => ({ order: topicsMocks.order })),
+      })),
+    })),
+  })),
+}));
+
 vi.mock("next/navigation", () => ({
   useRouter: () => routerMocks,
+  redirect: vi.fn((destination: string) => {
+    throw new Error(`REDIRECT:${destination}`);
+  }),
 }));
 
 vi.mock("idb-keyval", () => ({
@@ -35,6 +54,8 @@ describe("study workspace navigation", () => {
     sessionStorage.clear();
     localStorage.clear();
     useAppStore.setState({ chatDrawerOpen: false });
+    topicsMocks.getUser.mockResolvedValue({ data: { user: { id: "student-1" } } });
+    topicsMocks.order.mockResolvedValue({ data: [], error: null });
   });
 
   it("renders the calendar workspace even when event storage is temporarily unavailable", async () => {
@@ -64,9 +85,10 @@ describe("study workspace navigation", () => {
     expect(screen.queryByRole("button", { name: /download pdf/i })).toBeNull();
   });
 
-  it("opens the Medea chat drawer from the Ask Medea topic card", () => {
-    render(<TopicsPage />);
-    fireEvent.click(screen.getByRole("button", { name: /ask medea/i }));
-    expect(useAppStore.getState().chatDrawerOpen).toBe(true);
+  it("renders the authenticated library route with its current workspace actions", async () => {
+    render(await TopicsPage());
+    expect(screen.getByRole("heading", { name: "My Library" })).toBeDefined();
+    expect(screen.getByRole("link", { name: /add material/i })).toBeDefined();
+    expect(screen.getByRole("link", { name: /create flashcards/i })).toBeDefined();
   });
 });

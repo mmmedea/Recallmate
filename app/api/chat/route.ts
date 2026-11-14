@@ -6,9 +6,9 @@ import { Database } from "@/types/supabase";
 import { LexicalRetriever } from "@/lib/ai/retriever";
 import { BillingService } from "@/lib/ai/billing";
 import { ProviderAdapter } from "@/lib/ai/provider";
-import { buildBoundedMemoryPrompt, ChatMessage } from "@/lib/ai/memory";
-import { rateLimitAdapter } from "@/lib/ai/ratelimit";
-import { createUIMessageStreamResponse } from "ai";
+import { buildBoundedMemoryPrompt, ChatMessage, ChatMessageRole } from "@/lib/ai/memory";
+import { checkRateLimit } from "@/lib/security";
+import { createUIMessageStream, createUIMessageStreamResponse } from "ai";
 import {
   buildMedeaGeneralPrompt,
   MEDEA_GENERAL_SYSTEM_PROMPT,
@@ -31,9 +31,10 @@ export async function POST(req: NextRequest) {
   }
 
   try {
-    await rateLimitAdapter.checkChatRateLimit(user.id);
+    await checkRateLimit(`chat:${user.id}`, { limit: 10, windowSeconds: 60 });
   } catch (err: any) {
-    return NextResponse.json({ error: err.message }, { status: 429 });
+    const status = Number.isInteger(err?.status) ? err.status : err?.message === 'Rate limit exceeded' ? 429 : 503;
+    return NextResponse.json({ error: status === 429 ? 'Rate limit exceeded. Please try again later.' : 'Chat service is temporarily unavailable.' }, { status });
   }
 
   let body;
@@ -129,7 +130,8 @@ export async function POST(req: NextRequest) {
     if (existingInteraction.status === 'completed') {
       // Re-stream the recovered response
       return createUIMessageStreamResponse({
-        execute: async (dataStream) => {
+        stream: createUIMessageStream({
+          execute: async ({ writer }) => {
           const { data: reply } = await serviceClient
             .from("chat_messages")
             .select("content, id")
@@ -142,12 +144,17 @@ export async function POST(req: NextRequest) {
             .select("source_chunk_id, alias")
             .eq("interaction_id", existingInteraction.id);
 
-          dataStream.writeData({ recovered: true });
+          writer.write({ type: "data-recovered", data: { recovered: true } });
           if (citations) {
-             dataStream.writeMessageAnnotation({ type: 'citations', data: citations });
+             writer.write({ type: "data-citations", data: citations });
           }
-          dataStream.writeText(reply?.content || "");
-        }
+          const recoveredText = reply?.content || "";
+          const recoveredTextId = crypto.randomUUID();
+          writer.write({ type: "text-start", id: recoveredTextId });
+          if (recoveredText) writer.write({ type: "text-delta", id: recoveredTextId, delta: recoveredText });
+          writer.write({ type: "text-end", id: recoveredTextId });
+          }
+        })
       });
     } else if (existingInteraction.status === 'generating') {
       return NextResponse.json({ error: "Request is currently generating" }, { status: 409 });
@@ -192,7 +199,7 @@ export async function POST(req: NextRequest) {
 
   if (interactionError || !interaction) {
     await serviceClient.from("ai_jobs").update({ status: "failed" }).eq("id", billingJobId);
-    await billingService.finalizeJob(user.id, billingJobId, 0, "Interaction init failed");
+    await billingService.finalizeCharge(user.id, billingJobId, 5, 0, "Interaction init failed");
     return NextResponse.json({ error: "Failed to initialize interaction" }, { status: 500 });
   }
 
@@ -208,9 +215,10 @@ export async function POST(req: NextRequest) {
   });
 
   return createUIMessageStreamResponse({
-    execute: async (dataStream) => {
+    stream: createUIMessageStream({
+      execute: async ({ writer }) => {
       try {
-        dataStream.writeMessageAnnotation({ type: 'data-tutor-status', data: { label: 'Retrieving context...' } });
+        writer.write({ type: "data-tutor-status", data: { label: "Retrieving context..." } });
 
         // 7. Context Retrieval
         const retriever = new LexicalRetriever(serviceClient);
@@ -246,7 +254,7 @@ export async function POST(req: NextRequest) {
           maxHistoryMessages: 10
         });
 
-        dataStream.writeMessageAnnotation({ type: 'data-tutor-status', data: { label: 'Generating answer...' } });
+        writer.write({ type: "data-tutor-status", data: { label: "Generating answer..." } });
 
         // 9. Generate & Stream Text natively
         const stream = await ProviderAdapter.stream({
@@ -256,14 +264,17 @@ export async function POST(req: NextRequest) {
         });
 
         let fullContent = "";
+        const textId = crypto.randomUUID();
+        writer.write({ type: "text-start", id: textId });
         for await (const chunk of stream) {
            // Handle Google GenAI chunk structure
            const textChunk = chunk.text || "";
            if (textChunk) {
-              dataStream.writeText(textChunk);
+              writer.write({ type: "text-delta", id: textId, delta: textChunk });
               fullContent += textChunk;
            }
         }
+        writer.write({ type: "text-end", id: textId });
 
         // 10. Persist completion
         const { data: assistantMsg } = await serviceClient.from("chat_messages").insert({
@@ -282,7 +293,7 @@ export async function POST(req: NextRequest) {
           completed_at: new Date().toISOString()
         }).eq("id", interactionId);
 
-        await billingService.finalizeJob(user.id, billingJobId, 5, "Chat completed successfully");
+        await billingService.finalizeCharge(user.id, billingJobId, 5, 5, "Chat completed successfully");
       } catch (err: any) {
         console.error("Stream Execution Error:", err);
         await serviceClient.from("chat_interactions").update({
@@ -291,10 +302,11 @@ export async function POST(req: NextRequest) {
         }).eq("id", interactionId);
         
         await serviceClient.from("ai_jobs").update({ status: "failed" }).eq("id", billingJobId);
-        await billingService.finalizeJob(user.id, billingJobId, 0, "AI generation failed");
+        await billingService.finalizeCharge(user.id, billingJobId, 5, 0, "AI generation failed");
         
         throw err;
       }
-    }
+      }
+    })
   });
 }

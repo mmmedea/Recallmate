@@ -2,152 +2,92 @@ import { NextRequest, NextResponse } from "next/server";
 import { PDFParse } from "pdf-parse";
 import mammoth from "mammoth";
 import officeParser from "officeparser";
+import { requireUser, checkRateLimit } from "@/lib/security";
 
 export const runtime = "nodejs";
 
-// Hard limit for Vercel Serverless payload size (4.5MB)
 const MAX_FILE_SIZE = 4.5 * 1024 * 1024;
-
-// Magic byte definitions for supported file types
 const MAGIC_BYTES = {
-  pdf: [0x25, 0x50, 0x44, 0x46], // %PDF
-  png: [0x89, 0x50, 0x4E, 0x47], // PNG
-  jpeg: [0xFF, 0xD8, 0xFF],      // JPEG
-  zip: [0x50, 0x4B, 0x03, 0x04], // ZIP (Used by modern PPTX & DOCX)
-  ole: [0xD0, 0xCF, 0x11, 0xE0], // Legacy OLE (Used by old .doc & .ppt)
-};
+  pdf: [0x25, 0x50, 0x44, 0x46],
+  png: [0x89, 0x50, 0x4e, 0x47],
+  jpeg: [0xff, 0xd8, 0xff],
+  zip: [0x50, 0x4b, 0x03, 0x04],
+  ole: [0xd0, 0xcf, 0x11, 0xe0],
+} as const;
 
-function verifyMagicBytes(buffer: Uint8Array, expected: number[]): boolean {
-  if (buffer.length < expected.length) return false;
-  return expected.every((byte, index) => buffer[index] === byte);
+function matchesMagic(buffer: Uint8Array, signature: readonly number[]) {
+  return buffer.length >= signature.length && signature.every((byte, index) => buffer[index] === byte);
 }
 
 export async function POST(req: NextRequest) {
   try {
+    const { user } = await requireUser();
+    await checkRateLimit(`extract-text:${user.id}`, { limit: 10, windowSeconds: 60 });
+
+    const contentType = req.headers.get("content-type") || "";
+    if (!contentType.toLowerCase().includes("multipart/form-data")) {
+      return NextResponse.json({ error: "Expected multipart form data." }, { status: 415 });
+    }
+
     const formData = await req.formData();
-    const file = formData.get("file") as File | null;
-
-    if (!file) {
-      return NextResponse.json({ error: "No file provided." }, { status: 400 });
+    const entry = formData.get("file");
+    if (!(entry instanceof File) || entry.size <= 0) {
+      return NextResponse.json({ error: "No valid file provided." }, { status: 400 });
+    }
+    if (entry.size > MAX_FILE_SIZE) {
+      return NextResponse.json({ error: "File size exceeds the 4.5MB server limit." }, { status: 413 });
     }
 
-    // 1. Enforce strict size check on the server
-    if (file.size > MAX_FILE_SIZE) {
-      return NextResponse.json(
-        { error: "File size exceeds the 4.5MB server limit." },
-        { status: 413 }
-      );
+    const fileName = entry.name.toLowerCase();
+    const extension = fileName.split(".").pop() || "";
+    const allowed = new Set(["pdf", "png", "jpg", "jpeg", "docx", "doc", "pptx", "ppt", "txt", "md", "csv"]);
+    if (!allowed.has(extension)) {
+      return NextResponse.json({ error: "Unsupported file type." }, { status: 415 });
     }
 
-    const fileName = file.name.toLowerCase();
-    const arrayBuffer = await file.arrayBuffer();
+    const arrayBuffer = await entry.arrayBuffer();
     const buffer = Buffer.from(arrayBuffer);
-    
-    // 2. Read first few bytes for signature inspection
-    const headerBytes = new Uint8Array(arrayBuffer.slice(0, 8));
+    if (buffer.length !== entry.size) {
+      return NextResponse.json({ error: "Invalid uploaded file." }, { status: 400 });
+    }
 
-    // Only enforce Magic Byte checks on binary files (text/csv don't have magic signatures)
-    const isBinaryType = fileName.match(/\.(pdf|png|jpg|jpeg|docx|doc|pptx|ppt)$/);
-    
-    if (isBinaryType) {
-      const isPdf = verifyMagicBytes(headerBytes, MAGIC_BYTES.pdf);
-      const isPng = verifyMagicBytes(headerBytes, MAGIC_BYTES.png);
-      const isJpeg = verifyMagicBytes(headerBytes, MAGIC_BYTES.jpeg);
-      const isZipDoc = verifyMagicBytes(headerBytes, MAGIC_BYTES.zip);
-      const isLegacyDoc = verifyMagicBytes(headerBytes, MAGIC_BYTES.ole);
+    const header = new Uint8Array(arrayBuffer.slice(0, 8));
+    const signatureValid =
+      (extension === "pdf" && matchesMagic(header, MAGIC_BYTES.pdf)) ||
+      (extension === "png" && matchesMagic(header, MAGIC_BYTES.png)) ||
+      ((extension === "jpg" || extension === "jpeg") && matchesMagic(header, MAGIC_BYTES.jpeg)) ||
+      ((extension === "docx" || extension === "pptx") && matchesMagic(header, MAGIC_BYTES.zip)) ||
+      ((extension === "doc" || extension === "ppt") && matchesMagic(header, MAGIC_BYTES.ole));
 
-      if (!isPdf && !isPng && !isJpeg && !isZipDoc && !isLegacyDoc) {
-        return NextResponse.json(
-          { error: "Security Alert: File signature does not match allowed document types." },
-          { status: 400 }
-        );
-      }
+    if (["pdf", "png", "jpg", "jpeg", "docx", "doc", "pptx", "ppt"].includes(extension) && !signatureValid) {
+      return NextResponse.json({ error: "File signature does not match the declared document type." }, { status: 400 });
     }
 
     let extractedText = "";
-
-    // 3. Handle PDF files
-    if (fileName.endsWith(".pdf")) {
-      try {
-        const parser = new PDFParse({ data: buffer });
-        try {
-          extractedText = (await parser.getText()).text;
-        } finally {
-          await parser.destroy();
-        }
-      } catch (pdfErr) {
-        return NextResponse.json(
-          { error: "Failed to parse PDF text. Ensure it is a valid, text-based PDF." },
-          { status: 400 }
-        );
-      }
-    } 
-    // 4. Handle Word documents (.docx, .doc)
-    else if (fileName.endsWith(".docx") || fileName.endsWith(".doc")) {
-      try {
-        const result = await mammoth.extractRawText({ buffer });
-        extractedText = result.value;
-      } catch (docErr) {
-        return NextResponse.json(
-          { error: "Failed to parse Word document text." },
-          { status: 400 }
-        );
-      }
-    }
-    // 5. Handle PowerPoint presentations (.pptx, .ppt)
-    else if (fileName.endsWith(".pptx") || fileName.endsWith(".ppt")) {
-      try {
-        const ast = await officeParser.parseOffice(buffer) as any;
-        const textOutput = await ast.to('text');
-        extractedText = textOutput.value || textOutput;
-      } catch (pptErr) {
-        extractedText = `[Presentation File: ${file.name}]`;
-      }
-    }
-    // 6. Handle Text, Markdown, and CSV files
-    else if (
-      fileName.endsWith(".txt") || 
-      fileName.endsWith(".md") || 
-      fileName.endsWith(".csv")
-    ) {
+    if (extension === "pdf") {
+      const parser = new PDFParse({ data: buffer });
+      try { extractedText = (await parser.getText()).text; }
+      finally { await parser.destroy(); }
+    } else if (extension === "docx" || extension === "doc") {
+      extractedText = (await mammoth.extractRawText({ buffer })).value;
+    } else if (extension === "pptx" || extension === "ppt") {
+      const ast = await officeParser.parseOffice(buffer) as any;
+      const textOutput = await ast.to("text");
+      extractedText = textOutput.value || textOutput;
+    } else if (extension === "txt" || extension === "md" || extension === "csv") {
       extractedText = buffer.toString("utf-8");
-    }
-    // 7. Handle Images (.png, .jpg, .jpeg) for Gemini Vision
-    else if (
-      fileName.endsWith(".png") || 
-      fileName.endsWith(".jpg") || 
-      fileName.endsWith(".jpeg")
-    ) {
-      const base64Data = buffer.toString("base64"); 
-      
-      const prompt = {
-        inlineData: {
-          data: base64Data, 
-          mimeType: file.type || (fileName.endsWith(".png") ? "image/png" : "image/jpeg")
-        }
-      };
-
-      // Stringify the object so it safely passes through the text extraction pipeline.
-      extractedText = JSON.stringify(prompt);
-    } 
-    else {
-      extractedText = buffer.toString("utf-8");
+    } else if (extension === "png" || extension === "jpg" || extension === "jpeg") {
+      const mimeType = extension === "png" ? "image/png" : "image/jpeg";
+      extractedText = JSON.stringify({ inlineData: { data: buffer.toString("base64"), mimeType } });
     }
 
-    // 8. Validate extracted content
     if (!extractedText || extractedText.trim().length < 3) {
-      return NextResponse.json(
-        { error: "The uploaded file contains no readable text or is empty." },
-        { status: 400 }
-      );
+      return NextResponse.json({ error: "The uploaded file contains no readable text or is empty." }, { status: 400 });
     }
-
     return NextResponse.json({ text: extractedText });
-
   } catch (error: any) {
-    return NextResponse.json(
-      { error: error.message || "An error occurred while processing the file securely." },
-      { status: 500 }
-    );
+    const status = Number.isInteger(error?.status) ? error.status : error?.message === "Rate limit exceeded" ? 429 : 500;
+    if (status >= 500) console.error("Secure text extraction failed:", error);
+    return NextResponse.json({ error: status === 401 ? "Unauthorized" : status === 429 ? "Rate limit exceeded. Please try again later." : status === 503 ? "Extraction service is temporarily unavailable." : "An error occurred while processing the file." }, { status });
   }
 }

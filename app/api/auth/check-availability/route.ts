@@ -1,41 +1,43 @@
 import { NextRequest, NextResponse } from "next/server";
 import { createClient as createServiceClient } from "@supabase/supabase-js";
 import { createClient } from "@/utils/supabase/server";
+import { checkRateLimit } from "@/lib/security";
+import { z } from "zod";
 
 export const runtime = "nodejs";
 
-const attempts = new Map<string, { count: number; resetAt: number }>();
-
-function isRateLimited(ip: string) {
-  const now = Date.now();
-  const current = attempts.get(ip);
-  if (!current || current.resetAt <= now) {
-    attempts.set(ip, { count: 1, resetAt: now + 60_000 });
-    return false;
-  }
-  current.count += 1;
-  return current.count > 12;
-}
+const availabilitySchema = z.object({
+  email: z.string().trim().email().max(254),
+  username: z.string().trim().regex(/^[A-Za-z0-9_]{3,30}$/),
+}).strict();
 
 export async function POST(request: NextRequest) {
-  const ip = request.headers.get("x-forwarded-for")?.split(",")[0]?.trim() || "unknown";
-  if (isRateLimited(ip)) {
-    return NextResponse.json({ error: "Too many availability checks. Please wait a minute." }, { status: 429 });
-  }
+  const ip = request.headers.get("x-real-ip")?.trim()
+    || request.headers.get("x-forwarded-for")?.split(",")[0]?.trim()
+    || "unknown";
 
   try {
-    const body = await request.json() as { email?: string; username?: string };
-    const email = String(body.email || "").trim().toLowerCase();
-    const username = String(body.username || "").trim();
-    if (!/^\S+@\S+\.\S+$/.test(email) || !/^[A-Za-z0-9_]{3,30}$/.test(username)) {
-      return NextResponse.json({ error: "Enter a valid email and username." }, { status: 400 });
-    }
-
-    const serviceKey = process.env.SUPABASE_SERVICE_ROLE_KEY;
+    // Validate server-only credentials before touching the rate-limit RPC.
+    // Both the rate limiter and availability lookup require this privileged
+    // key; fail with a configuration error instead of a misleading outage.
+    const serviceKey = process.env.SUPABASE_SECRET_KEY || process.env.SUPABASE_SERVICE_ROLE_KEY;
     const url = process.env.NEXT_PUBLIC_SUPABASE_URL;
     if (!serviceKey || !url) {
-      return NextResponse.json({ error: "Account availability checking is temporarily unavailable." }, { status: 503 });
+      return NextResponse.json(
+        { code: "service_configuration", error: "Account availability checking is not configured. Add SUPABASE_SECRET_KEY to the Vercel server environment." },
+        { status: 503, headers: { "Cache-Control": "no-store" } }
+      );
     }
+
+    await checkRateLimit(`signup-availability:${ip}`, { limit: 12, windowSeconds: 60 });
+
+    const rawBody = await request.json().catch(() => null);
+    const parsed = availabilitySchema.safeParse(rawBody);
+    if (!parsed.success) {
+      return NextResponse.json({ error: "Enter a valid email and username." }, { status: 400 });
+    }
+    const email = parsed.data.email.toLowerCase();
+    const username = parsed.data.username;
 
     const sessionClient = await createClient();
     const { data: { user } } = await sessionClient.auth.getUser();
@@ -54,8 +56,42 @@ export async function POST(request: NextRequest) {
       emailExists: availability?.email_exists === true,
       usernameExists: availability?.username_exists === true,
     });
-  } catch (error) {
-    console.error("Signup availability check failed:", error instanceof Error ? error.message : "Unknown error");
-    return NextResponse.json({ error: "Account availability checking is temporarily unavailable." }, { status: 503 });
+  } catch (error: unknown) {
+    const failure = error as { status?: unknown; code?: unknown; message?: unknown; name?: unknown };
+    const status =
+      typeof failure.status === "number" && Number.isInteger(failure.status)
+        ? failure.status
+        : failure.message === "Rate limit exceeded"
+          ? 429
+          : 503;
+    const message = typeof failure.message === "string" ? failure.message : "Unknown error";
+    const code = typeof failure.code === "string" ? failure.code : "unknown";
+    const invalidApiKey = /invalid api key|invalid jwt|invalid supabase key/i.test(message);
+    const responseCode = invalidApiKey
+      ? "service_configuration"
+      : status === 429
+        ? "rate_limited"
+        : "service_unavailable";
+
+    // Keep operational diagnostics useful without logging request emails,
+    // usernames, cookies, or any secret key material.
+    console.error("[auth] signup availability dependency failed", {
+      name: typeof failure.name === "string" ? failure.name : "UnknownError",
+      status,
+      code,
+      message: message.slice(0, 240),
+    });
+
+    return NextResponse.json(
+      {
+        code: responseCode,
+        error: invalidApiKey
+          ? "The server authentication key is invalid."
+          : status === 429
+            ? "Too many availability checks. Please wait a minute."
+            : "Account availability checking is temporarily unavailable.",
+      },
+      { status, headers: { "Cache-Control": "no-store" } }
+    );
   }
 }

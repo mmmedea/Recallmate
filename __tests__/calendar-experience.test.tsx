@@ -31,6 +31,6 @@ describe("responsive calendar experience", () => {
   });
 
   it("keeps the Help center routed from authenticated navigation", () => {
-    expect(navigationConfig.footer.find((item) => item.label === "Help")?.href).toBe("/help");
+    expect(navigationConfig.footer.find((item) => item.label === "Help & Support")?.href).toBe("/help");
   });
 });

@@ -2,16 +2,8 @@
 
 import { useState } from "react";
 import { useRouter } from "next/navigation";
-import { User, Settings, LogOut, Loader2, HelpCircle } from "lucide-react";
 import { createClient } from "@/utils/supabase/client";
-import {
-  DropdownMenu,
-  DropdownMenuContent,
-  DropdownMenuItem,
-  DropdownMenuLabel,
-  DropdownMenuSeparator,
-  DropdownMenuTrigger,
-} from "@/components/ui/dropdown-menu";
+import { DropdownMenu, DropdownMenuContent, DropdownMenuItem, DropdownMenuLabel, DropdownMenuSeparator, DropdownMenuTrigger } from "@/components/ui/dropdown-menu";
 import { Button } from "@/components/ui/button";
 import Link from "next/link";
 import type { AuthenticatedUser } from "@/lib/types/auth";
@@ -20,64 +12,30 @@ export function AccountMenu({ user }: { user: AuthenticatedUser }) {
   const [isLoggingOut, setIsLoggingOut] = useState(false);
   const router = useRouter();
   const supabase = createClient();
-
   const handleLogout = async () => {
     try {
       setIsLoggingOut(true);
       await supabase.auth.signOut();
-      
-      // Force a router refresh to invalidate the server session state
-      // which will cause the layout to redirect to the unauthenticated page
       router.refresh();
     } catch (error) {
       console.error("Logout failed:", error);
       setIsLoggingOut(false);
     }
   };
+  const initial = (user.email?.trim()[0] || "U").toUpperCase();
 
   return (
     <DropdownMenu>
       <DropdownMenuTrigger asChild>
-        <Button variant="ghost" size="icon" className="rounded-full bg-slate-100 dark:bg-slate-800 hover:bg-slate-200 dark:hover:bg-slate-700">
-          <User className="h-4 w-4 text-slate-700 dark:text-slate-300" />
-          <span className="sr-only">Account menu</span>
-        </Button>
+        <Button variant="ghost" size="icon" aria-label="Open account menu" className="rounded-full border border-white/10 bg-white/[0.05] font-fredoka text-sm font-bold text-[#d9c8ff] hover:bg-white/10">{initial}<span className="sr-only">Account menu</span></Button>
       </DropdownMenuTrigger>
-      <DropdownMenuContent align="end" className="w-56">
-        <DropdownMenuLabel className="font-normal">
-          <div className="flex flex-col space-y-1">
-            <p className="text-sm font-medium leading-none">Account</p>
-            <p className="text-xs leading-none text-muted-foreground truncate">
-              {user.email}
-            </p>
-          </div>
-        </DropdownMenuLabel>
-        <DropdownMenuSeparator />
-        <DropdownMenuItem asChild className="cursor-pointer">
-          <Link href="/settings">
-          <Settings className="mr-2 h-4 w-4" />
-          <span>Settings</span>
-          </Link>
-        </DropdownMenuItem>
-        <DropdownMenuItem asChild className="cursor-pointer">
-          <Link href="/help">
-            <HelpCircle className="mr-2 h-4 w-4" />
-            <span>Help center</span>
-          </Link>
-        </DropdownMenuItem>
-        <DropdownMenuSeparator />
-        <DropdownMenuItem 
-          onClick={handleLogout} 
-          disabled={isLoggingOut}
-          className="cursor-pointer text-rose-600 dark:text-rose-400 focus:text-rose-600 focus:bg-rose-50 dark:focus:text-rose-400 dark:focus:bg-rose-950/50"
-        >
-          {isLoggingOut ? (
-            <Loader2 className="mr-2 h-4 w-4 animate-spin" />
-          ) : (
-            <LogOut className="mr-2 h-4 w-4" />
-          )}
-          <span>Log out</span>
-        </DropdownMenuItem>
+      <DropdownMenuContent align="end" className="w-60 border-white/10 bg-[#15131d] text-white">
+        <DropdownMenuLabel className="font-normal"><div className="flex flex-col space-y-1"><p className="font-nunito text-sm font-bold">Your account</p><p className="truncate font-quicksand text-xs text-white/45">{user.email}</p></div></DropdownMenuLabel>
+        <DropdownMenuSeparator className="bg-white/10" />
+        <DropdownMenuItem asChild className="cursor-pointer font-nunito focus:bg-white/10 focus:text-white"><Link href="/settings"><span className="mr-2 text-[#c4b5fd]">⚙</span>Settings & Profile</Link></DropdownMenuItem>
+        <DropdownMenuItem asChild className="cursor-pointer font-nunito focus:bg-white/10 focus:text-white"><Link href="/help"><span className="mr-2 text-[#c4b5fd]">?</span>Help center</Link></DropdownMenuItem>
+        <DropdownMenuSeparator className="bg-white/10" />
+        <DropdownMenuItem onClick={handleLogout} disabled={isLoggingOut} className="cursor-pointer font-nunito text-rose-300 focus:bg-rose-500/10 focus:text-rose-200"><span className="mr-2">{isLoggingOut ? "…" : "↗"}</span>{isLoggingOut ? "Signing out…" : "Log out"}</DropdownMenuItem>
       </DropdownMenuContent>
     </DropdownMenu>
   );

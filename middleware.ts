@@ -6,8 +6,23 @@ import { updateSession } from './utils/supabase/middleware';
 // Rate limiting is instead handled at the Server Action / Route Handler level (which run in Node.js runtime).
 
 export async function middleware(request: NextRequest) {
-  // 1. Refresh Supabase Auth Session
-  const supabaseResponse = await updateSession(request);
+  // Auth infrastructure outages must not take down public routes such as
+  // /login and /signup. Protected app layouts still verify the user server-side.
+  let supabaseResponse: NextResponse;
+  try {
+    supabaseResponse = await updateSession(request);
+  } catch (error) {
+    console.error("[middleware] Supabase session refresh failed", {
+      path: request.nextUrl.pathname,
+      name: error instanceof Error ? error.name : "UnknownError",
+      message: error instanceof Error ? error.message : "Unknown error",
+    });
+
+    // A failed refresh is not proof that a session is invalid. Continue to
+    // the server layout, which independently validates JWT claims before it
+    // renders any protected application data.
+    supabaseResponse = NextResponse.next({ request });
+  }
 
   // 2. Rate Limiting for specific API routes
   const { pathname } = request.nextUrl;

@@ -15,7 +15,10 @@ export const EvaluateAnswerSchema = z.object({
 })
 
 export const UploadDocumentSchema = z.object({
-  fileName: z.string().min(1),
-  fileSize: z.number().positive(),
-  contentType: z.string().min(1),
+  fileName: z.string().trim().min(1).max(255).refine((name) => {
+    const extension = name.split('.').pop()?.toLowerCase();
+    return ['pdf', 'png', 'jpg', 'jpeg', 'doc', 'docx', 'ppt', 'pptx', 'txt', 'md', 'csv'].includes(extension || '');
+  }, 'Unsupported document file extension.'),
+  fileSize: z.number().int().positive().max(10 * 1024 * 1024),
+  contentType: z.string().trim().min(1).max(128),
 })

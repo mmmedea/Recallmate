@@ -7,8 +7,8 @@ export async function updateSession(request: NextRequest) {
   })
 
   const supabase = createServerClient(
-    process.env.NEXT_PUBLIC_SUPABASE_URL ?? 'https://placeholder.supabase.co',
-    process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY ?? 'placeholder-anon-key',
+    process.env.NEXT_PUBLIC_SUPABASE_URL ?? '',
+    (process.env.NEXT_PUBLIC_SUPABASE_PUBLISHABLE_KEY || process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY) ?? '',
     {
       cookies: {
         getAll() {
@@ -35,15 +35,49 @@ export async function updateSession(request: NextRequest) {
     data: { user },
   } = await supabase.auth.getUser()
 
-  const protectedRoutes = ['/notes', '/quiz', '/upload']
-  const isProtectedRoute = protectedRoutes.some((route) => request.nextUrl.pathname.startsWith(route))
+  const pathname = request.nextUrl.pathname
+  const protectedRoutes = [
+    '/dashboard',
+    '/notes',
+    '/quiz',
+    '/upload',
+    '/documents',
+    '/flashcards',
+    '/calendar',
+    '/settings',
+  ]
+  const isProtectedRoute = protectedRoutes.some(
+    (route) => pathname === route || pathname.startsWith(`${route}/`)
+  )
+  const isAuthOrHomeRoute =
+    pathname === '/' || pathname === '/login' || pathname === '/signup' || pathname === '/onboarding'
+
+  const redirectWithRefreshedCookies = (url: URL) => {
+    const response = NextResponse.redirect(url)
+    for (const cookie of supabaseResponse.cookies.getAll()) {
+      response.cookies.set(cookie)
+    }
+    response.headers.set('Cache-Control', 'private, no-store')
+    return response
+  }
 
   if (isProtectedRoute && !user) {
     const url = request.nextUrl.clone()
     url.pathname = '/login'
-    url.searchParams.set('next', request.nextUrl.pathname)
-    return NextResponse.redirect(url)
+    url.search = ''
+    url.searchParams.set('next', `${pathname}${request.nextUrl.search}`)
+    return redirectWithRefreshedCookies(url)
   }
 
+  if (isAuthOrHomeRoute && user) {
+    // Authenticated users always enter the current RecallMate dashboard.
+    // The legacy onboarding/account-creation screen is retired.
+    const url = request.nextUrl.clone()
+    url.pathname = '/dashboard'
+    url.search = ''
+    return redirectWithRefreshedCookies(url)
+  }
+
+  supabaseResponse.headers.set('Cache-Control', 'private, no-store')
   return supabaseResponse
 }
