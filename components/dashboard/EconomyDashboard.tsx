@@ -1,6 +1,7 @@
 "use client";
 
 import { useCallback, useEffect, useState } from "react";
+import { createPortal } from "react-dom";
 
 type EconomyAccount = {
   coins: number;
@@ -113,7 +114,7 @@ export default function EconomyDashboard() {
         View streak awards →
       </button>
 
-      {welcomeOpen && account && (
+      {welcomeOpen && account && typeof document !== "undefined" && createPortal(
         <div className="streak-welcome-backdrop fixed inset-0 z-[9999] flex items-center justify-center bg-[#090711] p-4" role="presentation" onMouseDown={(event) => { if (event.target === event.currentTarget) setWelcomeOpen(false); }}>
           <section role="dialog" aria-modal="true" aria-labelledby="streak-welcome-title" className="streak-welcome-card relative w-full max-w-md overflow-hidden rounded-[2rem] border border-[#fb923c]/35 bg-[linear-gradient(145deg,#251a2d_0%,#1b1728_54%,#2b1824_100%)] p-6 text-center shadow-[0_30px_110px_rgba(8,5,18,.65)] sm:p-8">
             <div aria-hidden="true" className="streak-welcome-glow pointer-events-none absolute -right-16 -top-20 h-64 w-64 rounded-full bg-[#fb923c]/20 blur-3xl" />
@@ -137,7 +138,7 @@ export default function EconomyDashboard() {
             </div>
           </section>
         </div>
-      )}
+      , document.body)}
 
       {message && <p role="status" className="w-full rounded-xl border border-emerald-400/20 bg-emerald-400/10 px-4 py-3 font-nunito text-sm text-emerald-200">{message}</p>}
       {error && <p role="alert" className="w-full rounded-xl border border-rose-400/20 bg-rose-400/10 px-4 py-3 font-nunito text-sm text-rose-200">{error}</p>}
