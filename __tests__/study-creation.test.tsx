@@ -17,7 +17,7 @@ describe("combined study creation", () => {
 
   it("combines upload and quizzes into one navigation destination", () => {
     expect(navigationConfig.main.filter((item) => item.href === "/upload")).toHaveLength(1);
-    expect(navigationConfig.main.find((item) => item.href === "/upload")?.label).toBe("Upload & Quiz");
+    expect(navigationConfig.main.find((item) => item.href === "/upload")?.label).toBe("Create Workspace");
     expect(navigationConfig.main.some((item) => item.label === "Quizzes")).toBe(false);
   });
 
