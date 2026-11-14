@@ -103,11 +103,24 @@ describe('Signup Page Component', () => {
     fireEvent.change(screen.getByLabelText('Email'), { target: { value: 'student@gmail.com' } });
     fireEvent.change(screen.getByLabelText(/^Password$/), { target: { value: 'Strong!Pass1' } });
     fireEvent.change(screen.getByLabelText('Confirm password'), { target: { value: 'Strong!Pass1' } });
-    const button = screen.getByRole('button', { name: /Create account & send code/i }) as HTMLButtonElement;
+    const button = screen.getByRole('button', { name: /^Sign up$/i }) as HTMLButtonElement;
+    const checkbox = screen.getByRole('checkbox') as HTMLInputElement;
+
+    // Consent is required before the form can be submitted.
+    expect(checkbox.checked).toBe(false);
+    expect(button.disabled).toBe(true);
+    expect(authMocks.signInWithOtp).not.toHaveBeenCalled();
+
+    fireEvent.click(checkbox);
     expect(button.disabled).toBe(false);
     fireEvent.click(button);
-    expect(await screen.findByText('Please agree to the Privacy Policy and Terms of Service.')).toBeDefined();
-    expect(authMocks.signInWithOtp).not.toHaveBeenCalled();
+
+    await vi.waitFor(() => expect(authMocks.signInWithOtp).toHaveBeenCalledWith(
+      expect.objectContaining({
+        email: 'student@gmail.com',
+        options: expect.objectContaining({ shouldCreateUser: true }),
+      })
+    ));
   });
 
   it('safe next redirect survives OAuth', () => {
@@ -205,7 +218,7 @@ describe('Login Page Component', () => {
       />
     );
     fireEvent.change(screen.getByLabelText('Email'), { target: { value: 'student@gmail.com' } });
-    fireEvent.click(screen.getByRole('button', { name: /Create account & send code/i }));
+    fireEvent.click(screen.getByRole('button', { name: /^Sign up$/i }));
 
     await vi.waitFor(() => {
       expect(authMocks.signInWithOtp).toHaveBeenCalledWith(
@@ -230,9 +243,10 @@ describe('Login Page Component', () => {
     });
     render(<EmailOTPForm intent="signup" privacyAgreed username="student_18" password="Strong!Pass1" confirmPassword="Strong!Pass1" />);
     fireEvent.change(screen.getByLabelText('Email'), { target: { value: 'existing@gmail.com' } });
-    fireEvent.click(screen.getByRole('button', { name: /Create account & send code/i }));
+    fireEvent.click(screen.getByRole('button', { name: /^Sign up$/i }));
 
-    expect(await screen.findByText(/account already uses this email.*Sign in instead/i)).toBeDefined();
+    expect(await screen.findByText(/This email is already registered/i)).toBeDefined();
+    expect(screen.getByRole('link', { name: /Sign in instead/i })).toBeDefined();
     expect(authMocks.signInWithOtp).not.toHaveBeenCalled();
   });
 
@@ -244,9 +258,9 @@ describe('Login Page Component', () => {
     });
     render(<EmailOTPForm intent="signup" privacyAgreed username="student_18" password="Strong!Pass1" confirmPassword="Strong!Pass1" />);
     fireEvent.change(screen.getByLabelText('Email'), { target: { value: 'new@gmail.com' } });
-    fireEvent.click(screen.getByRole('button', { name: /Create account & send code/i }));
+    fireEvent.click(screen.getByRole('button', { name: /^Sign up$/i }));
 
-    expect(await screen.findByText(/username is already taken/i)).toBeDefined();
+    expect(await screen.findByText(/This username is already being used/i)).toBeDefined();
     expect(authMocks.signInWithOtp).not.toHaveBeenCalled();
   });
 
@@ -261,7 +275,7 @@ describe('Login Page Component', () => {
       />
     );
     fireEvent.change(screen.getByLabelText('Email'), { target: { value: 'student@gmail.com' } });
-    fireEvent.click(screen.getByRole('button', { name: /Create account & send code/i }));
+    fireEvent.click(screen.getByRole('button', { name: /^Sign up$/i }));
 
     const firstDigit = await screen.findByLabelText('Digit 1 of 6');
     fireEvent.paste(firstDigit, {
@@ -303,7 +317,7 @@ describe('Legal Pages', () => {
   it('/terms renders without crashing (returns 200 equivalent)', () => {
     const { container } = render(<TermsPage />);
     expect(container).toBeDefined();
-    expect(screen.getByText('Terms of Service')).toBeDefined();
+    expect(screen.getByRole('heading', { name: /Terms & Conditions/i })).toBeDefined();
   });
 });
 
