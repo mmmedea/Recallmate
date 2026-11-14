@@ -143,7 +143,7 @@ export default function EconomyDashboard() {
       {message && <p role="status" className="w-full rounded-xl border border-emerald-400/20 bg-emerald-400/10 px-4 py-3 font-nunito text-sm text-emerald-200">{message}</p>}
       {error && <p role="alert" className="w-full rounded-xl border border-rose-400/20 bg-rose-400/10 px-4 py-3 font-nunito text-sm text-rose-200">{error}</p>}
 
-      {open && (
+      {open && typeof document !== "undefined" && createPortal(
         <div className="fixed inset-0 z-[100] flex items-center justify-center bg-black/75 p-4 backdrop-blur-md" role="presentation" onMouseDown={(event) => { if (event.target === event.currentTarget && !busy) setOpen(false); }}>
           <div role="dialog" aria-modal="true" aria-labelledby="daily-reward-title" className="streak-modal relative max-h-[90vh] w-full max-w-xl overflow-y-auto rounded-[2rem] border border-orange-400/30 bg-[#151019] p-5 shadow-[0_0_100px_rgba(249,115,22,0.16)] sm:p-7">
             <div aria-hidden="true" className="streak-orb pointer-events-none absolute -right-16 -top-20 h-56 w-56 rounded-full bg-orange-500/20 blur-3xl" />
@@ -187,7 +187,7 @@ export default function EconomyDashboard() {
             </div>
           </div>
         </div>
-      )}
+      , document.body)}
     </div>
   );
 }
