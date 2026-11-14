@@ -33,9 +33,9 @@ describe("production regressions", () => {
     expect(serverClient.auth.getUser).toHaveBeenCalled();
   });
 
-  it("shows quiz hearts as 15/15 rather than the account credit balance", () => {
+  it("keeps the top bar focused on the current page instead of showing account credits", () => {
     render(<TopBar user={{ id: "student-1", email: "student@example.com" }} credits={{ available: 0 }} />);
-    expect(screen.getByText("15/15")).toBeTruthy();
-    expect(screen.getByTitle("15/15 Hearts Full")).toBeTruthy();
+    expect(screen.getByRole("heading", { name: "Study" })).toBeTruthy();
+    expect(screen.queryByText("0")).toBeNull();
   });
 });
